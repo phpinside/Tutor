@@ -8,5 +8,6 @@ export const prisma = globalForPrisma.prisma ?? new PrismaClient({
   log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error']
 })
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma
+// 在所有环境都使用全局单例，避免 serverless 环境中重复创建实例
+globalForPrisma.prisma = prisma
 
