@@ -52,6 +52,7 @@ export async function submitTask(
     
     if (existing) {
       // 更新现有记录
+      const { taskType, ...restData } = data
       submission = await prisma.taskSubmission.update({
         where: {
           teacherId_taskIndex: {
@@ -60,8 +61,8 @@ export async function submitTask(
           }
         },
         data: {
-          ...data,
-          taskType: data.taskType as any,
+          ...restData,
+          taskType: taskType as any,
           status: initialStatus as any,
           attemptCount: existing.attemptCount + 1,
           updatedAt: new Date()
@@ -69,13 +70,14 @@ export async function submitTask(
       })
     } else {
       // 创建新记录
+      const { taskType, ...restData } = data
       submission = await prisma.taskSubmission.create({
         data: {
           teacherId,
           taskIndex,
-          taskType: data.taskType as any,
-          status: initialStatus as any,
-          ...data
+          ...restData,
+          taskType: taskType as any,
+          status: initialStatus as any
         }
       })
     }
@@ -170,7 +172,7 @@ export async function startTask(teacherId: string, taskIndex: number, taskType: 
         teacherId,
         taskIndex,
         taskType: taskType as any,
-        status: 'IN_PROGRESS'
+        status: 'IN_PROGRESS' as any
       }
     })
     

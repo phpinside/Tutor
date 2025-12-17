@@ -3,14 +3,21 @@ import React from 'react'
 interface PhaseIndicatorProps {
   currentPhase: number
   totalPhases?: number
+  phases?: { number: number; title: string }[]
 }
 
-export default function PhaseIndicator({ currentPhase, totalPhases = 3 }: PhaseIndicatorProps) {
-  const phases = [
+export default function PhaseIndicator({ 
+  currentPhase, 
+  totalPhases = 3,
+  phases: customPhases
+}: PhaseIndicatorProps) {
+  const defaultPhases = [
     { number: 1, title: '认识伴学' },
     { number: 2, title: '体验任务' },
     { number: 3, title: '上岗准备' }
   ]
+  
+  const phases = customPhases || defaultPhases
   
   return (
     <div className="flex items-center justify-between max-w-2xl mx-auto">

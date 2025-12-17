@@ -7,7 +7,7 @@ export interface TaskConfig {
   title: string
   phase: number
   emoji: string
-  type: 'INFO' | 'FORM' | 'VIDEO_UPLOAD' | 'TRAINING' | 'PRACTICE' | 'SIMULATION'
+  type: string
   description: string
   estimatedMinutes: number
   isOptional?: boolean
@@ -37,7 +37,7 @@ export const getTaskConfigs = cache(async (): Promise<TaskConfig[]> => {
       title: config.title,
       phase: config.phase,
       emoji: config.emoji,
-      type: config.type as any,
+      type: config.type,
       description: config.description,
       estimatedMinutes: config.estimatedMinutes,
       isOptional: config.isOptional,
