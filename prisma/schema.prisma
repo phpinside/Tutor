@@ -1,0 +1,136 @@
+// This is your Prisma schema file
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// 老师状态枚举
+enum TeacherStatus {
+  NOT_STARTED      // 未开始
+  IN_PROGRESS      // 引导中
+  PENDING_REVIEW   // 待审核
+  COMPLETED        // 已完成引导
+  UNLOCKED         // 已解锁接单
+}
+
+// 任务状态枚举
+enum TaskStatus {
+  NOT_STARTED      // 未开始
+  IN_PROGRESS      // 进行中
+  PENDING_FEEDBACK // 待反馈
+  COMPLETED        // 已完成
+  NEEDS_REVISION   // 需调整
+}
+
+// 任务类型枚举
+enum TaskType {
+  INFO              // 了解信息
+  FORM              // 填写表单
+  VIDEO_UPLOAD      // 视频上传
+  TRAINING          // 观看培训
+  PRACTICE          // 练习操作
+  SIMULATION        // 模拟场景
+}
+
+// 老师信息
+model Teacher {
+  id                String         @id @default(cuid())
+  name              String?
+  school            String?
+  major             String?
+  gradePreference   String?        // 擅长年级
+  availableTime     String?        // 可工作时间
+  status            TeacherStatus  @default(NOT_STARTED)
+  currentPhase      Int            @default(1) // 当前阶段 1-3
+  currentTaskIndex  Int            @default(0) // 当前任务索引 0-5
+  
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+  
+  taskSubmissions   TaskSubmission[]
+  
+  @@map("teachers")
+}
+
+// 任务提交记录
+model TaskSubmission {
+  id              String       @id @default(cuid())
+  teacherId       String
+  taskIndex       Int          // 任务索引 0-5
+  taskType        TaskType
+  status          TaskStatus   @default(IN_PROGRESS)
+  
+  // 表单数据(JSON格式存储)
+  formData        Json?
+  
+  // 视频相关
+  videoUrl        String?
+  videoDuration   Int?         // 视频时长(秒)
+  
+  // 文本内容
+  textContent     String?
+  
+  // 培训视频观看进度
+  watchProgress   Int?         @default(0) // 观看进度百分比
+  
+  // 审核反馈
+  feedback        String?
+  reviewedAt      DateTime?
+  reviewedBy      String?
+  
+  // 提交次数
+  attemptCount    Int          @default(1)
+  
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  teacher         Teacher      @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  @@unique([teacherId, taskIndex])
+  @@index([teacherId])
+  @@index([status])
+  @@map("task_submissions")
+}
+
+// 任务配置表
+model TaskConfig {
+  id                String   @id @default(cuid())
+  index             Int      @unique
+  title             String
+  phase             Int
+  emoji             String
+  type              TaskType
+  description       String
+  estimatedMinutes  Int
+  isOptional        Boolean  @default(false)
+  requirements      Json     // 存储字符串数组
+  isActive          Boolean  @default(true)
+  sortOrder         Int      @default(0)
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@map("task_configs")
+}
+
+// 阶段配置表
+model PhaseConfig {
+  id          String   @id @default(cuid())
+  phase       Int      @unique
+  title       String
+  description String
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("phase_configs")
+}
+
+
