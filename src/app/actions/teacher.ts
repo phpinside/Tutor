@@ -38,11 +38,28 @@ export async function getOrCreateTeacher(teacherId?: string) {
 
 // 更新老师基本信息
 export async function updateTeacherInfo(teacherId: string, data: {
+  // 基础信息
   name?: string
+  phone?: string
+  gender?: string
+  age?: string
   school?: string
-  major?: string
+  graduationYear?: string
+  identity?: string
+  
+  // 教学能力 & 资质
+  mathScore?: string
+  mathCompetition?: string
+  teachingExperience?: string
   gradePreference?: string
-  availableTime?: string
+  teachingStrengths?: string
+  teachingStyle?: string
+  studentTypes?: string
+  
+  // 可辅导时间
+  weekdayTime?: string
+  weekendTime?: string
+  holidayTime?: string
 }) {
   try {
     const teacher = await prisma.teacher.update({

@@ -1,0 +1,63 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { writeFile, mkdir } from 'fs/promises'
+import { join } from 'path'
+import { existsSync } from 'fs'
+
+export async function POST(request: NextRequest) {
+  try {
+    const formData = await request.formData()
+    const file = formData.get('file') as File | null
+
+    if (!file) {
+      return NextResponse.json(
+        { error: '请选择要上传的文件' },
+        { status: 400 }
+      )
+    }
+
+    // 验证文件类型
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
+    if (!validTypes.includes(file.type)) {
+      return NextResponse.json(
+        { error: '只支持 PNG、JPG、JPEG、WEBP 格式的图片' },
+        { status: 400 }
+      )
+    }
+
+    // 验证文件大小（最大 5MB）
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: '文件大小不能超过 5MB' },
+        { status: 400 }
+      )
+    }
+
+    // 读取文件内容
+    const bytes = await file.arrayBuffer()
+    const buffer = Buffer.from(bytes)
+
+    // 确保 public 目录存在
+    const publicDir = join(process.cwd(), 'public')
+    if (!existsSync(publicDir)) {
+      await mkdir(publicDir, { recursive: true })
+    }
+
+    // 保存文件，固定文件名
+    const filePath = join(publicDir, 'qrcode-wechat-group.png')
+    await writeFile(filePath, buffer)
+
+    return NextResponse.json({
+      success: true,
+      message: '二维码上传成功',
+      path: '/qrcode-wechat-group.png'
+    })
+  } catch (error) {
+    console.error('上传二维码失败:', error)
+    return NextResponse.json(
+      { error: '上传失败，请重试' },
+      { status: 500 }
+    )
+  }
+}
+

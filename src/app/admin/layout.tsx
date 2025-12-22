@@ -1,3 +1,5 @@
+import LogoutButton from './LogoutButton'
+
 export default function AdminLayout({
   children
 }: {
@@ -40,6 +42,7 @@ export default function AdminLayout({
               >
                 系统配置
               </a>
+              <LogoutButton />
             </nav>
           </div>
         </div>

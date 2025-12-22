@@ -1,5 +1,6 @@
 import { getAllTaskConfigs, getAllPhaseConfigs } from '@/app/actions/config'
 import Link from 'next/link'
+import QRCodeUploader from '@/components/admin/QRCodeUploader'
 
 export default async function AdminConfigPage() {
   const tasks = await getAllTaskConfigs()
@@ -14,6 +15,14 @@ export default async function AdminConfigPage() {
         <p className="text-gray-600">
           管理任务和阶段配置
         </p>
+      </div>
+
+      {/* 二维码配置区域 */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          微信群二维码
+        </h2>
+        <QRCodeUploader />
       </div>
       
       

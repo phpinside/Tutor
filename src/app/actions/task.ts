@@ -2,6 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { TASK_VIDEOS } from '@/lib/config'
+import { generatePrivateUrl } from '@/lib/qiniu'
 
 // 获取任务提交记录
 export async function getTaskSubmission(teacherId: string, taskIndex: number) {
@@ -35,6 +37,15 @@ export async function submitTask(
   }
 ) {
   try {
+    // 验证 teacherId 是否存在
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId }
+    })
+    
+    if (!teacher) {
+      throw new Error(`教师 ID ${teacherId} 不存在`)
+    }
+    
     // 所有任务类型都自动完成，不需要审核
     const initialStatus = 'COMPLETED'
     
@@ -203,6 +214,51 @@ export async function getPendingReviews() {
   } catch (error) {
     console.error('获取待审核任务失败:', error)
     return []
+  }
+}
+
+// 获取任务的所有视频配置
+export async function getTaskVideos(taskIndex: number) {
+  try {
+    const videos = TASK_VIDEOS[taskIndex]
+    
+    if (!videos || videos.length === 0) {
+      return { success: false, error: '该任务没有配置视频' }
+    }
+    
+    return { success: true, videos }
+  } catch (error) {
+    console.error('获取视频配置失败:', error)
+    return { success: false, error: '获取视频配置失败,请重试' }
+  }
+}
+
+// 获取指定视频的 URL（带七牛云签名）
+export async function getVideoUrl(taskIndex: number, videoIndex: number = 0) {
+  try {
+    const videos = TASK_VIDEOS[taskIndex]
+    
+    if (!videos || videos.length === 0) {
+      return { success: false, error: '该任务没有配置视频' }
+    }
+    
+    if (videoIndex < 0 || videoIndex >= videos.length) {
+      return { success: false, error: '视频索引无效' }
+    }
+    
+    const video = videos[videoIndex]
+    
+    // 生成带签名的私有下载 URL（1小时有效期）
+    const videoUrl = generatePrivateUrl(video.key)
+    
+    return { 
+      success: true, 
+      videoUrl,
+      videoInfo: video
+    }
+  } catch (error) {
+    console.error('获取视频 URL 失败:', error)
+    return { success: false, error: '获取视频失败,请重试' }
   }
 }
 

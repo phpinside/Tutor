@@ -213,3 +213,57 @@ export async function calculateProgress(currentTaskIndex: number): Promise<numbe
   return Math.round((currentTaskIndex / totalTasks) * 100)
 }
 
+// 七牛云配置
+export const QINIU_CONFIG = {
+  accessKey: 'OU1MwffbOZ6LdvsiBcM4SRi08VemgdFHwOUN1Sk_',  // 替换为你的七牛云 AccessKey
+  secretKey: '9ar3VV-adMAvvHacOpJV5DnSWnOLGopGZ9V7fK0z',  // 替换为你的七牛云 SecretKey
+  bucket: 'tutor-onboarding',          // 替换为你的存储空间名称
+  domain: 'http://cdn.bytemath.cn' // 替换为你的 CDN 域名
+}
+
+// 任务视频配置（支持单视频或多视频）
+export interface VideoConfig {
+  key: string // 七牛云上的文件路径
+  title: string // 视频标题
+  duration?: number // 视频时长（分钟）
+}
+
+export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
+  0: [ // 了解伴学兼职 - 单视频
+    {
+      key: 'training-videos/task-0-intro.mp4',
+      title: '伴学兼职介绍',
+      duration: 5
+    }
+  ],
+  3: [ // 伴学系统 - 多视频
+    {
+      key: 'training-videos/task-3-training.mp4',
+      title: '伴学方法论',
+      duration: 8
+    },
+    {
+      key: 'training-videos/task-3-training.mp4',
+      title: '服务边界与禁止行为',
+      duration: 6
+    },
+    {
+      key: 'training-videos/task-3-training.mp4',
+      title: '引导式教学方法',
+      duration: 6
+    }
+  ],
+  5: [ // 1v1群消息培训 - 多视频
+    {
+      key: 'training-videos/task-5-training.mp4',
+      title: '1v1群的作用',
+      duration: 5
+    },
+    {
+      key: 'training-videos/task-5-training.mp4',
+      title: '和家长沟通确定上课时间',
+      duration: 4
+    }
+  ]
+}
+

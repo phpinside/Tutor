@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { submitTask } from '@/app/actions/task'
+import { useQiniuUpload } from '@/lib/hooks/useQiniuUpload'
 import type { TaskConfig } from '@/lib/config'
 
 interface TaskVideoUploadProps {
@@ -16,8 +17,21 @@ export default function TaskVideoUpload({ task, teacherId, submission }: TaskVid
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [videoFile, setVideoFile] = useState<File | null>(null)
   const [videoUrl, setVideoUrl] = useState(submission?.videoUrl || '')
+  const [uploadedUrl, setUploadedUrl] = useState(submission?.videoUrl || '')
   
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // 使用七牛云上传hook
+  const { uploadFile, isUploading, progress, error: uploadError } = useQiniuUpload({
+    teacherId,
+    taskIndex: task.index,
+    onSuccess: (url) => {
+      setUploadedUrl(url)
+    },
+    onError: (error) => {
+      alert(error)
+    }
+  })
+  
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
       if (file.size > 100 * 1024 * 1024) { // 100MB限制
@@ -27,28 +41,30 @@ export default function TaskVideoUpload({ task, teacherId, submission }: TaskVid
       setVideoFile(file)
       
       // 创建预览URL
-      const url = URL.createObjectURL(file)
-      setVideoUrl(url)
+      const previewUrl = URL.createObjectURL(file)
+      setVideoUrl(previewUrl)
+      
+      // 自动开始上传
+      try {
+        await uploadFile(file)
+      } catch (error) {
+        // 错误已在hook中处理
+        console.error('上传失败:', error)
+      }
     }
   }
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
-    if (!videoFile && !submission?.videoUrl) {
-      alert('请上传视频')
+    if (!uploadedUrl) {
+      alert('请等待视频上传完成')
       return
     }
     
     setIsSubmitting(true)
     
     try {
-      // TODO: 实际项目中需要先上传视频到云存储,获取URL
-      // 这里使用模拟URL
-      const uploadedUrl = videoFile 
-        ? `https://example.com/videos/${Date.now()}.mp4`
-        : submission.videoUrl
-      
       // 提交任务（视频类型需要审核，不会自动推进）
       const result = await submitTask(teacherId, task.index, {
         taskType: task.type,
@@ -115,12 +131,51 @@ export default function TaskVideoUpload({ task, teacherId, submission }: TaskVid
                 您的浏览器不支持视频播放
               </video>
             </div>
+            
+            {/* 上传进度条 */}
+            {isUploading && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-gray-600">
+                  <span>上传中...</span>
+                  <span>{progress}%</span>
+                </div>
+                <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div 
+                    className="bg-primary-500 h-2 rounded-full transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  ></div>
+                </div>
+              </div>
+            )}
+            
+            {/* 上传成功提示 */}
+            {uploadedUrl && !isUploading && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>视频上传成功</span>
+              </div>
+            )}
+            
+            {/* 上传错误提示 */}
+            {uploadError && (
+              <div className="flex items-center gap-2 text-sm text-red-600">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+                <span>{uploadError}</span>
+              </div>
+            )}
+            
             <button
               type="button"
               onClick={() => {
                 setVideoFile(null)
                 setVideoUrl('')
+                setUploadedUrl('')
               }}
+              disabled={isUploading}
               className="btn-secondary w-full"
             >
               重新选择视频
@@ -157,10 +212,10 @@ export default function TaskVideoUpload({ task, teacherId, submission }: TaskVid
       <div className="flex gap-3">
         <button
           type="submit"
-          disabled={isSubmitting || (!videoFile && !submission?.videoUrl)}
+          disabled={isSubmitting || isUploading || !uploadedUrl}
           className="btn-primary flex-1"
         >
-          {isSubmitting ? '提交中...' : '提交视频'}
+          {isSubmitting ? '提交中...' : isUploading ? '上传中...' : '提交视频'}
         </button>
       </div>
       
