@@ -215,8 +215,8 @@ export async function calculateProgress(currentTaskIndex: number): Promise<numbe
 
 // 七牛云配置
 export const QINIU_CONFIG = {
-  accessKey: 'OU1MwffbOZ6LdvsiBcM4SRi08VemgdFHwOUN1Sk_',  // 替换为你的七牛云 AccessKey
-  secretKey: '9ar3VV-adMAvvHacOpJV5DnSWnOLGopGZ9V7fK0z',  // 替换为你的七牛云 SecretKey
+  accessKey: '123',  // 替换为你的七牛云 AccessKey
+  secretKey: '345',  // 替换为你的七牛云 SecretKey
   bucket: 'tutor-onboarding',          // 替换为你的存储空间名称
   domain: 'http://cdn.bytemath.cn' // 替换为你的 CDN 域名
 }
