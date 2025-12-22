@@ -213,12 +213,12 @@ export async function calculateProgress(currentTaskIndex: number): Promise<numbe
   return Math.round((currentTaskIndex / totalTasks) * 100)
 }
 
-// 七牛云配置
+// 七牛云配置（从环境变量读取）
 export const QINIU_CONFIG = {
-  accessKey: '123',  // 替换为你的七牛云 AccessKey
-  secretKey: '345',  // 替换为你的七牛云 SecretKey
-  bucket: 'tutor-onboarding',          // 替换为你的存储空间名称
-  domain: 'http://cdn.bytemath.cn' // 替换为你的 CDN 域名
+  accessKey: process.env.QINIU_ACCESS_KEY || '',
+  secretKey: process.env.QINIU_SECRET_KEY || '',
+  bucket: 'tutor-onboarding',
+  domain:  'http://cdn.bytemath.cn',
 }
 
 // 任务视频配置（支持单视频或多视频）
