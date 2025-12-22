@@ -218,7 +218,7 @@ export const QINIU_CONFIG = {
   accessKey: process.env.QINIU_ACCESS_KEY || '',
   secretKey: process.env.QINIU_SECRET_KEY || '',
   bucket: 'tutor-onboarding',
-  domain:  'http://cdn.bytemath.cn',
+  domain:  'https://cdn.bytemath.cn',
 }
 
 // 任务视频配置（支持单视频或多视频）
