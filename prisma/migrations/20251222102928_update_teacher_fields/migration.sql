@@ -26,3 +26,4 @@ UPDATE "teachers" SET "weekdayTime" = "availableTime" WHERE "availableTime" IS N
 ALTER TABLE "teachers" DROP COLUMN "major";
 ALTER TABLE "teachers" DROP COLUMN "availableTime";
 
+

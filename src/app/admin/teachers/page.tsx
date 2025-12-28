@@ -4,6 +4,11 @@ import { getTeacherStatusText } from '@/lib/utils'
 
 export default async function AdminTeachersPage() {
   const teachers = await prisma.teacher.findMany({
+    where: {
+      status: {
+        not: 'NOT_STARTED'
+      }
+    },
     include: {
       taskSubmissions: true
     },
