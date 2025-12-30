@@ -261,4 +261,3 @@ export async function getVideoUrl(taskIndex: number, videoIndex: number = 0) {
     return { success: false, error: '获取视频失败,请重试' }
   }
 }
-

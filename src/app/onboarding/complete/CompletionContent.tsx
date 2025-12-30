@@ -113,16 +113,31 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
               接下来你可以:
             </h2>
             
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-3">
+              {/* 添加宋老师微信 */}
+              <button
+                onClick={() => setShowTeacherWechat(true)}
+                className="card-hover text-left p-6 border-2 border-primary-500 cursor-pointer bg-white hover:bg-gray-50 transition-all"
+              >
+                <div className="text-3xl mb-3">💬</div>
+                <h3 className="font-semibold text-gray-900 mb-2">1、添加数学主管宋老师微信</h3>
+                <p className="text-sm text-gray-600">
+                  发送自己的老师ID，开启接单
+                </p>
+                <div className="mt-3 text-primary-600 text-sm font-medium">
+                  点击查看微信号 →
+                </div>
+              </button>
+              
               {/* 扫码加入新手群 */}
               <button
                 onClick={() => setShowQRCode(true)}
-                className="card-hover text-left p-6 border-2 border-primary-500 cursor-pointer bg-white hover:bg-gray-50 transition-all"
+                className="card-hover text-left p-6 border-2 border-gray-200 hover:border-primary-300 cursor-pointer bg-white hover:bg-gray-50 transition-all"
               >
                 <div className="text-3xl mb-3">📱</div>
-                <h3 className="font-semibold text-gray-900 mb-2">1、扫码加入伴学老师群</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">2、扫码加入伴学老师群</h3>
                 <p className="text-sm text-gray-600">
-                  加入伴学老师新手群，准备接单
+                  加入伴学老师新手群
                 </p>
                 <div className="mt-3 text-primary-600 text-sm font-medium">
                   点击查看二维码 →
@@ -137,7 +152,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
                 className="card-hover text-left p-6 border-2 border-gray-200 hover:border-primary-300 block bg-white transition-all"
               >
                 <div className="text-3xl mb-3">📖</div>
-                <h3 className="font-semibold text-gray-900 mb-2">2、观看伴学经验总结</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">3、观看伴学经验总结</h3>
                 <p className="text-sm text-gray-600">
                   数学在线伴学经验总结在线文档
                 </p>
@@ -149,16 +164,6 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
                 </div>
               </a>
             </div>
-            
-            <button
-              onClick={() => setShowTeacherWechat(true)}
-              className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              如有问题，请加宋老师微信咨询
-            </button>
           </div>
         </div>
         
@@ -198,7 +203,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
                 <div className="w-64 h-64 mx-auto bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-gray-200">
                   {/* 这里应该放置实际的二维码图片 */}
                   <div className="text-center p-6">
-                      <img src="/qrcode-wechat-group.png" alt="微信群二维码" className="w-full h-full" />
+                      <img src="/qrcode-wechat-group.jpg" alt="微信群二维码" className="w-full h-full" />
                   </div>
                 </div>
               </div>
@@ -206,9 +211,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
               <p className="text-sm text-gray-700 mb-2 font-medium">
                 使用微信扫描二维码
               </p>
-              <p className="text-xs text-gray-500">
-                加入数学伴学老师新手群，准备接单
-              </p>
+            
             </div>
           </div>
         </div>
@@ -237,22 +240,35 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
             </div>
             
             <div className="text-center">
-              {/* 微信信息区域 */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-8 mb-4">
-                <div className="mx-auto bg-white rounded-lg shadow-lg p-6 border-2 border-green-200">
-                  <div className="text-5xl mb-4">💬</div>
-                  <p className="text-gray-700 mb-2">微信号</p>
-                  <p className="text-2xl font-bold text-gray-900 mb-4">zyx853211</p>
-                  <p className="text-sm text-gray-600">复制微信号后在微信中添加好友</p>
+              {/* 二维码区域 */}
+              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 mb-4">
+                <div className="w-64 h-64 mx-auto bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-green-200 mb-4">
+                  <img src="/qrcode-wechat.jpg" alt="宋老师微信二维码" className="w-full h-full object-cover rounded-lg" />
+                </div>
+                
+                {/* 微信号显示 */}
+                <div className="bg-white rounded-lg shadow-md p-4 border-2 border-green-200">
+                  <div className="flex items-center justify-center gap-2 mb-2">
+                    <div className="text-2xl">💬</div>
+                    <p className="text-gray-700 font-medium">微信号</p>
+                  </div>
+                  <p className="text-xl font-bold text-gray-900 mb-2">zyx853211</p>
+                  <p className="text-xs text-gray-600">可扫描上方二维码或复制微信号添加</p>
                 </div>
               </div>
               
-              <p className="text-sm text-gray-700 mb-2 font-medium">
-                有任何问题都可以咨询宋老师
-              </p>
-              <p className="text-xs text-gray-500">
-                添加好友时请备注"伴学老师"
-              </p>
+              {/* 提醒发送老师ID */}
+              <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left">
+                <div className="flex items-start gap-2">
+                  <div className="text-xl">💡</div>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-amber-900 mb-1">温馨提示</p>
+                    <p className="text-xs text-amber-800">
+                      添加宋老师微信后，请发送您的老师ID（{teacherId}）以开启接单
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

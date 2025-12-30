@@ -27,3 +27,5 @@ ALTER TABLE "teachers" DROP COLUMN "major";
 ALTER TABLE "teachers" DROP COLUMN "availableTime";
 
 
+
+

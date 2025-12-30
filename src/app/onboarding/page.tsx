@@ -70,6 +70,13 @@ export default async function OnboardingPage() {
         </p>
       </div>
       
+      {/* 电脑端体验提示 (仅移动端显示) */}
+      <div className="md:hidden mb-6 p-4 bg-orange-50 border-2 border-orange-400 rounded-lg shadow-md text-center">
+        <p className="text-base font-semibold text-orange-800">
+          💻 建议在电脑下打开本引导系统，体验更佳！
+        </p>
+      </div>
+      
       {/* 阶段指示器 */}
       <div className="mb-8">
         <PhaseIndicator currentPhase={currentPhase} phases={phaseIndicatorData} />

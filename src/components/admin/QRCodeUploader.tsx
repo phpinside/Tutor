@@ -6,7 +6,7 @@ import Image from 'next/image'
 export default function QRCodeUploader() {
   const [uploading, setUploading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string>('/qrcode-wechat-group.png')
+  const [previewUrl, setPreviewUrl] = useState<string>('/qrcode-wechat-group.jpg')
   const [imageKey, setImageKey] = useState(Date.now()) // 用于强制刷新图片
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,5 +184,6 @@ export default function QRCodeUploader() {
     </div>
   )
 }
+
 
 
