@@ -19,7 +19,7 @@ export default async function ReferralsManagementPage({
     getReferralOverview()
   ])
   
-  if (!referralsResult.success || !overviewResult.success) {
+  if (!referralsResult.success || !overviewResult.success || !overviewResult.stats || !referralsResult.referrals || !referralsResult.stats) {
     return (
       <div className="p-6">
         <div className="text-center py-12">
@@ -28,6 +28,10 @@ export default async function ReferralsManagementPage({
       </div>
     )
   }
+  
+  const stats = overviewResult.stats
+  const referrals = referralsResult.referrals
+  const referralStats = referralsResult.stats
   
   return (
     <div className="p-6">
@@ -40,31 +44,31 @@ export default async function ReferralsManagementPage({
       {/* 统计概览 */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
-          <div className="text-2xl font-bold text-gray-900">{overviewResult.stats.total}</div>
+          <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600 mt-1">总邀请数</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-success-200">
-          <div className="text-2xl font-bold text-success-600">{overviewResult.stats.valid}</div>
+          <div className="text-2xl font-bold text-success-600">{stats.valid}</div>
           <div className="text-sm text-gray-600 mt-1">有效邀请</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-warning-200">
-          <div className="text-2xl font-bold text-warning-600">{overviewResult.stats.invalid}</div>
+          <div className="text-2xl font-bold text-warning-600">{stats.invalid}</div>
           <div className="text-sm text-gray-600 mt-1">无效邀请</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-amber-200">
-          <div className="text-2xl font-bold text-amber-600">{overviewResult.stats.pendingReward}</div>
+          <div className="text-2xl font-bold text-amber-600">{stats.pendingReward}</div>
           <div className="text-sm text-gray-600 mt-1">待发放奖励</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
-          <div className="text-2xl font-bold text-blue-600">{overviewResult.stats.rewardsSent}</div>
+          <div className="text-2xl font-bold text-blue-600">{stats.rewardsSent}</div>
           <div className="text-sm text-gray-600 mt-1">已发放奖励</div>
         </div>
       </div>
       
       {/* 客户端组件处理交互 */}
       <ReferralManagementClient 
-        initialReferrals={referralsResult.referrals}
-        initialStats={referralsResult.stats}
+        initialReferrals={referrals}
+        initialStats={referralStats}
       />
     </div>
   )
