@@ -5,9 +5,9 @@ import ReferralDashboardClient from './ReferralDashboardClient'
 export default async function ReferralDashboardPage({
   params
 }: {
-  params: { viewCode: string }
+  params: Promise<{ viewCode: string }>
 }) {
-  const { viewCode } = params
+  const { viewCode } = await params
   
   const result = await getReferralDataByViewCode(viewCode)
   

@@ -1,13 +1,15 @@
 import { redirect } from 'next/navigation'
 
-export default function HomePage({
+export default async function HomePage({
   searchParams
 }: {
-  searchParams: { ref?: string }
+  searchParams: Promise<{ ref?: string }>
 }) {
+  const params = await searchParams
+  
   // 如果有邀请码，先通过 init 路由处理
-  if (searchParams.ref) {
-    redirect(`/api/init?ref=${searchParams.ref}`)
+  if (params.ref) {
+    redirect(`/api/init?ref=${params.ref}`)
   }
   
   // 重定向到引导页面

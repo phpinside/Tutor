@@ -4,13 +4,14 @@ import ReferralManagementClient from './ReferralManagementClient'
 export default async function ReferralsManagementPage({
   searchParams
 }: {
-  searchParams: { status?: string; search?: string }
+  searchParams: Promise<{ status?: string; search?: string }>
 }) {
   // 获取筛选参数
+  const params = await searchParams
   const filters: any = {}
-  if (searchParams.status === 'valid') filters.status = 'VALID'
-  if (searchParams.status === 'invalid') filters.status = 'INVALID'
-  if (searchParams.search) filters.search = searchParams.search
+  if (params.status === 'valid') filters.status = 'VALID'
+  if (params.status === 'invalid') filters.status = 'INVALID'
+  if (params.search) filters.search = params.search
   
   // 获取数据
   const [referralsResult, overviewResult] = await Promise.all([

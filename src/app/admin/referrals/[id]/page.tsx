@@ -6,9 +6,10 @@ import ReferralDetailClient from './ReferralDetailClient'
 export default async function ReferralDetailPage({
   params
 }: {
-  params: { id: string }
+  params: Promise<{ id: string }>
 }) {
-  const result = await getReferralById(params.id)
+  const { id } = await params
+  const result = await getReferralById(id)
   
   if (!result.success || !result.referral) {
     notFound()
