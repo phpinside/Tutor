@@ -37,6 +37,12 @@ enum TaskType {
   SIMULATION // 模拟场景
 }
 
+// 邀请状态枚举
+enum ReferralStatus {
+  VALID   // 有效邀请
+  INVALID // 无效邀请
+}
+
 // 老师信息
 model Teacher {
   id String @id @default(cuid())
@@ -69,10 +75,20 @@ model Teacher {
   currentPhase     Int           @default(1) // 当前阶段 1-3
   currentTaskIndex Int           @default(0) // 当前任务索引 0-5
 
+  // 邀请相关
+  inviteCode       String? @unique // 唯一邀请码（用于分享给他人）
+  referralViewCode String? @unique // 邀请看板查看码（用于自己查看邀请记录）
+  invitedById      String? // 邀请人ID
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  taskSubmissions TaskSubmission[]
+  // 关系
+  taskSubmissions    TaskSubmission[]
+  invitedBy          Teacher?         @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedTeachers    Teacher[]        @relation("TeacherReferrals")
+  referrals          Referral[]       @relation("ReferrerReferrals")
+  referredReferral   Referral?        @relation("ReferredReferral")
 
   @@map("teachers")
 }
@@ -151,4 +167,33 @@ model PhaseConfig {
   updatedAt DateTime @updatedAt
 
   @@map("phase_configs")
+}
+
+// 邀请记录表
+model Referral {
+  id         String         @id @default(cuid())
+  
+  // 邀请关系
+  referrerId String // 邀请人ID
+  referredId String @unique // 被邀请人ID
+  
+  // 状态管理
+  status     ReferralStatus @default(VALID) // 邀请状态
+  rewardSent Boolean        @default(false) // 是否已发放奖励
+  
+  // 管理员操作
+  adminNote  String? // 管理员备注（如标记无效的理由）
+  reviewedBy String? // 审核人
+  reviewedAt DateTime? // 审核时间
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关系
+  referrer Teacher @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred Teacher @relation("ReferredReferral", fields: [referredId], references: [id], onDelete: Cascade)
+  
+  @@index([referrerId])
+  @@index([status])
+  @@map("referrals")
 }

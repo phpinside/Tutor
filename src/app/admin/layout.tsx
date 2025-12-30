@@ -37,6 +37,12 @@ export default function AdminLayout({
                 老师管理
               </a>
               <a 
+                href="/admin/referrals"
+                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+              >
+                邀请管理
+              </a>
+              <a 
                 href="/admin/config"
                 className="text-sm font-medium text-gray-600 hover:text-gray-900"
               >
