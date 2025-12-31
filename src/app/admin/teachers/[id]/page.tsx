@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { getTaskConfigs } from '@/lib/config'
+import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
 import { getTeacherStatusText, getTaskStatusText } from '@/lib/utils'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
@@ -224,18 +224,29 @@ export default async function TeacherDetailPage({
               const task = TASKS_CONFIG[submission.taskIndex]
               if (!task) return null
               
-              // 为私有视频生成带签名的 URL
-              let signedVideoUrl: string | null = null
-              if (submission.videoUrl) {
+              // Helper function to extract key from URL
+              const extractKey = (videoUrl: string): string => {
                 try {
-                  // 从完整 URL 中提取 key（去掉域名部分）
-                  const url = new URL(submission.videoUrl)
-                  const key = url.pathname.substring(1) // 去掉开头的 '/'
-                  signedVideoUrl = generatePrivateUrl(key)
+                  const url = new URL(videoUrl)
+                  return url.pathname.substring(1) // 去掉开头的 '/'
                 } catch (e) {
                   // 如果不是完整 URL，直接当作 key 使用
-                  signedVideoUrl = generatePrivateUrl(submission.videoUrl)
+                  return videoUrl
                 }
+              }
+              
+              // 为私有视频生成带签名的 URL（动态处理多个视频）
+              const videoConfigs = TASK_VIDEO_UPLOADS[submission.taskIndex]
+              const signedVideoUrls: Record<string, string> = {}
+              
+              if (videoConfigs && submission.formData && typeof submission.formData === 'object') {
+                const formData = submission.formData as any
+                videoConfigs.forEach(config => {
+                  const urlKey = `${config.key}VideoUrl`
+                  if (formData[urlKey]) {
+                    signedVideoUrls[config.key] = generatePrivateUrl(extractKey(formData[urlKey]))
+                  }
+                })
               }
               
               return (
@@ -264,31 +275,47 @@ export default async function TeacherDetailPage({
                   
                   {/* 提交内容预览 */}
                   <div className="mb-3">
-                    {submission.formData && (
+                    {/* 动态视频显示 */}
+                    {videoConfigs && Object.keys(signedVideoUrls).length > 0 ? (
+                      <div className="space-y-3">
+                        {videoConfigs.map((config, index) => {
+                          const signedUrl = signedVideoUrls[config.key]
+                          if (!signedUrl) return null
+                          
+                          return (
+                            <div key={config.key} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                {config.emoji && <span className="text-lg">{config.emoji}</span>}
+                                <span className="text-sm font-medium text-gray-700">
+                                  {videoConfigs.length > 1 && `视频${index + 1}: `}{config.title}
+                                </span>
+                              </div>
+                              <a
+                                href={signedUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-sm text-primary-600 hover:text-primary-700 ml-6"
+                              >
+                                查看视频 →
+                              </a>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    ) : submission.formData && (submission.taskType === 'FORM' || submission.taskType === 'INFO') ? (
+                      /* 表单类型数据 */
                       <div className="p-3 bg-gray-50 rounded text-sm">
                         <pre className="text-gray-700 whitespace-pre-wrap">
                           {JSON.stringify(submission.formData, null, 2)}
                         </pre>
                       </div>
-                    )}
-                    
-                    {signedVideoUrl && (
-                      <div className="text-sm">
-                        <a
-                          href={signedVideoUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary-600 hover:text-primary-700"
-                        >
-                          查看视频 →
-                        </a>
-                      </div>
-                    )}
-                    
-                    {submission.textContent && (
+                    ) : submission.textContent ? (
+                      /* 文本内容 */
                       <div className="p-3 bg-gray-50 rounded text-sm text-gray-700 whitespace-pre-wrap">
                         {submission.textContent}
                       </div>
+                    ) : (
+                      <p className="text-sm text-gray-500">暂无提交内容</p>
                     )}
                   </div>
                   

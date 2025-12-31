@@ -31,7 +31,6 @@ export async function submitTask(
   data: {
     taskType: string
     formData?: any
-    videoUrl?: string
     textContent?: string
     watchProgress?: number
   }

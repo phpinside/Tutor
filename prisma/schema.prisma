@@ -104,10 +104,6 @@ model TaskSubmission {
   // 表单数据(JSON格式存储)
   formData Json?
 
-  // 视频相关
-  videoUrl      String?
-  videoDuration Int? // 视频时长(秒)
-
   // 文本内容
   textContent String?
 

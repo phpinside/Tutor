@@ -115,8 +115,9 @@ const TASKS_CONFIG_FALLBACK: TaskConfig[] = [
     description: '不看颜值,不背稿,看真实表达',
     estimatedMinutes: 15,
     requirements: [
-      '录制自我介绍(3分钟左右)',
-      '选一道自己熟悉的数学题讲解(10分钟左右)',
+      '需要上传2个视频：自我介绍视频 + 讲题体验视频',
+      '自我介绍视频：简单介绍自己的基本情况、教学经验和优势(3分钟左右)',
+      '讲题体验视频：选一道自己熟悉的数学题进行讲解演示(10分钟左右)',
       '自然清晰就很好,不需要追求完美'
     ]
   },
@@ -267,3 +268,48 @@ export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
   ]
 }
 
+// Video upload configuration for tasks requiring video submissions
+export interface VideoUploadConfig {
+  key: string          // Unique identifier (e.g., 'intro', 'lecture', 'practice')
+  title: string        // Display title (e.g., '自我介绍', '讲题体验')
+  emoji?: string       // Optional emoji icon
+  tips: string[]       // Shooting tips/guidelines
+}
+
+export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
+  2: [ // Task 2: Dual video
+    {
+      key: 'intro',
+      title: '自我介绍',
+      emoji: '🎤',
+      tips: [
+        '真人出镜，介绍自己的基本情况（姓名、学校、专业）',
+        '分享你的教学经验和优势',
+        '时长约3分钟,自然清晰就好',
+        '不看颜值,不背稿,看真实表达'
+      ]
+    },
+    {
+      key: 'lecture',
+      title: '讲题体验',
+      emoji: '📐',
+      tips: [
+        '选一道你熟悉的数学题进行讲解，可不出镜',
+        '展示你的思路清晰和引导式教学能力',
+        '时长约10分钟左右，确保声音清晰'
+      ]
+    }
+  ],
+  4: [ // Task 4: Single video
+    {
+      key: 'practice',
+      title: '系统操作演示',
+      emoji: '💻',
+      tips: [
+        '录制系统操作演示',
+        '包含:学员注册、能力测评、知识点讲解',
+        '包含:作业布置的完整流程'
+      ]
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 import { getPendingReviews } from '@/app/actions/task'
-import { getTaskConfigs } from '@/lib/config'
+import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
 import ReviewForm from '@/components/admin/ReviewForm'
 import { updateTaskStatus } from '@/app/actions/task'
 
@@ -74,25 +74,54 @@ export default async function AdminReviewPage() {
                   )}
                   
                   {/* 视频上传类型 */}
-                  {(submission.taskType === 'VIDEO_UPLOAD' || submission.taskType === 'PRACTICE') && (
-                    <div className="space-y-2">
-                      <a
-                        href={submission.videoUrl || '#'}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        查看视频
-                      </a>
-                      <p className="text-sm text-gray-600">
-                        {submission.videoUrl || '视频URL'}
-                      </p>
-                    </div>
-                  )}
+                  {(submission.taskType === 'VIDEO_UPLOAD' || submission.taskType === 'PRACTICE') && (() => {
+                    const videoConfigs = TASK_VIDEO_UPLOADS[submission.taskIndex]
+                    
+                    if (!videoConfigs || !submission.formData) {
+                      return <p className="text-sm text-gray-500">视频未上传</p>
+                    }
+                    
+                    const formData = submission.formData as any
+                    const hasAnyVideo = videoConfigs.some(config => formData[`${config.key}VideoUrl`])
+                    
+                    if (!hasAnyVideo) {
+                      return <p className="text-sm text-gray-500">视频未上传</p>
+                    }
+                    
+                    return (
+                      <div className="space-y-3">
+                        {videoConfigs.map((config, index) => {
+                          const urlKey = `${config.key}VideoUrl`
+                          const videoUrl = formData[urlKey]
+                          
+                          if (!videoUrl) return null
+                          
+                          return (
+                            <div key={config.key} className="space-y-1">
+                              <div className="flex items-center gap-2">
+                                {config.emoji && <span className="text-lg">{config.emoji}</span>}
+                                <span className="text-sm font-medium text-gray-700">
+                                  {videoConfigs.length > 1 && `视频${index + 1}: `}{config.title}
+                                </span>
+                              </div>
+                              <a
+                                href={videoUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-2 text-primary-600 hover:text-primary-700 ml-6"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                查看视频
+                              </a>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )
+                  })()}
                   
                   {/* 文本模拟类型 */}
                   {submission.taskType === 'SIMULATION' && submission.textContent && (
