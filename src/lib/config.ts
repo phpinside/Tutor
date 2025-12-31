@@ -127,12 +127,12 @@ const TASKS_CONFIG_FALLBACK: TaskConfig[] = [
     phase: 2,
     emoji: '📖',
     type: 'TRAINING',
-    description: '学习伴学方法论和服务规范',
-    estimatedMinutes: 20,
+    description: '快速完成伴学系统的体验与熟悉',
+    estimatedMinutes: 120,
     requirements: [
-      '完整观看伴学方法论视频',
-      '了解服务边界和禁止行为',
-      '掌握引导式教学方法'
+      '体验课流程演示视频',
+      '如何体验和熟悉伴学系统',
+      '试听课SOP和正式课SOP'
     ]
   },
   {
@@ -240,17 +240,17 @@ export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
   3: [ // 伴学系统 - 多视频
     {
       key: 'training-videos/task-3-training.mp4',
-      title: '伴学方法论',
+      title: '体验课流程演示视频',
       duration: 8
     },
     {
       key: 'training-videos/task-3-training.mp4',
-      title: '服务边界与禁止行为',
+      title: '如何体验和熟悉鼎伴学系统',
       duration: 6
     },
     {
       key: 'training-videos/task-3-training.mp4',
-      title: '引导式教学方法',
+      title: '试听课SOP和正式课SOP',
       duration: 6
     }
   ],
@@ -303,12 +303,18 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
   4: [ // Task 4: Single video
     {
       key: 'practice',
-      title: '系统操作演示',
+      title: '上传伴学系统操作视频',
       emoji: '💻',
       tips: [
-        '录制系统操作演示',
-        '包含:学员注册、能力测评、知识点讲解',
-        '包含:作业布置的完整流程'
+        '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量。',
+        '参考课程回放',
+        '课程：数学伴学（五年级）',
+        '录制时间：2025-12-13 08:59:08',
+        '回放链接：https://meeting.tencent.com/crm/2Z4qyroz67',
+        '参考上述上课流程，用腾讯会议录制一段试讲视频，可不出镜：',
+        '时长：约 20 分钟',
+        '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
+        '要求：流程完整、表达清晰、符合伴学课堂节奏'
       ]
     }
   ]

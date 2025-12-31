@@ -274,25 +274,18 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
       {/* 图文说明 */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          📖 详细说明
+          📖 主要内容
         </h2>
         <div className="prose prose-blue max-w-none">
-          <h3>什么是伴学?</h3>
-          <p>
-            通过引导式提问、陪伴式学习,帮助学生建立数学思维。
-          </p>
-          
-          <h3>收入结构</h3>
           <ul>
-            <li>基础课时费: 80-150元/小时</li>
-            <li>优秀老师月度奖金</li>
-          </ul>
-          
-          <h3>时间安排</h3>
-          <ul>
-            <li>完全自主排课,无最低时长要求</li>
-            <li>支持周末、晚上等碎片时间</li>
-            <li>提前3天告知即可调整课程</li>
+            <li>一、项目背景介绍</li>
+            <li>二、招募对象</li>
+            <li>三、薪酬体系</li>
+            <li>四、工作内容</li>
+            <li>五、平台保障体系</li>
+            <li>六、时间灵活性</li>
+            <li>七、常见问题解答</li>
+            <li>八、加入流程</li>
           </ul>
         </div>
       </div>

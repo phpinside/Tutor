@@ -28,32 +28,18 @@ interface TaskTrainingProps {
 // 培训任务的说明内容配置
 const TRAINING_CONTENT = {
   3: {
-    title: '伴学系统培训222',
+    title: '相关资源',
     sections: [
       {
-        title: '伴学方法论123',
+        title: '1.伴学软件下载',
         points: [
-          '引导式提问：通过问题启发学生思考，而不是直接给答案',
-          '陪伴式学习：成为学生的学习伙伴，建立信任关系',
-          '思维训练：培养学生的数学思维能力，而非单纯刷题'
+          '百度网盘链接: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
         ]
       },
       {
-        title: '服务边界与禁止行为',
+        title: '2.伴学师手册（持续更新）',
         points: [
-          '禁止：直接给学生答案、代写作业',
-          '禁止：与家长发生经济纠纷、私下收费',
-          '禁止：对学生进行负面评价、打击自信',
-          '提倡：耐心引导、鼓励式教学、及时反馈'
-        ]
-      },
-      {
-        title: '引导式教学方法',
-        points: [
-          '第一步：了解学生的思路，"你是怎么想的？"',
-          '第二步：找出思维断点，"卡在哪里了？"',
-          '第三步：提供思维支架，"你觉得这样行不行？"',
-          '第四步：让学生自己完成，"现在试试看"'
+          'https://fn73lnaiyt.feishu.cn/wiki/CgXJwwewZin7oDkevbfc2HsinVW',
         ]
       }
     ]
@@ -96,6 +82,30 @@ const TRAINING_CONTENT = {
       }
     ]
   }
+}
+
+// 辅助函数：将文本中的URL转换为可点击的链接
+const renderTextWithLinks = (text: string) => {
+  // 匹配URL的正则表达式
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-600 hover:text-primary-700 underline break-all"
+        >
+          {part}
+        </a>
+      )
+    }
+    return <span key={index}>{part}</span>
+  })
 }
 
 export default function TaskTraining({ task, teacherId, submission }: TaskTrainingProps) {
@@ -356,7 +366,7 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
                   {section.points.map((point, pointIndex) => (
                     <li key={pointIndex} className="flex items-start gap-2 text-gray-700">
                       <span className="text-primary-500 mt-1">•</span>
-                      <span>{point}</span>
+                      <span className="break-words">{renderTextWithLinks(point)}</span>
                     </li>
                   ))}
                 </ul>

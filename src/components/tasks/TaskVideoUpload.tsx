@@ -19,6 +19,30 @@ interface VideoState {
   uploadedUrl: string
 }
 
+// 辅助函数：将文本中的URL转换为可点击的链接
+const renderTextWithLinks = (text: string) => {
+  // 匹配URL的正则表达式
+  const urlRegex = /(https?:\/\/[^\s]+)/g
+  const parts = text.split(urlRegex)
+  
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      return (
+        <a
+          key={index}
+          href={part}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-600 hover:text-primary-700 underline break-all"
+        >
+          {part}
+        </a>
+      )
+    }
+    return <span key={index}>{part}</span>
+  })
+}
+
 export default function TaskVideoUpload({ task, teacherId, submission }: TaskVideoUploadProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -308,7 +332,7 @@ export default function TaskVideoUpload({ task, teacherId, submission }: TaskVid
               <h3 className="font-semibold text-blue-900 mb-2">💡 拍摄建议</h3>
               <ul className="space-y-1 text-sm text-blue-800">
                 {config.tips.map((tip, i) => (
-                  <li key={i}>• {tip}</li>
+                  <li key={i} className="break-words">• {renderTextWithLinks(tip)}</li>
                 ))}
               </ul>
             </div>
