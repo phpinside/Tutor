@@ -28,10 +28,10 @@ interface TaskTrainingProps {
 // 培训任务的说明内容配置
 const TRAINING_CONTENT = {
   3: {
-    title: '伴学系统培训',
+    title: '伴学系统培训222',
     sections: [
       {
-        title: '伴学方法论',
+        title: '伴学方法论123',
         points: [
           '引导式提问：通过问题启发学生思考，而不是直接给答案',
           '陪伴式学习：成为学生的学习伙伴，建立信任关系',

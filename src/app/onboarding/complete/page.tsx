@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getOrCreateTeacher, updateTeacherStatus, ensureInviteCodes } from '@/app/actions/teacher'
+import { getOrCreateTeacher, updateTeacherStatus } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
 
@@ -29,19 +29,11 @@ export default async function CompletePage() {
     await updateTeacherStatus(teacherId, 'COMPLETED')
   }
   
-  // 生成邀请码和查看码
-  const codesResult = await ensureInviteCodes(teacherId)
-  const inviteCodes = codesResult.success ? {
-    inviteCode: codesResult.inviteCode,
-    viewCode: codesResult.viewCode
-  } : null
-  
   return (
     <CompletionContent 
       teacherName={teacher.name} 
       teacherId={teacherId} 
       totalTasks={TOTAL_TASKS}
-      inviteCodes={inviteCodes}
     />
   )
 }

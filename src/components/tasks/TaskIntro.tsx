@@ -279,14 +279,12 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
         <div className="prose prose-blue max-w-none">
           <h3>什么是伴学?</h3>
           <p>
-            伴学是一种全新的数学教学模式,我们不是传统的"讲课老师",而是学生的"学习伙伴"。
             通过引导式提问、陪伴式学习,帮助学生建立数学思维。
           </p>
           
           <h3>收入结构</h3>
           <ul>
             <li>基础课时费: 80-150元/小时</li>
-            <li>学生续费奖励: 额外10%-20%提成</li>
             <li>优秀老师月度奖金</li>
           </ul>
           

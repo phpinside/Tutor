@@ -7,13 +7,9 @@ interface CompletionContentProps {
   teacherName: string | null
   teacherId: string
   totalTasks: number
-  inviteCodes: {
-    inviteCode?: string
-    viewCode?: string
-  } | null
 }
 
-export default function CompletionContent({ teacherName, teacherId, totalTasks, inviteCodes }: CompletionContentProps) {
+export default function CompletionContent({ teacherName, teacherId, totalTasks }: CompletionContentProps) {
   const [showQRCode, setShowQRCode] = useState(false)
   const [showTeacherWechat, setShowTeacherWechat] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -176,29 +172,10 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks, 
           <p className="text-gray-600">
             期待在伴学的旅程中,看到你的精彩表现 🌟
           </p>
+          <p className="text-sm text-gray-500 mt-2">
+            💡 点击右上角"邀请有奖"按钮，邀请好友一起加入伴学团队
+          </p>
         </div>
-        
-        {/* 邀请看板入口 */}
-        {inviteCodes?.viewCode && (
-          <div className="mt-8 bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-6 shadow-md">
-            <div className="flex items-start gap-3 mb-4">
-              <div className="text-3xl">🎁</div>
-              <div className="flex-1">
-                <h3 className="text-lg font-bold text-amber-900 mb-1">邀请有奖！</h3>
-                <p className="text-sm text-amber-800">邀请好友完成新手任务，即可获得奖励</p>
-              </div>
-            </div>
-            <Link
-              href={`/referral/${inviteCodes.viewCode}`}
-              className="block w-full py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-lg transition-all font-medium text-center shadow-lg"
-            >
-              🎯 查看我的邀请看板
-            </Link>
-            <p className="text-xs text-amber-700 mt-3 text-center">
-              点击查看你的专属邀请链接和邀请记录
-            </p>
-          </div>
-        )}
       </div>
       
       {/* 二维码弹窗 */}
