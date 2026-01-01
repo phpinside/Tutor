@@ -2,6 +2,11 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import dynamic from 'next/dynamic'
+
+const PosterGenerator = dynamic(() => import('@/components/referral/PosterGenerator'), {
+  ssr: false
+})
 
 type ReferralData = {
   referrerName: string | null
@@ -37,6 +42,7 @@ export default function ReferralDashboardClient({
 }) {
   const { referrerName, inviteCode, stats, referrals } = data
   const [copiedType, setCopiedType] = useState<'invite' | 'view' | null>(null)
+  const [showPosterGenerator, setShowPosterGenerator] = useState(false)
 
   const handleCopy = (text: string, type: 'invite' | 'view') => {
     navigator.clipboard.writeText(text)
@@ -103,6 +109,20 @@ export default function ReferralDashboardClient({
             </div>
             <p className="text-xs text-gray-500 mt-2">
               💡 保存此链接，随时在任何设备查看邀请记录
+            </p>
+          </div>
+
+          {/* 生成邀请海报按钮 */}
+          <div className="mt-6 pt-6 border-t border-gray-200">
+            <button
+              onClick={() => setShowPosterGenerator(true)}
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium py-3 px-6 rounded-lg transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            >
+              <span className="text-xl">🎨</span>
+              <span>生成邀请海报</span>
+            </button>
+            <p className="text-xs text-gray-500 mt-2 text-center">
+              一键生成精美海报，分享到朋友圈更方便
             </p>
           </div>
         </div>
@@ -276,6 +296,15 @@ export default function ReferralDashboardClient({
           </Link>
         </div>
       </div>
+
+      {/* 海报生成器 Modal */}
+      {showPosterGenerator && (
+        <PosterGenerator
+          inviteUrl={inviteUrl}
+          referrerName={referrerName}
+          onClose={() => setShowPosterGenerator(false)}
+        />
+      )}
     </div>
   )
 }

@@ -337,7 +337,9 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
           <div className="space-y-6">
             {content.sections.map((section, index) => (
               <div key={index}>
-                <h3 className="font-semibold text-gray-900 mb-2">{section.title}</h3>
+                {'title' in section && section.title && (
+                  <h3 className="font-semibold text-gray-900 mb-2">{section.title}</h3>
+                )}
                 <ul className="space-y-2">
                   {section.points.map((point, pointIndex) => (
                     <li key={pointIndex} className="flex items-start gap-2 text-gray-700">
