@@ -263,7 +263,9 @@ export async function getReferralDataByViewCode(viewCode: string) {
     
     // 计算统计数据
     const totalReferrals = teacher.referrals.length
-    const validReferrals = teacher.referrals.filter(r => r.status === 'VALID').length
+    const completedReferrals = teacher.referrals.filter(r => 
+      r.referred.status === 'COMPLETED' || r.referred.status === 'UNLOCKED'
+    ).length
     const invalidReferrals = teacher.referrals.filter(r => r.status === 'INVALID').length
     const rewardsSent = teacher.referrals.filter(r => r.rewardSent).length
     
@@ -275,7 +277,7 @@ export async function getReferralDataByViewCode(viewCode: string) {
         inviteCode: teacher.inviteCode,
         stats: {
           total: totalReferrals,
-          valid: validReferrals,
+          completed: completedReferrals,
           invalid: invalidReferrals,
           rewardsSent
         },

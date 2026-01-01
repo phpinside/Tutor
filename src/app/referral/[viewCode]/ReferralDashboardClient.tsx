@@ -13,7 +13,7 @@ type ReferralData = {
   inviteCode: string | null
   stats: {
     total: number
-    valid: number
+    completed: number
     invalid: number
     rewardsSent: number
   }
@@ -134,8 +134,8 @@ export default function ReferralDashboardClient({
             <div className="text-sm text-gray-600 mt-1">总邀请人数</div>
           </div>
           <div className="card text-center">
-            <div className="text-3xl font-bold text-success-600">{stats.valid}</div>
-            <div className="text-sm text-gray-600 mt-1">有效邀请</div>
+            <div className="text-3xl font-bold text-success-600">{stats.completed}</div>
+            <div className="text-sm text-gray-600 mt-1">完成任务</div>
           </div>
           <div className="card text-center">
             <div className="text-3xl font-bold text-warning-600">{stats.invalid}</div>
