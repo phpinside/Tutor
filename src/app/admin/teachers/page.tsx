@@ -9,9 +9,6 @@ export default async function AdminTeachersPage() {
         not: 'NOT_STARTED'
       }
     },
-    include: {
-      taskSubmissions: true
-    },
     orderBy: {
       createdAt: 'desc'
     }
