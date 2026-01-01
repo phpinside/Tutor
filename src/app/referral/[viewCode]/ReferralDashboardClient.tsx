@@ -289,7 +289,7 @@ export default function ReferralDashboardClient({
         {/* 返回首页链接 */}
         <div className="mt-6 text-center">
           <Link
-            href={inviteCode ? `/onboarding?ref=${inviteCode}` : '/onboarding'}
+            href="/onboarding"
             className="inline-flex items-center text-primary-600 hover:text-primary-700 font-medium"
           >
             ← 返回引导页面
