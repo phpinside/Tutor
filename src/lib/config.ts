@@ -257,13 +257,8 @@ export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
   5: [ // 1v1群消息培训 - 多视频
     {
       key: 'training-videos/task-5-training.mp4',
-      title: '1v1群的作用',
-      duration: 5
-    },
-    {
-      key: 'training-videos/task-5-training.mp4',
-      title: '和家长沟通确定上课时间',
-      duration: 4
+      title: '1v1 家长群使用规范',
+      duration: 30
     }
   ]
 }
