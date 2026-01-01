@@ -1,11 +1,18 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
 export default function ReferralEntryButton({ teacherId }: { teacherId: string }) {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [isLoading, setIsLoading] = useState(false)
+  
+  // 如果 URL 中有 ref 参数，说明是通过邀请链接进入的新用户，隐藏邀请按钮
+  const hasRefParam = searchParams.get('ref')
+  if (hasRefParam) {
+    return null
+  }
 
   const handleClick = async () => {
     setIsLoading(true)
