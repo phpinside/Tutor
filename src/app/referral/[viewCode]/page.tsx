@@ -1,14 +1,17 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { getReferralDataByViewCode } from '@/app/actions/teacher'
 import ReferralDashboardClient from './ReferralDashboardClient'
 
 export default async function ReferralDashboardPage({
-  params
+  params,
+  searchParams
 }: {
   params: Promise<{ viewCode: string }>
+  searchParams: Promise<{ login?: string }>
 }) {
   const { viewCode } = await params
+  const search = await searchParams
   const cookieStore = await cookies()
   
   const result = await getReferralDataByViewCode(viewCode)
@@ -19,14 +22,10 @@ export default async function ReferralDashboardPage({
   
   const { data } = result
   
-  // 自动设置 cookie，实现快速登录/切换账号
-  if (data.teacherId) {
-    cookieStore.set('teacherId', data.teacherId, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 1年
-    })
+  // 如果还没有设置过 cookie（首次访问或需要切换账号），重定向到 login route handler
+  const currentTeacherId = cookieStore.get('teacherId')?.value
+  if (data.teacherId && currentTeacherId !== data.teacherId && !search.login) {
+    redirect(`/api/referral/login?viewCode=${viewCode}&returnUrl=/referral/${viewCode}`)
   }
   
   // 构建邀请链接
