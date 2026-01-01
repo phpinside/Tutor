@@ -6,14 +6,21 @@ import ProgressBar from '@/components/ui/ProgressBar'
 import PhaseIndicator from '@/components/ui/PhaseIndicator'
 import TaskCard from '@/components/ui/TaskCard'
 
-export default async function OnboardingPage() {
+export default async function OnboardingPage({
+  searchParams
+}: {
+  searchParams: Promise<{ ref?: string }>
+}) {
+  const params = await searchParams
+  const refCode = params.ref
+  
   // 获取老师信息
   const cookieStore = await cookies()
   const teacherId = cookieStore.get('teacherId')?.value
   
   // 如果没有 teacherId，重定向到初始化页面
   if (!teacherId) {
-    redirect('/api/init')
+    redirect(refCode ? `/api/init?ref=${refCode}` : '/api/init')
   }
   
   let teacher
@@ -21,7 +28,12 @@ export default async function OnboardingPage() {
     teacher = await getOrCreateTeacher(teacherId)
   } catch (error) {
     // 如果获取失败（比如 teacherId 无效），重定向到初始化页面
-    redirect('/api/init')
+    redirect(refCode ? `/api/init?ref=${refCode}` : '/api/init')
+  }
+  
+  // 如果有 ref 参数且用户没有邀请人，重定向到 init 处理邀请关系
+  if (refCode && !teacher.invitedById) {
+    redirect(`/api/init?ref=${refCode}`)
   }
   
   // 从数据库获取任务和阶段配置

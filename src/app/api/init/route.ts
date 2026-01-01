@@ -74,7 +74,8 @@ export async function GET(request: NextRequest) {
     })
   }
   
-  // 重定向到引导页
-  return NextResponse.redirect(new URL('/onboarding', process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
+  // 重定向到引导页，如果有邀请码则携带在 URL 中
+  const redirectUrl = refCode ? `/onboarding?ref=${refCode}` : '/onboarding'
+  return NextResponse.redirect(new URL(redirectUrl, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
 }
 
