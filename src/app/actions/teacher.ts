@@ -270,6 +270,7 @@ export async function getReferralDataByViewCode(viewCode: string) {
     return {
       success: true,
       data: {
+        teacherId: teacher.id,
         referrerName: teacher.name,
         inviteCode: teacher.inviteCode,
         stats: {
