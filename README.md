@@ -99,8 +99,7 @@ npm run dev
 │   │   │   ├── TaskIntro.tsx     # 信息了解任务
 │   │   │   ├── TaskForm.tsx      # 表单填写任务
 │   │   │   ├── TaskVideoUpload.tsx # 视频上传任务
-│   │   │   ├── TaskTraining.tsx  # 培训观看任务
-│   │   │   └── TaskSimulation.tsx # 模拟场景任务
+│   │   │   └── TaskTraining.tsx  # 培训观看任务
 │   │   └── admin/                # 管理后台组件
 │   │       └── ReviewForm.tsx    # 审核表单
 │   └── lib/                      # 工具库

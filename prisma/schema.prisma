@@ -34,7 +34,6 @@ enum TaskType {
   VIDEO_UPLOAD // 视频上传
   TRAINING // 观看培训
   PRACTICE // 练习操作
-  SIMULATION // 模拟场景
 }
 
 // 邀请状态枚举

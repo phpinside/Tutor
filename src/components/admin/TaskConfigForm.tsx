@@ -13,8 +13,7 @@ const TASK_TYPES = [
   { value: 'FORM', label: '填写表单' },
   { value: 'VIDEO_UPLOAD', label: '视频上传' },
   { value: 'TRAINING', label: '观看培训' },
-  { value: 'PRACTICE', label: '练习操作' },
-  { value: 'SIMULATION', label: '模拟场景' }
+  { value: 'PRACTICE', label: '练习操作' }
 ]
 
 export default function TaskConfigForm({ task }: TaskConfigFormProps) {

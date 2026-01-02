@@ -7,7 +7,6 @@ import TaskIntro from '@/components/tasks/TaskIntro'
 import TaskForm from '@/components/tasks/TaskForm'
 import TaskVideoUpload from '@/components/tasks/TaskVideoUpload'
 import TaskTraining from '@/components/tasks/TaskTraining'
-import TaskSimulation from '@/components/tasks/TaskSimulation'
 import Link from 'next/link'
 
 export default async function TaskPage({
@@ -53,9 +52,6 @@ export default async function TaskPage({
       
       case 'TRAINING':
         return <TaskTraining task={task} teacherId={teacherId} submission={submission} />
-      
-      case 'SIMULATION':
-        return <TaskSimulation task={task} teacherId={teacherId} submission={submission} />
       
       default:
         return <div>未知任务类型</div>

@@ -234,31 +234,31 @@ export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
     {
       key: 'training-videos/task-0-intro.mp4',
       title: '伴学兼职介绍',
-      duration: 5
+      duration: 16
     }
   ],
   3: [ // 伴学系统 - 多视频
     {
-      key: 'training-videos/task-3-training.mp4',
-      title: '体验课流程演示视频',
-      duration: 8
+      key: 'training-videos/task-3-demo.mp4',
+      title: '伴学系统操作演示',
+      duration: 48
     },
     {
-      key: 'training-videos/task-3-training.mp4',
-      title: '如何体验和熟悉鼎伴学系统',
-      duration: 6
+      key: 'training-videos/task-3-install.mp4',
+      title: '安装伴学软件并体验',
+      duration: 15
     },
     {
-      key: 'training-videos/task-3-training.mp4',
+      key: 'training-videos/task-3-sop.mp4',
       title: '试听课SOP和正式课SOP',
-      duration: 6
+      duration: 28
     }
   ],
   5: [ // 1v1群消息培训 - 多视频
     {
-      key: 'training-videos/task-5-training.mp4',
+      key: 'training-videos/task-5-group.mp4',
       title: '1v1 家长群使用规范',
-      duration: 30
+      duration: 10
     }
   ]
 }
@@ -301,15 +301,17 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
       title: '上传伴学系统操作视频',
       emoji: '💻',
       tips: [
-        '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量。',
-        '参考课程回放',
-        '课程：数学伴学（五年级）',
-        '录制时间：2025-12-13 08:59:08',
-        '回放链接：https://meeting.tencent.com/crm/2Z4qyroz67',
+        '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量',
+        '参考课程回放：https://meeting.tencent.com/crm/2Z4qyroz67',
         '参考上述上课流程，用腾讯会议录制一段试讲视频，可不出镜：',
         '时长：约 20 分钟',
         '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
-        '要求：流程完整、表达清晰、符合伴学课堂节奏'
+        '要求：流程完整、表达清晰、符合伴学课堂节奏',
+        '校区账号：18701557327， 密码：123qwe',
+        '用自己手机号从试课学员入口注册体验',
+
+        '附：【鼎伴学软件下载】百度网盘: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
+
       ]
     }
   ]

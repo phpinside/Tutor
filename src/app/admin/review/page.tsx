@@ -122,15 +122,6 @@ export default async function AdminReviewPage() {
                       </div>
                     )
                   })()}
-                  
-                  {/* 文本模拟类型 */}
-                  {submission.taskType === 'SIMULATION' && submission.textContent && (
-                    <div className="p-4 bg-gray-50 rounded-lg border-l-4 border-primary-500">
-                      <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                        {submission.textContent}
-                      </p>
-                    </div>
-                  )}
                 </div>
                 
                 {/* 审核表单 */}
