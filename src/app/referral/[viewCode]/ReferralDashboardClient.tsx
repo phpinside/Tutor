@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
+import { formatName, formatPhone } from '@/lib/utils'
 
 const PosterGenerator = dynamic(() => import('@/components/referral/PosterGenerator'), {
   ssr: false
@@ -21,6 +22,7 @@ type ReferralData = {
     id: string
     index: number
     referredName: string
+    referredPhone: string | null
     currentPhase: number
     currentTaskIndex: number
     status: string
@@ -177,8 +179,15 @@ export default function ReferralDashboardClient({
                     {referrals.map((referral) => (
                       <tr key={referral.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm">#{referral.index}</td>
-                        <td className="py-3 px-4 text-sm font-medium">
-                          被邀请人 #{referral.index}
+                        <td className="py-3 px-4 text-sm">
+                          <div className="font-medium">
+                            {referral.referredName ? formatName(referral.referredName) : `被邀请人 #${referral.index}`}
+                          </div>
+                          {referral.referredPhone && (
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {formatPhone(referral.referredPhone)}
+                            </div>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-sm">
                           第 {referral.currentTaskIndex}/6 个任务
@@ -237,8 +246,15 @@ export default function ReferralDashboardClient({
                 {referrals.map((referral) => (
                   <div key={referral.id} className="p-4 border border-gray-200 rounded-lg">
                     <div className="flex justify-between items-start mb-3">
-                      <div className="font-medium text-gray-900">
-                        被邀请人 #{referral.index}
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {referral.referredName ? formatName(referral.referredName) : `被邀请人 #${referral.index}`}
+                        </div>
+                        {referral.referredPhone && (
+                          <div className="text-xs text-gray-500 mt-0.5">
+                            {formatPhone(referral.referredPhone)}
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-2">
                         {referral.referralStatus === 'VALID' ? (

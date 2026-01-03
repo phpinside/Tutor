@@ -50,3 +50,14 @@ export function getTeacherStatusText(status: string): string {
   return statusMap[status] || status
 }
 
+// 格式化姓名为"姓xx"格式
+export function formatName(name: string | null): string {
+  if (!name || name.length <= 1) return name || ''
+  return name.charAt(0) + 'xx'
+}
+
+// 格式化手机号为"前3位****后4位"格式
+export function formatPhone(phone: string | null): string {
+  if (!phone || phone.length !== 11) return phone || ''
+  return phone.substring(0, 3) + '****' + phone.substring(7)
+}

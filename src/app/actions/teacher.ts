@@ -245,6 +245,7 @@ export async function getReferralDataByViewCode(viewCode: string) {
               select: {
                 id: true,
                 name: true,
+                phone: true,
                 currentPhase: true,
                 currentTaskIndex: true,
                 status: true,
@@ -285,6 +286,7 @@ export async function getReferralDataByViewCode(viewCode: string) {
           id: ref.id,
           index: index + 1,
           referredName: ref.referred.name || `用户 #${index + 1}`,
+          referredPhone: ref.referred.phone,
           currentPhase: ref.referred.currentPhase,
           currentTaskIndex: ref.referred.currentTaskIndex,
           status: ref.referred.status,
