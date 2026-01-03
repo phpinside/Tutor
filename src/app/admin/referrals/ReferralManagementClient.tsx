@@ -29,15 +29,30 @@ type Referral = {
 
 export default function ReferralManagementClient({
   initialReferrals,
-  initialStats
+  initialStats,
+  initialFilters
 }: {
   initialReferrals: any[]
   initialStats: any
+  initialFilters?: {
+    status?: string
+    search?: string
+    inviteCode?: string
+    startDate?: string
+    endDate?: string
+    taskProgress?: string
+    rewardStatus?: string
+  }
 }) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [searchTerm, setSearchTerm] = useState('')
-  const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [searchTerm, setSearchTerm] = useState(initialFilters?.search || '')
+  const [statusFilter, setStatusFilter] = useState<string>(initialFilters?.status || 'all')
+  const [inviteCode, setInviteCode] = useState(initialFilters?.inviteCode || '')
+  const [startDate, setStartDate] = useState(initialFilters?.startDate || '')
+  const [endDate, setEndDate] = useState(initialFilters?.endDate || '')
+  const [taskProgress, setTaskProgress] = useState(initialFilters?.taskProgress || '')
+  const [rewardStatus, setRewardStatus] = useState(initialFilters?.rewardStatus || '')
   const [isLoading, setIsLoading] = useState(false)
   
   // 处理标记无效
@@ -94,40 +109,123 @@ export default function ReferralManagementClient({
     const params = new URLSearchParams()
     if (statusFilter !== 'all') params.set('status', statusFilter)
     if (searchTerm) params.set('search', searchTerm)
+    if (inviteCode) params.set('inviteCode', inviteCode)
+    if (startDate) params.set('startDate', startDate)
+    if (endDate) params.set('endDate', endDate)
+    if (taskProgress) params.set('taskProgress', taskProgress)
+    if (rewardStatus) params.set('rewardStatus', rewardStatus)
     
     router.push(`/admin/referrals?${params.toString()}`)
+  }
+  
+  // 重置筛选
+  const handleReset = () => {
+    setSearchTerm('')
+    setStatusFilter('all')
+    setInviteCode('')
+    setStartDate('')
+    setEndDate('')
+    setTaskProgress('')
+    setRewardStatus('')
+    router.push('/admin/referrals')
   }
   
   return (
     <div className="bg-white rounded-lg shadow">
       {/* 筛选和搜索 */}
       <div className="p-4 border-b border-gray-200">
-        <div className="flex flex-col md:flex-row gap-4">
-          <div className="flex-1">
+        <div className="flex flex-col gap-4">
+          {/* 第一行：搜索框、邀请码、邀请状态、重置 */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="搜索邀请人或被邀请人姓名/手机号..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              />
+            </div>
             <input
               type="text"
-              placeholder="搜索邀请人或被邀请人姓名/手机号..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="搜索邀请码..."
+              value={inviteCode}
+              onChange={(e) => setInviteCode(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent md:w-48"
             />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="all">邀请状态（全部）</option>
+              <option value="valid">有效邀请</option>
+              <option value="invalid">无效邀请</option>
+            </select>
+            <button
+              onClick={handleReset}
+              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors whitespace-nowrap"
+            >
+              重置
+            </button>
           </div>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-          >
-            <option value="all">全部状态</option>
-            <option value="valid">有效邀请</option>
-            <option value="invalid">无效邀请</option>
-          </select>
-          <button
-            onClick={handleApplyFilters}
-            className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-          >
-            筛选
-          </button>
+          
+          {/* 第二行：任务进度、完成状态、奖励状态 */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <select
+              value={taskProgress}
+              onChange={(e) => setTaskProgress(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">任务进度（全部）</option>
+              <option value="0">任务 0/6</option>
+              <option value="1">任务 1/6</option>
+              <option value="2">任务 2/6</option>
+              <option value="3">任务 3/6</option>
+              <option value="4">任务 4/6</option>
+              <option value="5">任务 5/6</option>
+              <option value="6">任务 6/6</option>
+            </select>
+            <select
+              value={rewardStatus}
+              onChange={(e) => setRewardStatus(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">奖励状态（全部）</option>
+              <option value="pending">待发放</option>
+              <option value="sent">已发放</option>
+            </select>
+          </div>
+          
+          {/* 第三行：邀请时间区间、筛选按钮 */}
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <label className="text-sm text-gray-600 whitespace-nowrap">邀请时间：</label>
+              <div className="flex items-center gap-2 flex-1 w-full">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                <span className="text-gray-500">-</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+            <button
+              onClick={handleApplyFilters}
+              className="px-8 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors whitespace-nowrap"
+            >
+              筛选
+            </button>
+          </div>
         </div>
       </div>
       

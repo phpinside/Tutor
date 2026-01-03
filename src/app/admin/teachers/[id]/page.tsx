@@ -304,6 +304,24 @@ export default async function TeacherDetailPage({
                           )
                         })}
                       </div>
+                    ) : submission.taskType === 'TRAINING' && submission.formData ? (
+                      /* 培训任务数据 */
+                      <div className="p-3 bg-gray-50 rounded text-sm space-y-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-success-600">✓</span>
+                          <span className="text-gray-700 font-medium">已确认完成培训</span>
+                        </div>
+                        {(submission.formData as any).watchedVideoCount !== undefined && (
+                          <div className="text-gray-600 ml-6">
+                            观看进度: {(submission.formData as any).watchedVideoCount} / {(submission.formData as any).totalVideoCount} 个视频
+                          </div>
+                        )}
+                        {submission.watchProgress && (
+                          <div className="text-gray-600 ml-6">
+                            完成度: {submission.watchProgress}%
+                          </div>
+                        )}
+                      </div>
                     ) : submission.formData && (submission.taskType === 'FORM' || submission.taskType === 'INFO') ? (
                       /* 表单类型数据 */
                       <div className="p-3 bg-gray-50 rounded text-sm">

@@ -6,14 +6,43 @@ export const dynamic = 'force-dynamic'
 export default async function ReferralsManagementPage({
   searchParams
 }: {
-  searchParams: Promise<{ status?: string; search?: string }>
+  searchParams: Promise<{
+    status?: string
+    search?: string
+    inviteCode?: string
+    startDate?: string
+    endDate?: string
+    taskProgress?: string
+    completionStatus?: string
+    rewardStatus?: string
+  }>
 }) {
   // 获取筛选参数
   const params = await searchParams
   const filters: any = {}
+  
+  // 邀请状态
   if (params.status === 'valid') filters.status = 'VALID'
   if (params.status === 'invalid') filters.status = 'INVALID'
+  
+  // 搜索
   if (params.search) filters.search = params.search
+  
+  // 邀请码
+  if (params.inviteCode) filters.inviteCode = params.inviteCode
+  
+  // 邀请时间区间
+  if (params.startDate) filters.startDate = params.startDate
+  if (params.endDate) filters.endDate = params.endDate
+  
+  // 任务进度
+  if (params.taskProgress) filters.taskProgress = params.taskProgress
+  
+  // 完成状态
+  if (params.completionStatus) filters.completionStatus = params.completionStatus
+  
+  // 奖励状态
+  if (params.rewardStatus) filters.rewardStatus = params.rewardStatus
   
   // 获取数据
   const [referralsResult, overviewResult] = await Promise.all([
@@ -71,6 +100,7 @@ export default async function ReferralsManagementPage({
       <ReferralManagementClient 
         initialReferrals={referrals}
         initialStats={referralStats}
+        initialFilters={params}
       />
     </div>
   )

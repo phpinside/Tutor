@@ -36,6 +36,16 @@ export async function submitTask(
   }
 ) {
   try {
+    // 调试日志：记录接收到的数据
+    console.log('📝 提交任务数据:', { 
+      teacherId, 
+      taskIndex, 
+      taskType: data.taskType,
+      hasFormData: !!data.formData,
+      formData: data.formData,
+      watchProgress: data.watchProgress
+    })
+    
     // 验证 teacherId 是否存在
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId }
@@ -63,6 +73,11 @@ export async function submitTask(
     if (existing) {
       // 更新现有记录
       const { taskType, ...restData } = data
+      console.log('💾 准备更新现有记录到数据库:', { 
+        teacherId, 
+        taskIndex,
+        restData 
+      })
       submission = await prisma.taskSubmission.update({
         where: {
           teacherId_taskIndex: {
@@ -81,6 +96,11 @@ export async function submitTask(
     } else {
       // 创建新记录
       const { taskType, ...restData } = data
+      console.log('💾 准备创建新记录到数据库:', { 
+        teacherId, 
+        taskIndex,
+        restData 
+      })
       submission = await prisma.taskSubmission.create({
         data: {
           teacherId,
@@ -91,6 +111,15 @@ export async function submitTask(
         }
       })
     }
+    
+    console.log('✅ 任务保存成功:', {
+      submissionId: submission.id,
+      taskIndex: submission.taskIndex,
+      taskType: submission.taskType,
+      hasFormData: !!submission.formData,
+      formData: submission.formData,
+      watchProgress: submission.watchProgress
+    })
     
     // 如果任务自动完成（不需要审核），则推进到下一个任务
     if (initialStatus === 'COMPLETED') {

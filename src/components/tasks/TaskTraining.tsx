@@ -192,7 +192,12 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
       // 提交任务（会自动推进到下一个任务）
       const result = await submitTask(teacherId, task.index, {
         taskType: task.type,
-        watchProgress: 100
+        watchProgress: 100,
+        formData: { 
+          understood: true,
+          watchedVideoCount: watchedVideos.size,
+          totalVideoCount: videos.length
+        }
       })
       
       if (result.success) {

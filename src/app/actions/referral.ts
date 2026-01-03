@@ -8,6 +8,12 @@ export type ReferralFilters = {
   status?: 'VALID' | 'INVALID'
   rewardSent?: boolean
   search?: string // 搜索邀请人或被邀请人姓名/手机号
+  inviteCode?: string // 邀请码
+  startDate?: string // 邀请开始日期
+  endDate?: string // 邀请结束日期
+  taskProgress?: string // 任务进度 '0'-'6'
+  completionStatus?: string // 完成状态: 'in_progress' | 'completed'
+  rewardStatus?: string // 奖励状态: 'sent' | 'pending' | 'all'
 }
 
 export type BatchAction = 
@@ -18,25 +24,74 @@ export type BatchAction =
 // 管理员：获取所有邀请记录
 export async function getAllReferrals(filters?: ReferralFilters) {
   try {
-    const where: any = {}
+    const whereConditions: any[] = []
     
+    // 邀请状态
     if (filters?.status) {
-      where.status = filters.status
+      whereConditions.push({ status: filters.status })
     }
     
-    if (filters?.rewardSent !== undefined) {
-      where.rewardSent = filters.rewardSent
+    // 奖励发放状态（优先使用 rewardStatus）
+    if (filters?.rewardStatus === 'sent') {
+      whereConditions.push({ rewardSent: true })
+    } else if (filters?.rewardStatus === 'pending') {
+      whereConditions.push({ rewardSent: false })
+    } else if (filters?.rewardSent !== undefined) {
+      whereConditions.push({ rewardSent: filters.rewardSent })
     }
     
-    // 如果有搜索条件，需要关联查询
+    // 搜索条件（姓名/手机号）
     if (filters?.search) {
-      where.OR = [
-        { referrer: { name: { contains: filters.search, mode: 'insensitive' } } },
-        { referrer: { phone: { contains: filters.search } } },
-        { referred: { name: { contains: filters.search, mode: 'insensitive' } } },
-        { referred: { phone: { contains: filters.search } } }
-      ]
+      whereConditions.push({
+        OR: [
+          { referrer: { name: { contains: filters.search, mode: 'insensitive' } } },
+          { referrer: { phone: { contains: filters.search } } },
+          { referred: { name: { contains: filters.search, mode: 'insensitive' } } },
+          { referred: { phone: { contains: filters.search } } }
+        ]
+      })
     }
+    
+    // 邀请码筛选
+    if (filters?.inviteCode) {
+      whereConditions.push({
+        referrer: { inviteCode: { contains: filters.inviteCode, mode: 'insensitive' } }
+      })
+    }
+    
+    // 邀请时间区间
+    if (filters?.startDate || filters?.endDate) {
+      const dateFilter: any = {}
+      if (filters.startDate) {
+        dateFilter.gte = new Date(filters.startDate)
+      }
+      if (filters.endDate) {
+        const endDateTime = new Date(filters.endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        dateFilter.lte = endDateTime
+      }
+      whereConditions.push({ createdAt: dateFilter })
+    }
+    
+    // 任务进度筛选
+    if (filters?.taskProgress) {
+      whereConditions.push({
+        referred: { currentTaskIndex: parseInt(filters.taskProgress) }
+      })
+    }
+    
+    // 完成状态筛选
+    if (filters?.completionStatus === 'completed') {
+      whereConditions.push({
+        referred: { status: { in: ['COMPLETED', 'UNLOCKED'] } }
+      })
+    } else if (filters?.completionStatus === 'in_progress') {
+      whereConditions.push({
+        referred: { status: { notIn: ['COMPLETED', 'UNLOCKED', 'NOT_STARTED'] } }
+      })
+    }
+    
+    const where = whereConditions.length > 0 ? { AND: whereConditions } : {}
     
     const referrals = await prisma.referral.findMany({
       where,
@@ -45,7 +100,8 @@ export async function getAllReferrals(filters?: ReferralFilters) {
           select: {
             id: true,
             name: true,
-            phone: true
+            phone: true,
+            inviteCode: true
           }
         },
         referred: {

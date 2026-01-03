@@ -349,4 +349,183 @@ export async function getMyReferrals(teacherId: string) {
   }
 }
 
+// ==================== 管理后台专用 ====================
+
+// 获取老师和邀请的统计数据
+export async function getTeacherAndReferralStats() {
+  try {
+    // 老师统计
+    const totalTeachers = await prisma.teacher.count({
+      where: { status: { not: 'NOT_STARTED' } }
+    })
+    
+    const inProgressTeachers = await prisma.teacher.count({
+      where: {
+        OR: [
+          { status: 'IN_PROGRESS' },
+          { status: 'PENDING_REVIEW' }
+        ]
+      }
+    })
+    
+    const completedTeachers = await prisma.teacher.count({
+      where: { status: 'COMPLETED' }
+    })
+    
+    const unlockedTeachers = await prisma.teacher.count({
+      where: { status: 'UNLOCKED' }
+    })
+    
+    // 邀请统计
+    const totalReferrals = await prisma.referral.count()
+    
+    const validReferrals = await prisma.referral.count({
+      where: { status: 'VALID' }
+    })
+    
+    const invalidReferrals = await prisma.referral.count({
+      where: { status: 'INVALID' }
+    })
+    
+    const pendingRewards = await prisma.referral.count({
+      where: {
+        status: 'VALID',
+        rewardSent: false
+      }
+    })
+    
+    const rewardsSent = await prisma.referral.count({
+      where: { rewardSent: true }
+    })
+    
+    return {
+      success: true,
+      stats: {
+        teachers: {
+          total: totalTeachers,
+          inProgress: inProgressTeachers,
+          completed: completedTeachers,
+          unlocked: unlockedTeachers
+        },
+        referrals: {
+          total: totalReferrals,
+          valid: validReferrals,
+          invalid: invalidReferrals,
+          pendingRewards,
+          rewardsSent
+        }
+      }
+    }
+  } catch (error) {
+    console.error('获取统计数据失败:', error)
+    return { success: false, error: '获取统计数据失败' }
+  }
+}
+
+// 获取老师列表（包含邀请关系）
+export async function getTeachersWithReferrals(filters: {
+  search?: string
+  taskIndex?: string
+  startDate?: string
+  endDate?: string
+  referralStatus?: string  // 'all' | 'hasReferrals' | 'noReferrals' | 'validReferrals'
+}) {
+  try {
+    const { search, taskIndex, startDate, endDate, referralStatus } = filters
+    
+    // 构建查询条件
+    const whereConditions: any[] = []
+    
+    // 搜索关键词（姓名/ID/邀请码/手机号）
+    if (search) {
+      whereConditions.push({
+        OR: [
+          { name: { contains: search, mode: 'insensitive' } },
+          { id: { contains: search } },
+          { inviteCode: { contains: search, mode: 'insensitive' } },
+          { phone: { contains: search } }
+        ]
+      })
+    }
+    
+    // 任务进度
+    if (taskIndex) {
+      whereConditions.push({
+        currentTaskIndex: parseInt(taskIndex)
+      })
+    }
+    
+    // 注册时间区间
+    if (startDate || endDate) {
+      const dateFilter: any = {}
+      if (startDate) {
+        dateFilter.gte = new Date(startDate)
+      }
+      if (endDate) {
+        const endDateTime = new Date(endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        dateFilter.lte = endDateTime
+      }
+      whereConditions.push({
+        createdAt: dateFilter
+      })
+    }
+    
+    // 查询老师
+    const teachers = await prisma.teacher.findMany({
+      where: {
+        status: { not: 'NOT_STARTED' },
+        ...(whereConditions.length > 0 ? { AND: whereConditions } : {})
+      },
+      include: {
+        referrals: {
+          include: {
+            referred: {
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                currentTaskIndex: true,
+                currentPhase: true,
+                status: true,
+                createdAt: true
+              }
+            }
+          },
+          orderBy: { createdAt: 'desc' }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    // 根据邀请状态筛选
+    let filteredTeachers = teachers
+    if (referralStatus === 'hasReferrals') {
+      filteredTeachers = teachers.filter(t => t.referrals.length > 0)
+    } else if (referralStatus === 'noReferrals') {
+      filteredTeachers = teachers.filter(t => t.referrals.length === 0)
+    } else if (referralStatus === 'validReferrals') {
+      filteredTeachers = teachers.filter(t => 
+        t.referrals.some(r => r.status === 'VALID')
+      )
+    }
+    
+    // 添加计算字段
+    const teachersWithStats = filteredTeachers.map(teacher => ({
+      ...teacher,
+      totalInvites: teacher.referrals.length,
+      validInvites: teacher.referrals.filter(r => r.status === 'VALID').length,
+      pendingRewards: teacher.referrals.filter(r => r.status === 'VALID' && !r.rewardSent).length
+    }))
+    
+    return {
+      success: true,
+      teachers: teachersWithStats
+    }
+  } catch (error) {
+    console.error('获取老师列表失败:', error)
+    return { success: false, error: '获取老师列表失败' }
+  }
+}
+
 
