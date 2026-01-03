@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import Link from 'next/link'
 import { getTeacherStatusText } from '@/lib/utils'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminTeachersPage() {
   const teachers = await prisma.teacher.findMany({
     where: {

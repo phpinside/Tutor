@@ -2,6 +2,8 @@ import { prisma } from '@/lib/prisma'
 import { notFound } from 'next/navigation'
 import PhaseConfigForm from '@/components/admin/PhaseConfigForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EditPhaseConfigPage({
   params
 }: {

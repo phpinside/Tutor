@@ -3,6 +3,8 @@ import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
 import ReviewForm from '@/components/admin/ReviewForm'
 import { updateTaskStatus } from '@/app/actions/task'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminReviewPage() {
   const submissions = await getPendingReviews()
   const TASKS_CONFIG = await getTaskConfigs()

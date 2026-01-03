@@ -2,6 +2,8 @@ import { getAllTaskConfigs, getAllPhaseConfigs } from '@/app/actions/config'
 import Link from 'next/link'
 import QRCodeUploader from '@/components/admin/QRCodeUploader'
 
+export const dynamic = 'force-dynamic'
+
 export default async function AdminConfigPage() {
   const tasks = await getAllTaskConfigs()
   const phases = await getAllPhaseConfigs()

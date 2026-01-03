@@ -3,6 +3,8 @@ import { getReferralById } from '@/app/actions/referral'
 import Link from 'next/link'
 import ReferralDetailClient from './ReferralDetailClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ReferralDetailPage({
   params
 }: {

@@ -2,6 +2,8 @@ import { getTaskConfig } from '@/app/actions/config'
 import { notFound } from 'next/navigation'
 import TaskConfigForm from '@/components/admin/TaskConfigForm'
 
+export const dynamic = 'force-dynamic'
+
 export default async function EditTaskConfigPage({
   params
 }: {

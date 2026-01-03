@@ -1,6 +1,8 @@
 import { getAllReferrals, getReferralOverview } from '@/app/actions/referral'
 import ReferralManagementClient from './ReferralManagementClient'
 
+export const dynamic = 'force-dynamic'
+
 export default async function ReferralsManagementPage({
   searchParams
 }: {
