@@ -21,7 +21,7 @@ type ReferralData = {
   referrals: Array<{
     id: string
     index: number
-    referredName: string
+    referredName: string | null
     referredPhone: string | null
     currentPhase: number
     currentTaskIndex: number

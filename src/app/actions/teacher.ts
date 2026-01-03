@@ -285,7 +285,7 @@ export async function getReferralDataByViewCode(viewCode: string) {
         referrals: teacher.referrals.map((ref, index) => ({
           id: ref.id,
           index: index + 1,
-          referredName: ref.referred.name || `用户 #${index + 1}`,
+          referredName: ref.referred.name,
           referredPhone: ref.referred.phone,
           currentPhase: ref.referred.currentPhase,
           currentTaskIndex: ref.referred.currentTaskIndex,
