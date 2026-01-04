@@ -22,11 +22,9 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
     setTimeout(() => setCopied(false), 2000)
   }
 
-  // 获取二维码签名URL
+  // 获取二维码签名URL - 组件挂载时预加载
   useEffect(() => {
     const fetchQRCode = async () => {
-      if (!showQRCode) return
-      
       try {
         setLoadingQRCode(true)
         const response = await fetch('/api/qrcode/url')
@@ -44,7 +42,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
     }
     
     fetchQRCode()
-  }, [showQRCode])
+  }, [])
   
   return (
     <div className="min-h-screen flex items-center justify-center px-4">

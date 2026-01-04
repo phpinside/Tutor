@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadToQiniu, generateQRCodeKey, getQRCodeUrl } from '@/lib/qiniu'
+import { uploadToQiniu, generateQRCodeKey } from '@/lib/qiniu'
 
 export async function POST(request: NextRequest) {
   try {

@@ -92,13 +92,7 @@ export function generateQRCodeKey(): string {
   return 'qrcode/wechat-group.png'
 }
 
-/**
- * 获取微信群二维码的完整 CDN URL
- * @returns 二维码的完整访问 URL
- */
-export function getQRCodeUrl(): string {
-  return `${QINIU_CONFIG.domain}/${generateQRCodeKey()}`
-}
+
 
 /**
  * 上传文件到七牛云
@@ -109,12 +103,7 @@ export function getQRCodeUrl(): string {
 export async function uploadToQiniu(buffer: Buffer, key: string): Promise<{ success: boolean; key: string; url: string; error?: string }> {
   return new Promise((resolve) => {
     try {
-      // 创建 Mac 认证对象
-      const mac = new qiniu.auth.digest.Mac(
-        QINIU_CONFIG.accessKey,
-        QINIU_CONFIG.secretKey
-      )
-
+    
       // 生成上传token
       const uploadToken = generateUploadToken(key, 3600)
 

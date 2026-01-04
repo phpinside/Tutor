@@ -4,12 +4,12 @@ import { generatePrivateUrl, generateQRCodeKey } from '@/lib/qiniu'
 export async function GET() {
   try {
     const key = generateQRCodeKey()
-    // 生成 1 小时有效期的签名URL
-    const signedUrl = generatePrivateUrl(key, Math.floor(Date.now() / 1000) + 3600)
+    // 生成 10 小时有效期的签名URL
+    const signedUrl = generatePrivateUrl(key, Math.floor(Date.now() / 1000) + 36000)
     
     return NextResponse.json({
       url: signedUrl,
-      expiresIn: 3600
+      expiresIn: 36000
     })
   } catch (error) {
     console.error('生成二维码URL失败:', error)
