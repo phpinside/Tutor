@@ -1,13 +1,40 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Image from 'next/image'
 
 export default function QRCodeUploader() {
   const [uploading, setUploading] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
-  const [previewUrl, setPreviewUrl] = useState<string>('/qrcode-wechat-group.jpg')
+  const [previewUrl, setPreviewUrl] = useState<string>('')
   const [imageKey, setImageKey] = useState(Date.now()) // 用于强制刷新图片
+
+  // 获取二维码 URL
+  const fetchQRCodeUrl = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/qrcode/url')
+      const data = await response.json()
+      if (response.ok) {
+        setPreviewUrl(data.url)
+        setImageKey(Date.now())
+      } else {
+        console.error('获取二维码失败:', data.error)
+        setPreviewUrl('')
+      }
+    } catch (error) {
+      console.error('获取二维码失败:', error)
+      setPreviewUrl('')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // 组件加载时获取二维码 URL
+  useEffect(() => {
+    fetchQRCodeUrl()
+  }, [])
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -44,9 +71,8 @@ export default function QRCodeUploader() {
 
       if (response.ok) {
         setMessage({ type: 'success', text: '二维码上传成功！' })
-        // 强制刷新图片（添加时间戳参数）
-        setImageKey(Date.now())
-        setPreviewUrl(`/qrcode-wechat-group.png?t=${Date.now()}`)
+        // 重新获取新的签名URL
+        await fetchQRCodeUrl()
         
         // 3秒后清除成功消息
         setTimeout(() => setMessage(null), 3000)
@@ -69,19 +95,30 @@ export default function QRCodeUploader() {
           <h3 className="text-sm font-medium text-gray-700 mb-3">当前二维码</h3>
           <div className="bg-gray-50 rounded-lg p-6 flex items-center justify-center border-2 border-gray-200">
             <div className="w-64 h-64 relative bg-white rounded-lg shadow-sm">
-              <Image
-                key={imageKey}
-                src={previewUrl}
-                alt="微信群二维码"
-                fill
-                className="object-contain p-2"
-                unoptimized
-                onError={() => {
-                  // 如果图片加载失败，显示占位符
-                  setPreviewUrl('')
-                }}
-              />
-              {!previewUrl && (
+              {loading ? (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400">
+                  <div className="text-center">
+                    <svg className="animate-spin h-10 w-10 mx-auto mb-2 text-primary-600" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <p className="text-sm">加载中...</p>
+                  </div>
+                </div>
+              ) : previewUrl ? (
+                <Image
+                  key={imageKey}
+                  src={previewUrl}
+                  alt="微信群二维码"
+                  fill
+                  className="object-contain p-2"
+                  unoptimized
+                  onError={() => {
+                    // 如果图片加载失败，显示占位符
+                    setPreviewUrl('')
+                  }}
+                />
+              ) : (
                 <div className="absolute inset-0 flex items-center justify-center text-gray-400">
                   <div className="text-center">
                     <svg className="w-16 h-16 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,6 +148,7 @@ export default function QRCodeUploader() {
                     <li>• 文件大小：最大 5MB</li>
                     <li>• 建议尺寸：400x400 像素或更大</li>
                     <li>• 上传后会替换当前二维码</li>
+                    <li>• 文件将存储在七牛云私有空间</li>
                   </ul>
                 </div>
               </div>

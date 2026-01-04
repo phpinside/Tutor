@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 
 interface CompletionContentProps {
@@ -13,12 +13,38 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
   const [showQRCode, setShowQRCode] = useState(false)
   const [showTeacherWechat, setShowTeacherWechat] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [qrcodeUrl, setQrcodeUrl] = useState('')
+  const [loadingQRCode, setLoadingQRCode] = useState(false)
   
   const handleCopyId = () => {
     navigator.clipboard.writeText(teacherId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  // 获取二维码签名URL
+  useEffect(() => {
+    const fetchQRCode = async () => {
+      if (!showQRCode) return
+      
+      try {
+        setLoadingQRCode(true)
+        const response = await fetch('/api/qrcode/url')
+        const data = await response.json()
+        if (response.ok) {
+          setQrcodeUrl(data.url)
+        } else {
+          console.error('获取二维码失败:', data.error)
+        }
+      } catch (error) {
+        console.error('获取二维码失败:', error)
+      } finally {
+        setLoadingQRCode(false)
+      }
+    }
+    
+    fetchQRCode()
+  }, [showQRCode])
   
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
@@ -204,10 +230,27 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
               {/* 二维码占位区域 */}
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-lg p-8 mb-4">
                 <div className="w-64 h-64 mx-auto bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-gray-200">
-                  {/* 这里应该放置实际的二维码图片 */}
-                  <div className="text-center p-6">
-                      <img src="/qrcode-wechat-group.jpg" alt="微信群二维码" className="w-full h-full" />
-                  </div>
+                  {/* 二维码图片 - 从七牛云私有空间动态加载 */}
+                  {loadingQRCode ? (
+                    <div className="text-center">
+                      <svg className="animate-spin h-10 w-10 mx-auto mb-2 text-primary-600" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      <p className="text-sm text-gray-600">加载中...</p>
+                    </div>
+                  ) : qrcodeUrl ? (
+                    <div className="text-center p-6">
+                      <img src={qrcodeUrl} alt="微信群二维码" className="w-full h-full" />
+                    </div>
+                  ) : (
+                    <div className="text-center p-6">
+                      <svg className="w-16 h-16 mx-auto mb-2 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                      </svg>
+                      <p className="text-sm text-gray-500">二维码加载失败</p>
+                    </div>
+                  )}
                 </div>
               </div>
               

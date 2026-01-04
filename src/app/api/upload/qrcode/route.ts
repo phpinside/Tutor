@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
-import { join } from 'path'
-import { existsSync } from 'fs'
+import { uploadToQiniu, generateQRCodeKey, getQRCodeUrl } from '@/lib/qiniu'
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,20 +35,27 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // 确保 public 目录存在
-    const publicDir = join(process.cwd(), 'public')
-    if (!existsSync(publicDir)) {
-      await mkdir(publicDir, { recursive: true })
+    // 获取固定的二维码 key
+    const key = generateQRCodeKey()
+
+    // 上传到七牛云
+    const result = await uploadToQiniu(buffer, key)
+
+    if (!result.success) {
+      console.error('上传到七牛云失败:', result.error)
+      return NextResponse.json(
+        { error: result.error || '上传失败，请重试' },
+        { status: 500 }
+      )
     }
 
-    // 保存文件，固定文件名
-    const filePath = join(publicDir, 'qrcode-wechat-group.png')
-    await writeFile(filePath, buffer)
+    console.log('二维码上传成功:', result.url)
 
     return NextResponse.json({
       success: true,
       message: '二维码上传成功',
-      path: '/qrcode-wechat-group.png'
+      url: result.url,
+      key: result.key
     })
   } catch (error) {
     console.error('上传二维码失败:', error)
@@ -60,5 +65,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-
-

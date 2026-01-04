@@ -84,3 +84,88 @@ export function isValidVideoKey(key: string): boolean {
   return videoExtensions.some(ext => key.toLowerCase().endsWith(ext))
 }
 
+/**
+ * 生成微信群二维码的固定 key
+ * @returns 二维码在七牛云上的固定 key
+ */
+export function generateQRCodeKey(): string {
+  return 'qrcode/wechat-group.png'
+}
+
+/**
+ * 获取微信群二维码的完整 CDN URL
+ * @returns 二维码的完整访问 URL
+ */
+export function getQRCodeUrl(): string {
+  return `${QINIU_CONFIG.domain}/${generateQRCodeKey()}`
+}
+
+/**
+ * 上传文件到七牛云
+ * @param buffer 文件Buffer
+ * @param key 文件在七牛云上的 key
+ * @returns Promise<上传结果>
+ */
+export async function uploadToQiniu(buffer: Buffer, key: string): Promise<{ success: boolean; key: string; url: string; error?: string }> {
+  return new Promise((resolve) => {
+    try {
+      // 创建 Mac 认证对象
+      const mac = new qiniu.auth.digest.Mac(
+        QINIU_CONFIG.accessKey,
+        QINIU_CONFIG.secretKey
+      )
+
+      // 生成上传token
+      const uploadToken = generateUploadToken(key, 3600)
+
+      // 配置对象
+      const config = new qiniu.conf.Config()
+      // 华北区域
+      // @ts-ignore
+      config.zone = qiniu.zone.Zone_z1
+
+      // 创建表单上传对象
+      const formUploader = new qiniu.form_up.FormUploader(config)
+      const putExtra = new qiniu.form_up.PutExtra()
+
+      // 上传文件
+      formUploader.put(uploadToken, key, buffer, putExtra, (err, body, info) => {
+        if (err) {
+          console.error('七牛云上传错误:', err)
+          resolve({
+            success: false,
+            key: '',
+            url: '',
+            error: err.message || '上传失败'
+          })
+          return
+        }
+
+        if (info.statusCode === 200) {
+          const url = `${QINIU_CONFIG.domain}/${body.key}`
+          resolve({
+            success: true,
+            key: body.key,
+            url
+          })
+        } else {
+          console.error('七牛云上传失败:', info.statusCode, body)
+          resolve({
+            success: false,
+            key: '',
+            url: '',
+            error: `上传失败: ${info.statusCode}`
+          })
+        }
+      })
+    } catch (error) {
+      console.error('七牛云上传异常:', error)
+      resolve({
+        success: false,
+        key: '',
+        url: '',
+        error: error instanceof Error ? error.message : '上传异常'
+      })
+    }
+  })
+}
