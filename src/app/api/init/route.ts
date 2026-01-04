@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
         data: {
           referrerId: referrerId,
           referredId: teacher.id,
-          status: 'VALID'
+          status: 'PENDING'
         }
       })
     }

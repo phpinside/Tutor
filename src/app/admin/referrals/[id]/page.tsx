@@ -48,10 +48,6 @@ export default async function ReferralDetailPage({
             <div className="text-sm text-gray-600">邀请码</div>
             <div className="font-mono text-sm">{referral.referrer.inviteCode}</div>
           </div>
-          <div>
-            <div className="text-sm text-gray-600">查看码</div>
-            <div className="font-mono text-sm">{referral.referrer.referralViewCode}</div>
-          </div>
         </div>
       </div>
       
@@ -103,12 +99,16 @@ export default async function ReferralDetailPage({
           <div>
             <div className="text-sm text-gray-600">邀请状态</div>
             <div className="mt-1">
-              {referral.status === 'VALID' ? (
+              {referral.status === 'PENDING' ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-amber-100 text-amber-800">
+                  ⏳ 待审核
+                </span>
+              ) : referral.status === 'VALID' ? (
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-success-100 text-success-800">
                   ✅ 有效邀请
                 </span>
               ) : (
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-warning-100 text-warning-800">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800">
                   ❌ 无效邀请
                 </span>
               )}

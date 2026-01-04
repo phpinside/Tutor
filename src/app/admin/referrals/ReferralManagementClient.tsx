@@ -7,7 +7,7 @@ import Link from 'next/link'
 
 type Referral = {
   id: string
-  status: 'VALID' | 'INVALID'
+  status: 'PENDING' | 'VALID' | 'INVALID'
   rewardSent: boolean
   adminNote: string | null
   createdAt: Date
@@ -161,6 +161,7 @@ export default function ReferralManagementClient({
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="all">邀请状态（全部）</option>
+              <option value="pending">待审核</option>
               <option value="valid">有效邀请</option>
               <option value="invalid">无效邀请</option>
             </select>
@@ -275,13 +276,17 @@ export default function ReferralManagementClient({
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm">
-                    {referral.status === 'VALID' ? (
+                    {referral.status === 'PENDING' ? (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                        ⏳ 待审核
+                      </span>
+                    ) : referral.status === 'VALID' ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
                         ✅ 有效
                       </span>
                     ) : (
                       <div className="group relative">
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800 cursor-help">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 cursor-help">
                           ❌ 无效
                         </span>
                         {referral.adminNote && (
@@ -308,11 +313,28 @@ export default function ReferralManagementClient({
                   </td>
                   <td className="py-3 px-4 text-sm">
                     <div className="flex gap-2">
-                      {referral.status === 'VALID' ? (
+                      {referral.status === 'PENDING' ? (
+                        <>
+                          <button
+                            onClick={() => handleMarkValid(referral.id)}
+                            disabled={isLoading}
+                            className="text-xs px-2 py-1 bg-success-100 text-success-700 rounded hover:bg-success-200 disabled:opacity-50"
+                          >
+                            审核通过
+                          </button>
+                          <button
+                            onClick={() => handleMarkInvalid(referral.id)}
+                            disabled={isLoading}
+                            className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
+                          >
+                            审核不通过
+                          </button>
+                        </>
+                      ) : referral.status === 'VALID' ? (
                         <button
                           onClick={() => handleMarkInvalid(referral.id)}
                           disabled={isLoading}
-                          className="text-xs px-2 py-1 bg-warning-100 text-warning-700 rounded hover:bg-warning-200 disabled:opacity-50"
+                          className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
                         >
                           标记无效
                         </button>

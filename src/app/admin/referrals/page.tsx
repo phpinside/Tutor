@@ -22,6 +22,7 @@ export default async function ReferralsManagementPage({
   const filters: any = {}
   
   // 邀请状态
+  if (params.status === 'pending') filters.status = 'PENDING'
   if (params.status === 'valid') filters.status = 'VALID'
   if (params.status === 'invalid') filters.status = 'INVALID'
   
@@ -73,21 +74,25 @@ export default async function ReferralsManagementPage({
       </div>
       
       {/* 统计概览 */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600 mt-1">总邀请数</div>
+        </div>
+        <div className="bg-white rounded-lg shadow p-4 border border-amber-200">
+          <div className="text-2xl font-bold text-amber-600">{stats.pending}</div>
+          <div className="text-sm text-gray-600 mt-1">待审核</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-success-200">
           <div className="text-2xl font-bold text-success-600">{stats.valid}</div>
           <div className="text-sm text-gray-600 mt-1">有效邀请</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border border-warning-200">
-          <div className="text-2xl font-bold text-warning-600">{stats.invalid}</div>
+        <div className="bg-white rounded-lg shadow p-4 border border-red-200">
+          <div className="text-2xl font-bold text-red-600">{stats.invalid}</div>
           <div className="text-sm text-gray-600 mt-1">无效邀请</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border border-amber-200">
-          <div className="text-2xl font-bold text-amber-600">{stats.pendingReward}</div>
+        <div className="bg-white rounded-lg shadow p-4 border border-orange-200">
+          <div className="text-2xl font-bold text-orange-600">{stats.pendingReward}</div>
           <div className="text-sm text-gray-600 mt-1">待发放奖励</div>
         </div>
         <div className="bg-white rounded-lg shadow p-4 border border-blue-200">

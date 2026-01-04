@@ -1,3 +1,6 @@
+'use client'
+
+import { usePathname } from 'next/navigation'
 import LogoutButton from './LogoutButton'
 
 export default function AdminLayout({
@@ -5,6 +8,20 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode
 }) {
+  const pathname = usePathname()
+  
+  const isActive = (path: string) => {
+    return pathname.startsWith(path)
+  }
+  
+  const navLinkClass = (path: string) => {
+    return `text-sm font-medium transition-colors pb-1 ${
+      isActive(path)
+        ? 'text-blue-600 border-b-2 border-blue-600'
+        : 'text-gray-600 hover:text-gray-900'
+    }`
+  }
+  
   return (
     <div className="min-h-screen bg-gray-50">
       {/* 顶部导航栏 */}
@@ -25,26 +42,26 @@ export default function AdminLayout({
             
             <nav className="flex items-center gap-6">
               <a 
-                href="/admin/review"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
-              >
-                任务审核
-              </a>
-              <a 
                 href="/admin/teachers"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className={navLinkClass('/admin/teachers')}
               >
                 老师管理
               </a>
               <a 
                 href="/admin/referrals"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className={navLinkClass('/admin/referrals')}
               >
                 邀请管理
               </a>
               <a 
+                href="/admin/withdrawals"
+                className={navLinkClass('/admin/withdrawals')}
+              >
+                提现管理
+              </a>
+              <a 
                 href="/admin/config"
-                className="text-sm font-medium text-gray-600 hover:text-gray-900"
+                className={navLinkClass('/admin/config')}
               >
                 系统配置
               </a>

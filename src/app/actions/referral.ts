@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 
 // 类型定义
 export type ReferralFilters = {
-  status?: 'VALID' | 'INVALID'
+  status?: 'PENDING' | 'VALID' | 'INVALID'
   rewardSent?: boolean
   search?: string // 搜索邀请人或被邀请人姓名/手机号
   inviteCode?: string // 邀请码
@@ -123,6 +123,7 @@ export async function getAllReferrals(filters?: ReferralFilters) {
     const allReferrals = await prisma.referral.findMany()
     const stats = {
       total: allReferrals.length,
+      pending: allReferrals.filter(r => r.status === 'PENDING').length,
       valid: allReferrals.filter(r => r.status === 'VALID').length,
       invalid: allReferrals.filter(r => r.status === 'INVALID').length,
       pendingReward: allReferrals.filter(r => r.status === 'VALID' && !r.rewardSent).length,
@@ -147,8 +148,7 @@ export async function getReferralById(referralId: string) {
             id: true,
             name: true,
             phone: true,
-            inviteCode: true,
-            referralViewCode: true
+            inviteCode: true
           }
         },
         referred: {
@@ -180,7 +180,7 @@ export async function getReferralById(referralId: string) {
 // 管理员：更新邀请状态
 export async function updateReferralStatus(
   referralId: string, 
-  status: 'VALID' | 'INVALID', 
+  status: 'PENDING' | 'VALID' | 'INVALID', 
   note?: string,
   reviewedBy?: string
 ) {
@@ -197,15 +197,7 @@ export async function updateReferralStatus(
     
     // 刷新相关页面
     revalidatePath('/admin/referrals')
-    if (referral.referrerId) {
-      const referrer = await prisma.teacher.findUnique({
-        where: { id: referral.referrerId },
-        select: { referralViewCode: true }
-      })
-      if (referrer?.referralViewCode) {
-        revalidatePath(`/referral/${referrer.referralViewCode}`)
-      }
-    }
+    revalidatePath('/referral/dashboard')
     
     return { success: true, referral }
   } catch (error) {
@@ -228,15 +220,7 @@ export async function markRewardSent(referralId: string, reviewedBy?: string) {
     
     // 刷新相关页面
     revalidatePath('/admin/referrals')
-    if (referral.referrerId) {
-      const referrer = await prisma.teacher.findUnique({
-        where: { id: referral.referrerId },
-        select: { referralViewCode: true }
-      })
-      if (referrer?.referralViewCode) {
-        revalidatePath(`/referral/${referrer.referralViewCode}`)
-      }
-    }
+    revalidatePath('/referral/dashboard')
     
     return { success: true, referral }
   } catch (error) {
@@ -299,6 +283,7 @@ export async function getReferralOverview() {
     
     const stats = {
       total: allReferrals.length,
+      pending: allReferrals.filter(r => r.status === 'PENDING').length,
       valid: allReferrals.filter(r => r.status === 'VALID').length,
       invalid: allReferrals.filter(r => r.status === 'INVALID').length,
       pendingReward: allReferrals.filter(r => r.status === 'VALID' && !r.rewardSent).length,

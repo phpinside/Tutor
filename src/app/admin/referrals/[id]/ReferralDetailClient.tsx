@@ -131,11 +131,28 @@ export default function ReferralDetailClient({ referral }: { referral: any }) {
       
       {/* 操作按钮 */}
       <div className="flex flex-wrap gap-3">
-        {referral.status === 'VALID' ? (
+        {referral.status === 'PENDING' ? (
+          <>
+            <button
+              onClick={handleMarkValid}
+              disabled={isLoading}
+              className="px-4 py-2 bg-success-600 text-white rounded-lg hover:bg-success-700 disabled:opacity-50"
+            >
+              审核通过
+            </button>
+            <button
+              onClick={() => setShowNoteInput(true)}
+              disabled={isLoading}
+              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+            >
+              审核不通过
+            </button>
+          </>
+        ) : referral.status === 'VALID' ? (
           <button
             onClick={() => setShowNoteInput(true)}
             disabled={isLoading}
-            className="px-4 py-2 bg-warning-600 text-white rounded-lg hover:bg-warning-700 disabled:opacity-50"
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
           >
             标记为无效
           </button>

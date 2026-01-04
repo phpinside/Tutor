@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { REFERRAL_CONFIG } from '@/lib/config'
 
 // 获取或创建老师
 export async function getOrCreateTeacher(teacherId?: string) {
@@ -130,12 +131,12 @@ function generateRandomCode(prefix: string, length: number): string {
   return code
 }
 
-// 为老师生成邀请码和查看码（如果还没有）
+// 为老师生成邀请码（如果还没有）
 export async function ensureInviteCodes(teacherId: string) {
   try {
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { inviteCode: true, referralViewCode: true }
+      select: { inviteCode: true }
     })
     
     if (!teacher) {
@@ -143,17 +144,15 @@ export async function ensureInviteCodes(teacherId: string) {
     }
     
     // 如果已有邀请码，直接返回
-    if (teacher.inviteCode && teacher.referralViewCode) {
+    if (teacher.inviteCode) {
       return {
         success: true,
-        inviteCode: teacher.inviteCode,
-        viewCode: teacher.referralViewCode
+        inviteCode: teacher.inviteCode
       }
     }
     
-    // 生成唯一的邀请码和查看码
+    // 生成唯一的邀请码
     let inviteCode = teacher.inviteCode
-    let viewCode = teacher.referralViewCode
     
     // 生成邀请码
     if (!inviteCode) {
@@ -173,37 +172,17 @@ export async function ensureInviteCodes(teacherId: string) {
       }
     }
     
-    // 生成查看码
-    if (!viewCode) {
-      let attempts = 0
-      while (!viewCode && attempts < 10) {
-        const candidate = generateRandomCode('VIEW-', 8)
-        const existing = await prisma.teacher.findUnique({
-          where: { referralViewCode: candidate }
-        })
-        if (!existing) {
-          viewCode = candidate
-        }
-        attempts++
-      }
-      if (!viewCode) {
-        throw new Error('生成查看码失败，请重试')
-      }
-    }
-    
     // 更新数据库
     await prisma.teacher.update({
       where: { id: teacherId },
       data: {
-        inviteCode,
-        referralViewCode: viewCode
+        inviteCode
       }
     })
     
     return {
       success: true,
-      inviteCode,
-      viewCode
+      inviteCode
     }
   } catch (error) {
     console.error('生成邀请码失败:', error)
@@ -233,58 +212,163 @@ export async function getTeacherByInviteCode(inviteCode: string) {
   }
 }
 
-// 通过查看码获取邀请统计和列表（用于邀请看板）
-export async function getReferralDataByViewCode(viewCode: string) {
+// 通过teacherId获取邀请统计和列表（用于邀请看板 - 登录后使用）
+export async function getReferralDataByTeacherId(
+  teacherId: string,
+  filters?: {
+    page?: number
+    pageSize?: number
+    startDate?: string
+    endDate?: string
+    taskStatus?: string // '0' - '6' 表示任务进度
+    referralStatus?: string // 邀请状态: 'PENDING' | 'VALID' | 'INVALID'
+    rewardStatus?: string // 奖励状态: 'sent' | 'pending'
+  }
+) {
   try {
     const teacher = await prisma.teacher.findUnique({
-      where: { referralViewCode: viewCode },
-      include: {
-        referrals: {
-          include: {
-            referred: {
-              select: {
-                id: true,
-                name: true,
-                phone: true,
-                currentPhase: true,
-                currentTaskIndex: true,
-                status: true,
-                createdAt: true
-              }
-            }
-          },
-          orderBy: { createdAt: 'desc' }
-        }
+      where: { id: teacherId },
+      select: {
+        id: true,
+        name: true,
+        inviteCode: true
       }
     })
     
     if (!teacher) {
-      return { success: false, error: '查看码无效' }
+      return { success: false, error: '用户不存在' }
     }
-    
+
+    // 构建查询条件
+    const whereConditions: any = {
+      referrerId: teacher.id
+    }
+
+    // 被邀请人筛选条件
+    const referredWhere: any = {}
+
+    // 时间范围筛选
+    if (filters?.startDate || filters?.endDate) {
+      const dateFilter: any = {}
+      if (filters.startDate) {
+        dateFilter.gte = new Date(filters.startDate)
+      }
+      if (filters.endDate) {
+        const endDateTime = new Date(filters.endDate)
+        endDateTime.setHours(23, 59, 59, 999)
+        dateFilter.lte = endDateTime
+      }
+      whereConditions.createdAt = dateFilter
+    }
+
+    // 任务状态筛选
+    if (filters?.taskStatus !== undefined && filters.taskStatus !== '') {
+      referredWhere.currentTaskIndex = parseInt(filters.taskStatus)
+    }
+
+    // 邀请状态筛选
+    if (filters?.referralStatus && filters.referralStatus !== '') {
+      whereConditions.status = filters.referralStatus
+    }
+
+    // 奖励状态筛选
+    if (filters?.rewardStatus && filters.rewardStatus !== '') {
+      if (filters.rewardStatus === 'sent') {
+        whereConditions.rewardSent = true
+      } else if (filters.rewardStatus === 'pending') {
+        whereConditions.rewardSent = false
+        whereConditions.status = 'VALID' // 只有有效邀请才有待发放的概念
+      }
+    }
+
+    // 如果有被邀请人筛选条件，添加到主查询
+    if (Object.keys(referredWhere).length > 0) {
+      whereConditions.referred = referredWhere
+    }
+
+    // 计算总数（用于统计和分页）
+    const totalCount = await prisma.referral.count({
+      where: whereConditions
+    })
+
+    // 获取全部数据用于统计
+    const allReferrals = await prisma.referral.findMany({
+      where: { referrerId: teacher.id },
+      include: {
+        referred: {
+          select: {
+            status: true
+          }
+        }
+      }
+    })
+
+    // 计算收益统计
+    const earningsResult = await calculateReferralEarnings(teacher.id)
+    const earnings = earningsResult.success ? earningsResult.earnings : {
+      totalEarnings: 0,
+      totalWithdrawn: 0,
+      totalPending: 0,
+      availableBalance: 0,
+      validReferralsCount: 0
+    }
+
     // 计算统计数据
-    const totalReferrals = teacher.referrals.length
-    const completedReferrals = teacher.referrals.filter(r => 
-      r.referred.status === 'COMPLETED' || r.referred.status === 'UNLOCKED'
-    ).length
-    const invalidReferrals = teacher.referrals.filter(r => r.status === 'INVALID').length
-    const rewardsSent = teacher.referrals.filter(r => r.rewardSent).length
-    
+    const stats = {
+      total: allReferrals.length,
+      validReferrals: earnings!.validReferralsCount,
+      totalWithdrawn: earnings!.totalWithdrawn,
+      totalPending: earnings!.totalPending,
+      availableBalance: earnings!.availableBalance,
+      // 保留旧的统计字段以兼容
+      pending: allReferrals.filter(r => r.status === 'PENDING').length,
+      valid: allReferrals.filter(r => r.status === 'VALID').length,
+      completed: allReferrals.filter(r => 
+        r.referred.status === 'COMPLETED' || r.referred.status === 'UNLOCKED'
+      ).length,
+      invalid: allReferrals.filter(r => r.status === 'INVALID').length,
+      rewardsSent: allReferrals.filter(r => r.rewardSent).length
+    }
+
+    // 分页参数
+    const page = filters?.page || 1
+    const pageSize = filters?.pageSize || 100
+    const skip = (page - 1) * pageSize
+
+    // 获取分页数据
+    const referrals = await prisma.referral.findMany({
+      where: whereConditions,
+      include: {
+        referred: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            currentPhase: true,
+            currentTaskIndex: true,
+            status: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take: pageSize
+    })
+
+    // 计算分页信息
+    const totalPages = Math.ceil(totalCount / pageSize)
+
     return {
       success: true,
       data: {
         teacherId: teacher.id,
         referrerName: teacher.name,
         inviteCode: teacher.inviteCode,
-        stats: {
-          total: totalReferrals,
-          completed: completedReferrals,
-          invalid: invalidReferrals,
-          rewardsSent
-        },
-        referrals: teacher.referrals.map((ref, index) => ({
+        stats,
+        referrals: referrals.map((ref, index) => ({
           id: ref.id,
-          index: index + 1,
+          index: skip + index + 1,
           referredName: ref.referred.name,
           referredPhone: ref.referred.phone,
           currentPhase: ref.referred.currentPhase,
@@ -294,7 +378,15 @@ export async function getReferralDataByViewCode(viewCode: string) {
           rewardSent: ref.rewardSent,
           adminNote: ref.adminNote,
           createdAt: ref.createdAt
-        }))
+        })),
+        pagination: {
+          currentPage: page,
+          pageSize,
+          totalCount,
+          totalPages,
+          hasNextPage: page < totalPages,
+          hasPrevPage: page > 1
+        }
       }
     }
   } catch (error) {
@@ -312,6 +404,7 @@ export async function getReferralStats(teacherId: string) {
     
     const stats = {
       total: referrals.length,
+      pending: referrals.filter(r => r.status === 'PENDING').length,
       valid: referrals.filter(r => r.status === 'VALID').length,
       invalid: referrals.filter(r => r.status === 'INVALID').length,
       rewardsSent: referrals.filter(r => r.rewardSent).length
@@ -351,6 +444,200 @@ export async function getMyReferrals(teacherId: string) {
   }
 }
 
+// ==================== 提现相关功能 ====================
+
+// 计算邀请收益
+export async function calculateReferralEarnings(teacherId: string) {
+  try {
+    // 获取所有有效邀请
+    const validReferrals = await prisma.referral.count({
+      where: {
+        referrerId: teacherId,
+        status: 'VALID'
+      }
+    })
+    
+    // 计算总收益
+    const totalEarnings = validReferrals * REFERRAL_CONFIG.rewardPerValidReferral
+    
+    // 获取已批准提现总额
+    const approvedWithdrawals = await prisma.withdrawal.findMany({
+      where: {
+        teacherId,
+        status: 'APPROVED'
+      },
+      select: {
+        amount: true
+      }
+    })
+    
+    const totalWithdrawn = approvedWithdrawals.reduce((sum, w) => sum + w.amount, 0)
+    
+    // 获取待审核提现总额（申请后立即冻结，驳回后自动释放）
+    const pendingWithdrawals = await prisma.withdrawal.findMany({
+      where: {
+        teacherId,
+        status: 'PENDING'
+      },
+      select: {
+        amount: true
+      }
+    })
+    
+    const totalPending = pendingWithdrawals.reduce((sum, w) => sum + w.amount, 0)
+    
+    // 计算可提现金额 = 总收益 - 已批准提现 - 待审核提现
+    const availableBalance = totalEarnings - totalWithdrawn - totalPending
+    
+    return {
+      success: true,
+      earnings: {
+        totalEarnings,
+        totalWithdrawn,
+        totalPending,
+        availableBalance,
+        validReferralsCount: validReferrals
+      }
+    }
+  } catch (error) {
+    console.error('计算邀请收益失败:', error)
+    return { success: false, error: '计算收益失败' }
+  }
+}
+
+// 获取提现信息（包含历史记录和银行信息）
+export async function getWithdrawalInfo(teacherId: string) {
+  try {
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: {
+        id: true,
+        name: true,
+        phone: true
+      }
+    })
+    
+    if (!teacher) {
+      return { success: false, error: '用户不存在' }
+    }
+    
+    // 获取提现历史
+    const withdrawals = await prisma.withdrawal.findMany({
+      where: { teacherId },
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    // 获取最近一次提现的银行信息（用于预填表单）
+    const latestWithdrawal = withdrawals[0]
+    
+    // 计算收益
+    const earningsResult = await calculateReferralEarnings(teacherId)
+    if (!earningsResult.success || !earningsResult.earnings) {
+      return earningsResult
+    }
+    
+    // 检查是否有待处理的提现申请
+    const hasPendingWithdrawal = withdrawals.some(w => w.status === 'PENDING')
+    
+    return {
+      success: true,
+      data: {
+        teacher: {
+          name: teacher.name,
+          phone: teacher.phone
+        },
+        earnings: earningsResult.earnings,
+        withdrawals: withdrawals.map(w => ({
+          id: w.id,
+          amount: w.amount,
+          accountName: w.accountName,
+          bankName: w.bankName,
+          cardNumber: w.cardNumber,
+          phone: w.phone,
+          status: w.status,
+          rejectNote: w.rejectNote,
+          createdAt: w.createdAt,
+          reviewedAt: w.reviewedAt
+        })),
+        latestBankInfo: latestWithdrawal ? {
+          accountName: latestWithdrawal.accountName,
+          bankName: latestWithdrawal.bankName,
+          cardNumber: latestWithdrawal.cardNumber,
+          phone: latestWithdrawal.phone,
+          idCard: latestWithdrawal.idCard
+        } : null,
+        hasPendingWithdrawal
+      }
+    }
+  } catch (error) {
+    console.error('获取提现信息失败:', error)
+    return { success: false, error: '获取提现信息失败' }
+  }
+}
+
+// 申请提现
+export async function applyForWithdrawal(teacherId: string, data: {
+  amount: number
+  accountName: string
+  bankName: string
+  cardNumber: string
+  phone: string
+  idCard: string
+}) {
+  try {
+    // 验证提现金额
+    if (data.amount <= 0) {
+      return { success: false, error: '提现金额必须大于0' }
+    }
+    
+    // 计算可提现余额
+    const earningsResult = await calculateReferralEarnings(teacherId)
+    if (!earningsResult.success) {
+      return earningsResult
+    }
+    
+    const { availableBalance } = earningsResult.earnings!
+    
+    if (data.amount > availableBalance) {
+      return { success: false, error: '提现金额超过可用余额' }
+    }
+    
+    // 检查是否已有待处理的提现申请
+    const pendingWithdrawal = await prisma.withdrawal.findFirst({
+      where: {
+        teacherId,
+        status: 'PENDING'
+      }
+    })
+    
+    if (pendingWithdrawal) {
+      return { success: false, error: '您有待处理的提现申请，请等待审核完成后再提交新申请' }
+    }
+    
+    // 创建提现申请
+    const withdrawal = await prisma.withdrawal.create({
+      data: {
+        teacherId,
+        amount: data.amount,
+        accountName: data.accountName,
+        bankName: data.bankName,
+        cardNumber: data.cardNumber,
+        phone: data.phone,
+        idCard: data.idCard,
+        status: 'PENDING'
+      }
+    })
+    
+    revalidatePath('/referral/withdraw')
+    revalidatePath('/referral/dashboard')
+    
+    return { success: true, withdrawal }
+  } catch (error) {
+    console.error('申请提现失败:', error)
+    return { success: false, error: '申请提现失败，请重试' }
+  }
+}
+
 // ==================== 管理后台专用 ====================
 
 // 获取老师和邀请的统计数据
@@ -380,6 +667,10 @@ export async function getTeacherAndReferralStats() {
     
     // 邀请统计
     const totalReferrals = await prisma.referral.count()
+    
+    const pendingReferrals = await prisma.referral.count({
+      where: { status: 'PENDING' }
+    })
     
     const validReferrals = await prisma.referral.count({
       where: { status: 'VALID' }
@@ -411,6 +702,7 @@ export async function getTeacherAndReferralStats() {
         },
         referrals: {
           total: totalReferrals,
+          pending: pendingReferrals,
           valid: validReferrals,
           invalid: invalidReferrals,
           pendingRewards,

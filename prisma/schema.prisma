@@ -38,8 +38,16 @@ enum TaskType {
 
 // 邀请状态枚举
 enum ReferralStatus {
+  PENDING // 待审核（默认状态）
   VALID   // 有效邀请
   INVALID // 无效邀请
+}
+
+// 提现状态枚举
+enum WithdrawalStatus {
+  PENDING  // 已申请
+  APPROVED // 已成功
+  REJECTED // 已驳回
 }
 
 // 老师信息
@@ -48,7 +56,8 @@ model Teacher {
 
   // 基础信息
   name           String? // 姓名
-  phone          String? // 联系电话
+  phone          String? @unique // 联系电话（唯一，用于邀请人登录）
+  password       String? // 密码（bcrypt加密，仅邀请人使用）
   gender         String? // 性别：男/女
   age            String? // 年龄
   school         String? // 学历/学校（包含专业）
@@ -75,9 +84,8 @@ model Teacher {
   currentTaskIndex Int           @default(0) // 当前任务索引 0-5
 
   // 邀请相关
-  inviteCode       String? @unique // 唯一邀请码（用于分享给他人）
-  referralViewCode String? @unique // 邀请看板查看码（用于自己查看邀请记录）
-  invitedById      String? // 邀请人ID
+  inviteCode  String? @unique // 唯一邀请码（用于分享给他人）
+  invitedById String? // 邀请人ID
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -88,7 +96,11 @@ model Teacher {
   invitedTeachers    Teacher[]        @relation("TeacherReferrals")
   referrals          Referral[]       @relation("ReferrerReferrals")
   referredReferral   Referral?        @relation("ReferredReferral")
+  withdrawals        Withdrawal[]
 
+  @@index([phone])
+  @@index([currentTaskIndex])
+  @@index([createdAt])
   @@map("teachers")
 }
 
@@ -173,7 +185,7 @@ model Referral {
   referredId String @unique // 被邀请人ID
   
   // 状态管理
-  status     ReferralStatus @default(VALID) // 邀请状态
+  status     ReferralStatus @default(PENDING) // 邀请状态
   rewardSent Boolean        @default(false) // 是否已发放奖励
   
   // 管理员操作
@@ -191,4 +203,41 @@ model Referral {
   @@index([referrerId])
   @@index([status])
   @@map("referrals")
+}
+
+// 提现申请表
+model Withdrawal {
+  id String @id @default(cuid())
+  
+  // 提现人信息
+  teacherId String // 申请提现的老师ID
+  
+  // 提现金额
+  amount Float // 提现金额（元）
+  
+  // 银行账户信息
+  accountName String // 账户名称（姓名）
+  bankName    String // 开户行名称
+  cardNumber  String // 银行卡号
+  phone       String // 手机号
+  idCard      String // 身份证号码
+  
+  // 状态管理
+  status WithdrawalStatus @default(PENDING) // 提现状态
+  
+  // 管理员操作
+  rejectNote String?   // 驳回备注
+  reviewedBy String?   // 审核人
+  reviewedAt DateTime? // 审核时间
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // 关系
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  @@index([teacherId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("withdrawals")
 }

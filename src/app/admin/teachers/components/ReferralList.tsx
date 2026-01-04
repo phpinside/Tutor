@@ -7,7 +7,7 @@ import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
 
 type Referral = {
   id: string
-  status: 'VALID' | 'INVALID'
+  status: 'PENDING' | 'VALID' | 'INVALID'
   rewardSent: boolean
   adminNote: string | null
   createdAt: Date
@@ -123,10 +123,12 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
                     )}
                   </span>
                   <span>•</span>
-                  {referral.status === 'VALID' ? (
+                  {referral.status === 'PENDING' ? (
+                    <span className="text-amber-600">⏳ 待审核</span>
+                  ) : referral.status === 'VALID' ? (
                     <span className="text-success-600">✅ 有效</span>
                   ) : (
-                    <span className="text-warning-600">❌ 无效</span>
+                    <span className="text-red-600">❌ 无效</span>
                   )}
                   <span>•</span>
                   {referral.rewardSent ? (
@@ -147,11 +149,28 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
             </div>
             
             <div className="flex gap-2 ml-7 mt-3">
-              {referral.status === 'VALID' ? (
+              {referral.status === 'PENDING' ? (
+                <>
+                  <button
+                    onClick={() => handleMarkValid(referral.id)}
+                    disabled={isLoading}
+                    className="text-xs px-3 py-1 bg-success-100 text-success-700 rounded hover:bg-success-200 disabled:opacity-50 transition-colors"
+                  >
+                    审核通过
+                  </button>
+                  <button
+                    onClick={() => handleMarkInvalid(referral.id)}
+                    disabled={isLoading}
+                    className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
+                  >
+                    审核不通过
+                  </button>
+                </>
+              ) : referral.status === 'VALID' ? (
                 <button
                   onClick={() => handleMarkInvalid(referral.id)}
                   disabled={isLoading}
-                  className="text-xs px-3 py-1 bg-warning-100 text-warning-700 rounded hover:bg-warning-200 disabled:opacity-50 transition-colors"
+                  className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
                 >
                   标记无效
                 </button>
