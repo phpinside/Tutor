@@ -16,6 +16,7 @@ export type ReferralFilters = {
   taskProgress?: string // 任务进度 '0'-'6'
   completionStatus?: string // 完成状态: 'in_progress' | 'completed'
   rewardStatus?: string // 奖励状态: 'sent' | 'pending' | 'all'
+  teachingStatus?: string // 授课状态: 'taught' | 'not_taught'
 }
 
 export type BatchAction = 
@@ -98,6 +99,15 @@ export async function getAllReferrals(filters?: ReferralFilters, page: number = 
       })
     }
     
+    // 授课状态筛选
+    if (filters?.teachingStatus) {
+      whereConditions.push({
+        referred: { 
+          teachingStatus: filters.teachingStatus === 'taught' ? 'TAUGHT' : 'NOT_TAUGHT'
+        }
+      })
+    }
+    
     const where = whereConditions.length > 0 ? { AND: whereConditions } : {}
     
     // 计算总数（用于分页）
@@ -123,6 +133,7 @@ export async function getAllReferrals(filters?: ReferralFilters, page: number = 
             currentPhase: true,
             currentTaskIndex: true,
             status: true,
+            teachingStatus: true,
             createdAt: true
           }
         }
@@ -448,5 +459,88 @@ export async function getReferralOverview() {
   } catch (error) {
     console.error('获取统计概览失败:', error)
     return { success: false, error: '获取统计失败' }
+  }
+}
+
+// 管理员：标记授课完成
+export async function markTeachingCompleted(
+  referralId: string,
+  lessonNote: string,
+  reviewedBy?: string
+) {
+  try {
+    // 验证必填字段
+    if (!lessonNote?.trim()) {
+      return { success: false, error: '请填写授课备注' }
+    }
+
+    // 获取邀请记录
+    const referral = await prisma.referral.findUnique({
+      where: { id: referralId },
+      include: {
+        referred: {
+          select: {
+            id: true,
+            teachingStatus: true
+          }
+        }
+      }
+    })
+
+    if (!referral) {
+      return { success: false, error: '邀请记录不存在' }
+    }
+
+    // 检查是否已经标记为授课完成
+    if (referral.referred.teachingStatus === 'TAUGHT') {
+      return { success: false, error: '该老师已标记为授课完成' }
+    }
+
+    // 更新被邀请人的授课状态
+    await prisma.teacher.update({
+      where: { id: referral.referredId },
+      data: {
+        teachingStatus: 'TAUGHT'
+      }
+    })
+
+    // 更新邀请记录的授课备注
+    await prisma.referral.update({
+      where: { id: referralId },
+      data: {
+        lessonNote,
+        verifiedBy: reviewedBy,
+        verifiedAt: new Date()
+      }
+    })
+
+    // 更新直接邀请人的统计
+    await updateReferralStats(referral.referrerId)
+
+    // 如果是直接邀请，也需要更新间接邀请人的统计
+    if (referral.type === 'DIRECT') {
+      const indirectReferrals = await prisma.referral.findMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        select: {
+          referrerId: true
+        }
+      })
+
+      for (const ir of indirectReferrals) {
+        await updateReferralStats(ir.referrerId)
+      }
+    }
+
+    // 刷新相关页面
+    revalidatePath('/admin/referrals')
+    revalidatePath('/referral/dashboard')
+
+    return { success: true }
+  } catch (error) {
+    console.error('标记授课完成失败:', error)
+    return { success: false, error: '操作失败，请重试' }
   }
 }

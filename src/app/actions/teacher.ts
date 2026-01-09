@@ -451,8 +451,12 @@ export async function getReferralDataByTeacherId(
     const earnings = earningsResult.success ? earningsResult.earnings : {
       directValid: 0,
       indirectValid: 0,
+      directTaught: 0,
+      indirectTaught: 0,
       directReward: 10,
       indirectReward: 5,
+      directTeachingReward: 100,
+      indirectTeachingReward: 20,
       totalEarnings: 0,
       totalWithdrawn: 0,
       totalPending: 0,
@@ -468,10 +472,14 @@ export async function getReferralDataByTeacherId(
     const stats = {
       directTotal: referralStats?.directTotal || 0,
       directValid: referralStats?.directValid || 0,
+      directTaught: referralStats?.directTaught || 0,
       indirectTotal: referralStats?.indirectTotal || 0,
       indirectValid: referralStats?.indirectValid || 0,
+      indirectTaught: referralStats?.indirectTaught || 0,
       directReward: earnings!.directReward,
       indirectReward: earnings!.indirectReward,
+      directTeachingReward: earnings!.directTeachingReward,
+      indirectTeachingReward: earnings!.indirectTeachingReward,
       totalEarnings: earnings!.totalEarnings,
       totalWithdrawn: earnings!.totalWithdrawn,
       totalPending: earnings!.totalPending,
@@ -643,9 +651,16 @@ export async function getMyReferrals(teacherId: string) {
 // 更新邀请统计数据
 export async function updateReferralStats(teacherId: string) {
   try {
-    // 查询该教师的所有邀请记录
+    // 查询该教师的所有邀请记录（包含被邀请人的授课状态）
     const referrals = await prisma.referral.findMany({
-      where: { referrerId: teacherId }
+      where: { referrerId: teacherId },
+      include: {
+        referred: {
+          select: {
+            teachingStatus: true
+          }
+        }
+      }
     })
     
     // 分类统计
@@ -657,17 +672,26 @@ export async function updateReferralStats(teacherId: string) {
       directValid: direct.filter(r => r.status === 'VALID').length,
       directPending: direct.filter(r => r.status === 'PENDING').length,
       directInvalid: direct.filter(r => r.status === 'INVALID').length,
+      directTaught: direct.filter(r => r.referred.teachingStatus === 'TAUGHT').length,
       
       indirectTotal: indirect.length,
       indirectValid: indirect.filter(r => r.status === 'VALID').length,
       indirectPending: indirect.filter(r => r.status === 'PENDING').length,
       indirectInvalid: indirect.filter(r => r.status === 'INVALID').length,
+      indirectTaught: indirect.filter(r => r.referred.teachingStatus === 'TAUGHT').length,
     }
     
-    // 计算总收益
+    // 计算总收益（包含授课奖励）
     const directReward = await getSystemConfigFromDB('DIRECT_REWARD', 10)
     const indirectReward = await getSystemConfigFromDB('INDIRECT_REWARD', 5)
-    const totalEarnings = stats.directValid * directReward + stats.indirectValid * indirectReward
+    const directTeachingReward = await getSystemConfigFromDB('DIRECT_TEACHING_REWARD', 100)
+    const indirectTeachingReward = await getSystemConfigFromDB('INDIRECT_TEACHING_REWARD', 20)
+    
+    const totalEarnings = 
+      stats.directValid * directReward + 
+      stats.indirectValid * indirectReward +
+      stats.directTaught * directTeachingReward +
+      stats.indirectTaught * indirectTeachingReward
     
     // 更新或创建统计记录
     await prisma.referralStats.upsert({
@@ -822,8 +846,12 @@ export async function calculateReferralEarnings(teacherId: string) {
         earnings: {
           directValid: 0,
           indirectValid: 0,
+          directTaught: 0,
+          indirectTaught: 0,
           directReward: await getSystemConfigFromDB('DIRECT_REWARD', 10),
           indirectReward: await getSystemConfigFromDB('INDIRECT_REWARD', 5),
+          directTeachingReward: await getSystemConfigFromDB('DIRECT_TEACHING_REWARD', 100),
+          indirectTeachingReward: await getSystemConfigFromDB('INDIRECT_TEACHING_REWARD', 20),
           totalEarnings: 0,
           totalWithdrawn: 0,
           totalPending: 0,
@@ -835,9 +863,15 @@ export async function calculateReferralEarnings(teacherId: string) {
     // 获取奖励配置
     const directReward = await getSystemConfigFromDB('DIRECT_REWARD', 10)
     const indirectReward = await getSystemConfigFromDB('INDIRECT_REWARD', 5)
+    const directTeachingReward = await getSystemConfigFromDB('DIRECT_TEACHING_REWARD', 100)
+    const indirectTeachingReward = await getSystemConfigFromDB('INDIRECT_TEACHING_REWARD', 20)
     
-    // 计算总收益
-    const totalEarnings = stats.directValid * directReward + stats.indirectValid * indirectReward
+    // 计算总收益（包含授课奖励）
+    const totalEarnings = 
+      stats.directValid * directReward + 
+      stats.indirectValid * indirectReward +
+      stats.directTaught * directTeachingReward +
+      stats.indirectTaught * indirectTeachingReward
     
     // 获取已批准提现总额
     const approvedWithdrawals = await prisma.withdrawal.findMany({
@@ -873,8 +907,12 @@ export async function calculateReferralEarnings(teacherId: string) {
       earnings: {
         directValid: stats.directValid,
         indirectValid: stats.indirectValid,
+        directTaught: stats.directTaught,
+        indirectTaught: stats.indirectTaught,
         directReward,
         indirectReward,
+        directTeachingReward,
+        indirectTeachingReward,
         totalEarnings,
         totalWithdrawn,
         totalPending,

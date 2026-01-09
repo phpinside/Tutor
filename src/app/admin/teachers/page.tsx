@@ -13,11 +13,12 @@ export default async function AdminTeachersPage({
     taskIndex?: string
     startDate?: string
     endDate?: string
+    teachingStatus?: string
   }>
 }) {
   // 解析筛选参数
   const params = await searchParams
-  const { search, taskIndex, startDate, endDate } = params
+  const { search, taskIndex, startDate, endDate, teachingStatus } = params
   
   // 分页参数
   const currentPage = params.page ? parseInt(params.page) : 1
@@ -41,6 +42,13 @@ export default async function AdminTeachersPage({
   if (taskIndex) {
     whereConditions.push({
       currentTaskIndex: parseInt(taskIndex)
+    })
+  }
+  
+  // 授课状态
+  if (teachingStatus) {
+    whereConditions.push({
+      teachingStatus: teachingStatus === 'taught' ? 'TAUGHT' : 'NOT_TAUGHT'
     })
   }
   
@@ -78,7 +86,7 @@ export default async function AdminTeachersPage({
   const teachers = await prisma.teacher.findMany({
     where: whereClause,
     orderBy: {
-      createdAt: 'desc'
+      updatedAt: 'desc'
     },
     skip: (currentPage - 1) * pageSize,
     take: pageSize,
@@ -88,7 +96,8 @@ export default async function AdminTeachersPage({
       school: true,
       status: true,
       currentTaskIndex: true,
-      createdAt: true
+      teachingStatus: true,
+      updatedAt: true
     }
   })
   
@@ -116,7 +125,7 @@ export default async function AdminTeachersPage({
       
       <TeachersManagementClient 
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate }}
+        initialFilters={{ search, taskIndex, startDate, endDate, teachingStatus }}
         pagination={pagination}
       />
     </div>

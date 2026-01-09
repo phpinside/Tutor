@@ -16,10 +16,14 @@ type ReferralData = {
   stats: {
     directTotal: number
     directValid: number
+    directTaught: number
     indirectTotal: number
     indirectValid: number
+    indirectTaught: number
     directReward: number
     indirectReward: number
+    directTeachingReward: number
+    indirectTeachingReward: number
     totalEarnings: number
     totalWithdrawn: number
     totalPending: number
@@ -238,11 +242,16 @@ export default function ReferralDashboard({
           <div className="card bg-gradient-to-br from-blue-50 to-white">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-gray-700">👥 直接邀请</h4>
-              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
-                {stats.directReward}元/人
-              </span>
+              <div className="flex flex-col gap-1 text-right">
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                  直接邀请：{stats.directReward}元/人
+                </span>
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                  已授课：{stats.directTeachingReward}元/人
+                </span>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <div className="text-2xl font-bold text-blue-600">{stats.directTotal}</div>
                 <div className="text-xs text-gray-600 mt-1">总邀请</div>
@@ -251,10 +260,14 @@ export default function ReferralDashboard({
                 <div className="text-2xl font-bold text-success-600">{stats.directValid}</div>
                 <div className="text-xs text-gray-600 mt-1">有效邀请</div>
               </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{stats.directTaught}</div>
+                <div className="text-xs text-gray-600 mt-1">已授课</div>
+              </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="text-sm text-gray-600">
-                预计收益: <span className="font-bold text-blue-700">{stats.directValid * stats.directReward}</span> 元
+                预计收益: <span className="font-bold text-blue-700">{stats.directValid * stats.directReward + stats.directTaught * stats.directTeachingReward}</span> 元
               </div>
             </div>
           </div>
@@ -263,11 +276,16 @@ export default function ReferralDashboard({
           <div className="card bg-gradient-to-br from-purple-50 to-white">
             <div className="flex items-center justify-between mb-3">
               <h4 className="text-sm font-semibold text-gray-700">🔗 间接邀请</h4>
-              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
-                {stats.indirectReward}元/人
-              </span>
+              <div className="flex flex-col gap-1 text-right">
+                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                 间接邀请：{stats.indirectReward}元/人
+                </span>
+                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">
+                已授课：{stats.indirectTeachingReward}元/人
+                </span>
+              </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2">
               <div>
                 <div className="text-2xl font-bold text-purple-600">{stats.indirectTotal}</div>
                 <div className="text-xs text-gray-600 mt-1">总邀请</div>
@@ -276,10 +294,14 @@ export default function ReferralDashboard({
                 <div className="text-2xl font-bold text-success-600">{stats.indirectValid}</div>
                 <div className="text-xs text-gray-600 mt-1">有效邀请</div>
               </div>
+              <div>
+                <div className="text-2xl font-bold text-green-600">{stats.indirectTaught}</div>
+                <div className="text-xs text-gray-600 mt-1">已授课</div>
+              </div>
             </div>
             <div className="mt-3 pt-3 border-t border-gray-200">
               <div className="text-sm text-gray-600">
-                预计收益: <span className="font-bold text-purple-700">{stats.indirectValid * stats.indirectReward}</span> 元
+                预计收益: <span className="font-bold text-purple-700">{stats.indirectValid * stats.indirectReward + stats.indirectTaught * stats.indirectTeachingReward}</span> 元
               </div>
             </div>
           </div>

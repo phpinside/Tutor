@@ -16,6 +16,7 @@ export default async function ReferralsManagementPage({
     taskProgress?: string
     completionStatus?: string
     rewardStatus?: string
+    teachingStatus?: string
   }>
 }) {
   // 获取筛选参数
@@ -49,6 +50,9 @@ export default async function ReferralsManagementPage({
   
   // 奖励状态
   if (params.rewardStatus) filters.rewardStatus = params.rewardStatus
+  
+  // 授课状态
+  if (params.teachingStatus) filters.teachingStatus = params.teachingStatus
   
   // 只显示直接邀请
   filters.type = 'DIRECT'

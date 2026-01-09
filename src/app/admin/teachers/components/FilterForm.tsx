@@ -10,6 +10,7 @@ type FilterFormProps = {
     startDate?: string
     endDate?: string
     referralStatus?: string
+    teachingStatus?: string
   }
 }
 
@@ -20,6 +21,7 @@ export default function FilterForm({ initialFilters }: FilterFormProps) {
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
   const [referralStatus, setReferralStatus] = useState(initialFilters.referralStatus || '')
+  const [teachingStatus, setTeachingStatus] = useState(initialFilters.teachingStatus || '')
 
   // 应用筛选
   const handleApplyFilters = () => {
@@ -29,6 +31,7 @@ export default function FilterForm({ initialFilters }: FilterFormProps) {
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
     if (referralStatus) params.set('referralStatus', referralStatus)
+    if (teachingStatus) params.set('teachingStatus', teachingStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -40,6 +43,7 @@ export default function FilterForm({ initialFilters }: FilterFormProps) {
     setStartDate('')
     setEndDate('')
     setReferralStatus('')
+    setTeachingStatus('')
     router.push('/admin/teachers')
   }
 
@@ -81,6 +85,15 @@ export default function FilterForm({ initialFilters }: FilterFormProps) {
             <option value="hasReferrals">有邀请</option>
             <option value="noReferrals">无邀请</option>
             <option value="validReferrals">有有效邀请</option>
+          </select>
+          <select
+            value={teachingStatus}
+            onChange={(e) => setTeachingStatus(e.target.value)}
+            className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+          >
+            <option value="">授课状态（全部）</option>
+            <option value="not_taught">未授课</option>
+            <option value="taught">已授课</option>
           </select>
           <button
             onClick={handleReset}

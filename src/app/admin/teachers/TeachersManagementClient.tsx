@@ -11,7 +11,8 @@ type Teacher = {
   school: string | null
   status: string
   currentTaskIndex: number
-  createdAt: Date
+  teachingStatus: string
+  updatedAt: Date
 }
 
 export default function TeachersManagementClient({
@@ -25,6 +26,7 @@ export default function TeachersManagementClient({
     taskIndex?: string
     startDate?: string
     endDate?: string
+    teachingStatus?: string
   }
   pagination?: {
     currentPage: number
@@ -40,6 +42,7 @@ export default function TeachersManagementClient({
   const [taskIndex, setTaskIndex] = useState(initialFilters.taskIndex || '')
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
+  const [teachingStatus, setTeachingStatus] = useState(initialFilters.teachingStatus || '')
 
   // 应用筛选
   const handleApplyFilters = () => {
@@ -48,6 +51,7 @@ export default function TeachersManagementClient({
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
+    if (teachingStatus) params.set('teachingStatus', teachingStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -58,6 +62,7 @@ export default function TeachersManagementClient({
     setTaskIndex('')
     setStartDate('')
     setEndDate('')
+    setTeachingStatus('')
     router.push('/admin/teachers')
   }
   
@@ -69,6 +74,7 @@ export default function TeachersManagementClient({
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
+    if (teachingStatus) params.set('teachingStatus', teachingStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -103,6 +109,15 @@ export default function TeachersManagementClient({
               <option value="4">任务 4/6</option>
               <option value="5">任务 5/6</option>
               <option value="6">任务 6/6（已完成）</option>
+            </select>
+            <select
+              value={teachingStatus}
+              onChange={(e) => setTeachingStatus(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">授课状态（全部）</option>
+              <option value="not_taught">未授课</option>
+              <option value="taught">已授课</option>
             </select>
             <button
               onClick={handleReset}
@@ -187,7 +202,10 @@ export default function TeachersManagementClient({
                   当前任务
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  注册时间
+                  授课状态
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  更新时间
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   操作
@@ -218,8 +236,15 @@ export default function TeachersManagementClient({
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.currentTaskIndex} / 6
                   </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`badge ${
+                      teacher.teachingStatus === 'TAUGHT' ? 'badge-success' : 'badge-gray'
+                    }`}>
+                      {teacher.teachingStatus === 'TAUGHT' ? '已授课' : '未授课'}
+                    </span>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {formatDateTime(teacher.createdAt)}
+                    {formatDateTime(teacher.updatedAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <Link

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
+import { updateReferralStatus, markRewardSent, markTeachingCompleted } from '@/app/actions/referral'
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/utils'
 
@@ -11,6 +11,7 @@ type Referral = {
   status: 'PENDING' | 'VALID' | 'INVALID'
   rewardSent: boolean
   adminNote: string | null
+  lessonNote: string | null
   createdAt: Date
   referrer: {
     id: string
@@ -24,6 +25,7 @@ type Referral = {
     currentPhase: number
     currentTaskIndex: number
     status: string
+    teachingStatus: string
     createdAt: Date
   }
 }
@@ -44,6 +46,7 @@ export default function ReferralManagementClient({
     endDate?: string
     taskProgress?: string
     rewardStatus?: string
+    teachingStatus?: string
   }
   pagination?: {
     currentPage: number
@@ -63,6 +66,7 @@ export default function ReferralManagementClient({
   const [endDate, setEndDate] = useState(initialFilters?.endDate || '')
   const [taskProgress, setTaskProgress] = useState(initialFilters?.taskProgress || '')
   const [rewardStatus, setRewardStatus] = useState(initialFilters?.rewardStatus || '')
+  const [teachingStatus, setTeachingStatus] = useState(initialFilters?.teachingStatus || '')
   const [isLoading, setIsLoading] = useState(false)
   
   // 处理标记无效
@@ -114,6 +118,28 @@ export default function ReferralManagementClient({
     }
   }
   
+  // 处理标记授课完成
+  const handleMarkTeachingCompleted = async (referralId: string) => {
+    const lessonNote = prompt('请填写授课备注（必填）：')
+    if (!lessonNote?.trim()) {
+      alert('授课备注不能为空')
+      return
+    }
+    
+    if (!confirm('确认该老师已完成首次授课？')) return
+    
+    setIsLoading(true)
+    const result = await markTeachingCompleted(referralId, lessonNote)
+    setIsLoading(false)
+    
+    if (result.success) {
+      alert('已标记为授课完成')
+      router.refresh()
+    } else {
+      alert('操作失败：' + result.error)
+    }
+  }
+  
   // 应用筛选
   const handleApplyFilters = () => {
     const params = new URLSearchParams()
@@ -124,6 +150,7 @@ export default function ReferralManagementClient({
     if (endDate) params.set('endDate', endDate)
     if (taskProgress) params.set('taskProgress', taskProgress)
     if (rewardStatus) params.set('rewardStatus', rewardStatus)
+    if (teachingStatus) params.set('teachingStatus', teachingStatus)
     
     router.push(`/admin/referrals?${params.toString()}`)
   }
@@ -137,6 +164,7 @@ export default function ReferralManagementClient({
     setEndDate('')
     setTaskProgress('')
     setRewardStatus('')
+    setTeachingStatus('')
     router.push('/admin/referrals')
   }
   
@@ -151,6 +179,7 @@ export default function ReferralManagementClient({
     if (endDate) params.set('endDate', endDate)
     if (taskProgress) params.set('taskProgress', taskProgress)
     if (rewardStatus) params.set('rewardStatus', rewardStatus)
+    if (teachingStatus) params.set('teachingStatus', teachingStatus)
     
     router.push(`/admin/referrals?${params.toString()}`)
   }
@@ -198,7 +227,7 @@ export default function ReferralManagementClient({
             </button>
           </div>
           
-          {/* 第二行：任务进度、完成状态、奖励状态 */}
+          {/* 第二行：任务进度、完成状态、奖励状态、授课状态 */}
           <div className="flex flex-col md:flex-row gap-4">
             <select
               value={taskProgress}
@@ -222,6 +251,15 @@ export default function ReferralManagementClient({
               <option value="">奖励状态（全部）</option>
               <option value="pending">待发放</option>
               <option value="sent">已发放</option>
+            </select>
+            <select
+              value={teachingStatus}
+              onChange={(e) => setTeachingStatus(e.target.value)}
+              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">授课状态（全部）</option>
+              <option value="not_taught">未授课</option>
+              <option value="taught">已授课</option>
             </select>
           </div>
           
@@ -270,6 +308,7 @@ export default function ReferralManagementClient({
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
+                <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">授课状态</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">奖励状态</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请时间</th>
                 <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">操作</th>
@@ -323,6 +362,24 @@ export default function ReferralManagementClient({
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm">
+                    {referral.referred.teachingStatus === 'TAUGHT' ? (
+                      <div className="group relative">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help">
+                          ✓ 已授课
+                        </span>
+                        {referral.lessonNote && (
+                          <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                            {referral.lessonNote}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-600">
+                        未授课
+                      </span>
+                    )}
+                  </td>
+                  <td className="py-3 px-4 text-sm">
                     {referral.rewardSent ? (
                       <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
                         ✅ 已发放
@@ -337,7 +394,7 @@ export default function ReferralManagementClient({
                     {formatDateTime(referral.createdAt)}
                   </td>
                   <td className="py-3 px-4 text-sm">
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                       {referral.status === 'PENDING' ? (
                         <>
                           <button
@@ -370,6 +427,15 @@ export default function ReferralManagementClient({
                           className="text-xs px-2 py-1 bg-success-100 text-success-700 rounded hover:bg-success-200 disabled:opacity-50"
                         >
                           恢复有效
+                        </button>
+                      )}
+                      {referral.status === 'VALID' && referral.referred.teachingStatus === 'NOT_TAUGHT' && (
+                        <button
+                          onClick={() => handleMarkTeachingCompleted(referral.id)}
+                          disabled={isLoading}
+                          className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50"
+                        >
+                          已完成授课
                         </button>
                       )}
                       {!referral.rewardSent && referral.status === 'VALID' && (

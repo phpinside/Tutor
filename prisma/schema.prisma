@@ -56,6 +56,12 @@ enum WithdrawalStatus {
   REJECTED // 已驳回
 }
 
+// 授课状态枚举
+enum TeachingStatus {
+  NOT_TAUGHT // 未授课
+  TAUGHT     // 已授课
+}
+
 // 老师信息
 model Teacher {
   id String @id @default(cuid())
@@ -92,6 +98,7 @@ model Teacher {
   // 邀请相关
   inviteCode  String? @unique // 唯一邀请码（用于分享给他人）
   invitedById String? // 邀请人ID
+  teachingStatus TeachingStatus @default(NOT_TAUGHT) // 授课状态
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -204,6 +211,11 @@ model Referral {
   reviewedBy String? // 审核人
   reviewedAt DateTime? // 审核时间
   
+  // 授课相关
+  lessonNote String?   // 授课备注
+  verifiedBy String?   // 授课审核人
+  verifiedAt DateTime? // 授课审核时间
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   
@@ -279,12 +291,14 @@ model ReferralStats {
   directValid   Int @default(0) // 有效直接邀请数
   directPending Int @default(0) // 待审核直接邀请数
   directInvalid Int @default(0) // 无效直接邀请数
+  directTaught  Int @default(0) // 直接邀请完成授课数
   
   // 间接邀请统计
   indirectTotal   Int @default(0) // 间接邀请总数
   indirectValid   Int @default(0) // 有效间接邀请数
   indirectPending Int @default(0) // 待审核间接邀请数
   indirectInvalid Int @default(0) // 无效间接邀请数
+  indirectTaught  Int @default(0) // 间接邀请完成授课数
   
   // 收益统计
   totalEarnings     Float @default(0) // 总收益（元）

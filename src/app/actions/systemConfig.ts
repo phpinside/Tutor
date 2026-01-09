@@ -34,7 +34,7 @@ export async function getRewardConfigs() {
     const configs = await prisma.systemConfig.findMany({
       where: {
         key: {
-          in: ['DIRECT_REWARD', 'INDIRECT_REWARD']
+          in: ['DIRECT_REWARD', 'INDIRECT_REWARD', 'DIRECT_TEACHING_REWARD', 'INDIRECT_TEACHING_REWARD']
         }
       }
     })
@@ -47,12 +47,16 @@ export async function getRewardConfigs() {
     // 如果配置不存在，使用默认值
     const directReward = configMap['DIRECT_REWARD'] ?? 10
     const indirectReward = configMap['INDIRECT_REWARD'] ?? 5
+    const directTeachingReward = configMap['DIRECT_TEACHING_REWARD'] ?? 100
+    const indirectTeachingReward = configMap['INDIRECT_TEACHING_REWARD'] ?? 20
     
     return {
       success: true,
       configs: {
         directReward,
-        indirectReward
+        indirectReward,
+        directTeachingReward,
+        indirectTeachingReward
       }
     }
   } catch (error) {
@@ -88,16 +92,36 @@ export async function updateSystemConfig(key: string, value: number) {
 export async function updateRewardConfigs(configs: {
   directReward: number
   indirectReward: number
+  directTeachingReward?: number
+  indirectTeachingReward?: number
 }) {
   try {
     if (configs.directReward < 0 || configs.indirectReward < 0) {
       return { success: false, error: '奖励金额不能为负数' }
     }
     
-    await Promise.all([
+    if (configs.directTeachingReward !== undefined && configs.directTeachingReward < 0) {
+      return { success: false, error: '授课奖励金额不能为负数' }
+    }
+    
+    if (configs.indirectTeachingReward !== undefined && configs.indirectTeachingReward < 0) {
+      return { success: false, error: '授课奖励金额不能为负数' }
+    }
+    
+    const updates = [
       updateSystemConfig('DIRECT_REWARD', configs.directReward),
       updateSystemConfig('INDIRECT_REWARD', configs.indirectReward)
-    ])
+    ]
+    
+    if (configs.directTeachingReward !== undefined) {
+      updates.push(updateSystemConfig('DIRECT_TEACHING_REWARD', configs.directTeachingReward))
+    }
+    
+    if (configs.indirectTeachingReward !== undefined) {
+      updates.push(updateSystemConfig('INDIRECT_TEACHING_REWARD', configs.indirectTeachingReward))
+    }
+    
+    await Promise.all(updates)
     
     revalidatePath('/admin/config/rewards')
     revalidatePath('/referral/dashboard')
@@ -114,7 +138,9 @@ export async function initializeDefaultConfigs() {
   try {
     const defaultConfigs = [
       { key: 'DIRECT_REWARD', value: '10' },
-      { key: 'INDIRECT_REWARD', value: '5' }
+      { key: 'INDIRECT_REWARD', value: '5' },
+      { key: 'DIRECT_TEACHING_REWARD', value: '100' },
+      { key: 'INDIRECT_TEACHING_REWARD', value: '20' }
     ]
     
     for (const config of defaultConfigs) {
