@@ -188,12 +188,63 @@ export default function ReferralDashboard({
 
         {/* 页面标题 */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <h1 className="text-3xl font-bold text-gray-900 mb-6">
             {referrerName ? `${referrerName}的邀请看板` : '我的邀请看板'}
           </h1>
-          <p className="text-gray-600">
-            邀请好友加入伴学团队，完成【有效邀请】即可获得奖励
-          </p>
+          
+          {/* 奖励说明卡片 */}
+          <div className="bg-gradient-to-br from-amber-50 via-orange-50 to-red-50 border-2 border-amber-200 rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <span className="text-3xl">💰</span>
+              <h2 className="text-2xl font-bold text-amber-900">邀请老师就有钱拿</h2>
+              <span className="text-3xl">💰</span>
+            </div>
+            
+            <div className="space-y-3 text-left">
+              <div className="flex items-start gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-2xl flex-shrink-0">✅</span>
+                <div>
+                  <p className="text-gray-900 font-medium">
+                    你直接邀请的老师，成功入驻
+                  </p>
+                  <p className="text-amber-600 font-bold text-lg mt-1">
+                    +{stats.directReward} 元
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-2xl flex-shrink-0">🎓</span>
+                <div>
+                  <p className="text-gray-900 font-medium">
+                    TA 真正开始接课
+                  </p>
+                  <p className="text-orange-600 font-bold text-lg mt-1">
+                    再拿 +{stats.directTeachingReward} 元
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start gap-3 bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm hover:shadow-md transition-shadow">
+                <span className="text-2xl flex-shrink-0">🔗</span>
+                <div>
+                  <p className="text-gray-900 font-medium">
+                    TA 再邀请别人
+                  </p>
+                  <p className="text-purple-600 font-bold text-lg mt-1">
+                    你也能继续拿钱（+{stats.indirectReward}元/人 + 授课奖励）
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-amber-200">
+              <p className="text-sm text-amber-800 flex items-center justify-center gap-2">
+                <span>🎯</span>
+                <span className="font-medium">邀请越多，收益越高，快去分享你的邀请链接吧！</span>
+              </p>
+            </div>
+          </div>
         </div>
         
         {/* 邀请链接卡片 */}
