@@ -61,3 +61,24 @@ export function formatPhone(phone: string | null): string {
   if (!phone || phone.length !== 11) return phone || ''
   return phone.substring(0, 3) + '****' + phone.substring(7)
 }
+
+// 格式化日期时间为中国时区，格式：2026/1/8 22点28分
+export function formatDateTime(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date
+  
+  // 使用中国时区格式化
+  const formatted = d.toLocaleString('zh-CN', {
+    timeZone: 'Asia/Shanghai',
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  })
+  
+  // 转换格式：从 "2026/1/8 22:28" 到 "2026/1/8 22点28分"
+  const [datePart, timePart] = formatted.split(' ')
+  const [hour, minute] = timePart.split(':')
+  return `${datePart} ${hour}:${minute}`
+}

@@ -2,11 +2,13 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { updateReferralStats } from './teacher'
 
 // 类型定义
 export type ReferralFilters = {
   status?: 'PENDING' | 'VALID' | 'INVALID'
   rewardSent?: boolean
+  type?: 'DIRECT' | 'INDIRECT' // 邀请类型
   search?: string // 搜索邀请人或被邀请人姓名/手机号
   inviteCode?: string // 邀请码
   startDate?: string // 邀请开始日期
@@ -22,13 +24,18 @@ export type BatchAction =
   | { type: 'mark_reward_sent' }
 
 // 管理员：获取所有邀请记录
-export async function getAllReferrals(filters?: ReferralFilters) {
+export async function getAllReferrals(filters?: ReferralFilters, page: number = 1, pageSize: number = 50) {
   try {
     const whereConditions: any[] = []
     
     // 邀请状态
     if (filters?.status) {
       whereConditions.push({ status: filters.status })
+    }
+    
+    // 邀请类型
+    if (filters?.type) {
+      whereConditions.push({ type: filters.type })
     }
     
     // 奖励发放状态（优先使用 rewardStatus）
@@ -93,6 +100,10 @@ export async function getAllReferrals(filters?: ReferralFilters) {
     
     const where = whereConditions.length > 0 ? { AND: whereConditions } : {}
     
+    // 计算总数（用于分页）
+    const totalCount = await prisma.referral.count({ where })
+    
+    // 分页查询
     const referrals = await prisma.referral.findMany({
       where,
       include: {
@@ -116,13 +127,17 @@ export async function getAllReferrals(filters?: ReferralFilters) {
           }
         }
       },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * pageSize,
+      take: pageSize
     })
     
-    // 计算统计数据
+    // 计算统计数据（全部数据，不分页）
     const allReferrals = await prisma.referral.findMany()
     const stats = {
       total: allReferrals.length,
+      directTotal: allReferrals.filter(r => r.type === 'DIRECT').length,
+      indirectTotal: allReferrals.filter(r => r.type === 'INDIRECT').length,
       pending: allReferrals.filter(r => r.status === 'PENDING').length,
       valid: allReferrals.filter(r => r.status === 'VALID').length,
       invalid: allReferrals.filter(r => r.status === 'INVALID').length,
@@ -130,7 +145,7 @@ export async function getAllReferrals(filters?: ReferralFilters) {
       rewardsSent: allReferrals.filter(r => r.rewardSent).length
     }
     
-    return { success: true, referrals, stats }
+    return { success: true, referrals, stats, totalCount }
   } catch (error) {
     console.error('获取邀请记录失败:', error)
     return { success: false, error: '获取记录失败，请重试' }
@@ -148,7 +163,8 @@ export async function getReferralById(referralId: string) {
             id: true,
             name: true,
             phone: true,
-            inviteCode: true
+            inviteCode: true,
+            invitedById: true
           }
         },
         referred: {
@@ -170,7 +186,41 @@ export async function getReferralById(referralId: string) {
       return { success: false, error: '记录不存在' }
     }
     
-    return { success: true, referral }
+    // 如果是直接邀请，查询是否有间接邀请关系（A -> B -> C）
+    let indirectReferrer = null
+    let indirectReferral = null
+    
+    if (referral.type === 'DIRECT' && referral.referrer.invitedById) {
+      // B 有邀请人 A，查询 A 的信息
+      indirectReferrer = await prisma.teacher.findUnique({
+        where: { id: referral.referrer.invitedById },
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          inviteCode: true
+        }
+      })
+      
+      // 查询 A -> C 的间接邀请记录
+      if (indirectReferrer) {
+        indirectReferral = await prisma.referral.findFirst({
+          where: {
+            referrerId: indirectReferrer.id,
+            referredId: referral.referredId,
+            type: 'INDIRECT',
+            indirectReferrerId: referral.referrerId
+          }
+        })
+      }
+    }
+    
+    return { 
+      success: true, 
+      referral,
+      indirectReferrer,
+      indirectReferral
+    }
   } catch (error) {
     console.error('获取邀请记录详情失败:', error)
     return { success: false, error: '获取详情失败' }
@@ -185,6 +235,7 @@ export async function updateReferralStatus(
   reviewedBy?: string
 ) {
   try {
+    // 更新主邀请记录
     const referral = await prisma.referral.update({
       where: { id: referralId },
       data: {
@@ -192,8 +243,49 @@ export async function updateReferralStatus(
         adminNote: note,
         reviewedBy,
         reviewedAt: new Date()
+      },
+      select: {
+        id: true,
+        type: true,
+        referrerId: true,
+        referredId: true,
+        status: true
       }
     })
+    
+    // 更新直接邀请人的统计
+    await updateReferralStats(referral.referrerId)
+    
+    // 如果是直接邀请，同步更新所有相关的间接邀请
+    if (referral.type === 'DIRECT') {
+      await prisma.referral.updateMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        data: {
+          status,
+          reviewedBy,
+          reviewedAt: new Date()
+          // 注意：不更新 adminNote，因为间接邀请的备注可能不同
+        }
+      })
+      
+      // 获取所有间接邀请人并更新他们的统计
+      const indirectReferrals = await prisma.referral.findMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        select: {
+          referrerId: true
+        }
+      })
+      
+      for (const ir of indirectReferrals) {
+        await updateReferralStats(ir.referrerId)
+      }
+    }
     
     // 刷新相关页面
     revalidatePath('/admin/referrals')
@@ -251,6 +343,20 @@ export async function batchUpdateReferrals(
       updateData.rewardSent = true
     }
     
+    // 获取被更新的邀请记录（用于后续统计更新）
+    const updatedReferrals = await prisma.referral.findMany({
+      where: {
+        id: { in: referralIds }
+      },
+      select: {
+        id: true,
+        type: true,
+        referrerId: true,
+        referredId: true
+      }
+    })
+    
+    // 批量更新主邀请记录
     const result = await prisma.referral.updateMany({
       where: {
         id: { in: referralIds }
@@ -258,8 +364,53 @@ export async function batchUpdateReferrals(
       data: updateData
     })
     
+    // 更新所有涉及的邀请人的统计
+    const referrerIds = new Set(updatedReferrals.map(r => r.referrerId))
+    
+    // 如果更新的是邀请状态，需要同步间接邀请
+    if (action.type === 'mark_valid' || action.type === 'mark_invalid') {
+      // 查找所有被更新的直接邀请记录
+      const directReferrals = updatedReferrals.filter(r => r.type === 'DIRECT')
+      
+      // 如果有直接邀请，同步更新对应的间接邀请
+      if (directReferrals.length > 0) {
+        const referredIds = directReferrals.map(r => r.referredId)
+        await prisma.referral.updateMany({
+          where: {
+            referredId: { in: referredIds },
+            type: 'INDIRECT'
+          },
+          data: {
+            status: updateData.status,
+            reviewedBy: updateData.reviewedBy,
+            reviewedAt: updateData.reviewedAt
+          }
+        })
+        
+        // 获取所有间接邀请人的ID
+        const indirectReferrals = await prisma.referral.findMany({
+          where: {
+            referredId: { in: referredIds },
+            type: 'INDIRECT'
+          },
+          select: {
+            referrerId: true
+          }
+        })
+        
+        // 添加到需要更新统计的列表
+        indirectReferrals.forEach(ir => referrerIds.add(ir.referrerId))
+      }
+    }
+    
+    // 批量更新所有相关邀请人的统计
+    for (const referrerId of referrerIds) {
+      await updateReferralStats(referrerId)
+    }
+    
     // 刷新相关页面
     revalidatePath('/admin/referrals')
+    revalidatePath('/referral/dashboard')
     
     return { success: true, count: result.count }
   } catch (error) {

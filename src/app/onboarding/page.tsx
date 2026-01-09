@@ -5,6 +5,7 @@ import { getTaskConfigs, getPhaseConfigs } from '@/lib/config'
 import ProgressBar from '@/components/ui/ProgressBar'
 import PhaseIndicator from '@/components/ui/PhaseIndicator'
 import TaskCard from '@/components/ui/TaskCard'
+import ReferralCodeSaver from './ReferralCodeSaver'
 
 export default async function OnboardingPage({
   searchParams
@@ -72,6 +73,9 @@ export default async function OnboardingPage({
   
   return (
     <div className="animate-fade-in">
+      {/* 保存邀请码到 localStorage */}
+      {refCode && <ReferralCodeSaver refCode={refCode} />}
+      
       {/* 欢迎标题 */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
@@ -103,7 +107,6 @@ export default async function OnboardingPage({
           showLabel={false}
         />
         
-        {/* 已完成任务列表 */}
         {completedTasksList.length > 0 && (
           <div className="mt-4 pt-4 border-t border-gray-200">
             <p className="text-xs text-gray-500 mb-3">已完成的任务(点击可查看或修改)</p>
@@ -153,4 +156,3 @@ export default async function OnboardingPage({
     </div>
   )
 }
-

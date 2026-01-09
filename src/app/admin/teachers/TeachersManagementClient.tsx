@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getTeacherStatusText } from '@/lib/utils'
+import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 
 type Teacher = {
   id: string
@@ -16,7 +16,8 @@ type Teacher = {
 
 export default function TeachersManagementClient({
   initialTeachers,
-  initialFilters
+  initialFilters,
+  pagination
 }: {
   initialTeachers: Teacher[]
   initialFilters: {
@@ -24,6 +25,14 @@ export default function TeachersManagementClient({
     taskIndex?: string
     startDate?: string
     endDate?: string
+  }
+  pagination?: {
+    currentPage: number
+    totalPages: number
+    totalCount: number
+    pageSize: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
   }
 }) {
   const router = useRouter()
@@ -50,6 +59,18 @@ export default function TeachersManagementClient({
     setStartDate('')
     setEndDate('')
     router.push('/admin/teachers')
+  }
+  
+  // 翻页
+  const goToPage = (page: number) => {
+    const params = new URLSearchParams()
+    params.set('page', page.toString())
+    if (searchTerm) params.set('search', searchTerm)
+    if (taskIndex) params.set('taskIndex', taskIndex)
+    if (startDate) params.set('startDate', startDate)
+    if (endDate) params.set('endDate', endDate)
+    
+    router.push(`/admin/teachers?${params.toString()}`)
   }
 
   return (
@@ -198,7 +219,7 @@ export default function TeachersManagementClient({
                     {teacher.currentTaskIndex} / 6
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {new Date(teacher.createdAt).toLocaleDateString('zh-CN')}
+                    {formatDateTime(teacher.createdAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <Link
@@ -212,6 +233,51 @@ export default function TeachersManagementClient({
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+      
+      {/* 分页控件 */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-gray-600">
+              显示 {(pagination.currentPage - 1) * pagination.pageSize + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} 条，
+              共 {pagination.totalCount} 条记录
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => goToPage(1)}
+                disabled={!pagination.hasPrevPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                首页
+              </button>
+              <button
+                onClick={() => goToPage(pagination.currentPage - 1)}
+                disabled={!pagination.hasPrevPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                上一页
+              </button>
+              <span className="px-4 py-1.5 text-sm text-gray-700">
+                第 {pagination.currentPage} / {pagination.totalPages} 页
+              </span>
+              <button
+                onClick={() => goToPage(pagination.currentPage + 1)}
+                disabled={!pagination.hasNextPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                下一页
+              </button>
+              <button
+                onClick={() => goToPage(pagination.totalPages)}
+                disabled={!pagination.hasNextPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                末页
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

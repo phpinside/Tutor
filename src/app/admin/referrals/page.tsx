@@ -7,6 +7,7 @@ export default async function ReferralsManagementPage({
   searchParams
 }: {
   searchParams: Promise<{
+    page?: string
     status?: string
     search?: string
     inviteCode?: string
@@ -20,6 +21,10 @@ export default async function ReferralsManagementPage({
   // 获取筛选参数
   const params = await searchParams
   const filters: any = {}
+  
+  // 分页参数
+  const currentPage = params.page ? parseInt(params.page) : 1
+  const pageSize = 50
   
   // 邀请状态
   if (params.status === 'pending') filters.status = 'PENDING'
@@ -45,9 +50,12 @@ export default async function ReferralsManagementPage({
   // 奖励状态
   if (params.rewardStatus) filters.rewardStatus = params.rewardStatus
   
+  // 只显示直接邀请
+  filters.type = 'DIRECT'
+  
   // 获取数据
   const [referralsResult, overviewResult] = await Promise.all([
-    getAllReferrals(filters),
+    getAllReferrals(filters, currentPage, pageSize),
     getReferralOverview()
   ])
   
@@ -64,6 +72,18 @@ export default async function ReferralsManagementPage({
   const stats = overviewResult.stats
   const referrals = referralsResult.referrals
   const referralStats = referralsResult.stats
+  const totalCount = referralsResult.totalCount || 0
+  const totalPages = Math.ceil(totalCount / pageSize)
+  
+  // 分页信息
+  const pagination = {
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    hasNextPage: currentPage < totalPages,
+    hasPrevPage: currentPage > 1
+  }
   
   return (
     <div className="p-6">
@@ -74,7 +94,7 @@ export default async function ReferralsManagementPage({
       </div>
       
       {/* 统计概览 */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
           <div className="text-2xl font-bold text-gray-900">{stats.total}</div>
           <div className="text-sm text-gray-600 mt-1">总邀请数</div>
@@ -91,14 +111,6 @@ export default async function ReferralsManagementPage({
           <div className="text-2xl font-bold text-red-600">{stats.invalid}</div>
           <div className="text-sm text-gray-600 mt-1">无效邀请</div>
         </div>
-        <div className="bg-white rounded-lg shadow p-4 border border-orange-200">
-          <div className="text-2xl font-bold text-orange-600">{stats.pendingReward}</div>
-          <div className="text-sm text-gray-600 mt-1">待发放奖励</div>
-        </div>
-        <div className="bg-white rounded-lg shadow p-4 border border-blue-200">
-          <div className="text-2xl font-bold text-blue-600">{stats.rewardsSent}</div>
-          <div className="text-sm text-gray-600 mt-1">已发放奖励</div>
-        </div>
       </div>
       
       {/* 客户端组件处理交互 */}
@@ -106,6 +118,7 @@ export default async function ReferralsManagementPage({
         initialReferrals={referrals}
         initialStats={referralStats}
         initialFilters={params}
+        pagination={pagination}
       />
     </div>
   )

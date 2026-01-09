@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
+import { formatDateTime } from '@/lib/utils'
 
 type Referral = {
   id: string
@@ -138,7 +139,7 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
                   )}
                 </div>
                 <div className="text-xs text-gray-500 ml-7 mt-1">
-                  邀请时间: {new Date(referral.createdAt).toLocaleString('zh-CN')}
+                  邀请时间: {formatDateTime(referral.createdAt)}
                 </div>
                 {referral.adminNote && (
                   <div className="ml-7 mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">

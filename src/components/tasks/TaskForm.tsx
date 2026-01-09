@@ -87,7 +87,12 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       }
       
       // 更新老师信息
-      await updateTeacherInfo(teacherId, teacherData as any)
+      const updateResult = await updateTeacherInfo(teacherId, teacherData as any)
+      
+      if (!updateResult.success) {
+        alert(updateResult.error || '更新个人信息失败，请重试')
+        return
+      }
       
       // 提交任务（会自动推进到下一个任务）
       const result = await submitTask(teacherId, task.index, {

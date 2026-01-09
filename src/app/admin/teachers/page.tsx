@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/prisma'
+import { TeacherStatus } from '@prisma/client'
 import TeachersManagementClient from './TeachersManagementClient'
 
 export const dynamic = 'force-dynamic'
@@ -7,6 +8,7 @@ export default async function AdminTeachersPage({
   searchParams
 }: {
   searchParams: Promise<{
+    page?: string
     search?: string
     taskIndex?: string
     startDate?: string
@@ -16,6 +18,10 @@ export default async function AdminTeachersPage({
   // 解析筛选参数
   const params = await searchParams
   const { search, taskIndex, startDate, endDate } = params
+  
+  // 分页参数
+  const currentPage = params.page ? parseInt(params.page) : 1
+  const pageSize = 50
   
   // 构建查询条件
   const whereConditions: any[] = []
@@ -55,17 +61,27 @@ export default async function AdminTeachersPage({
     })
   }
   
-  // 执行查询
-  const teachers = await prisma.teacher.findMany({
-    where: {
-      status: {
-        not: 'NOT_STARTED'
-      },
-      ...(whereConditions.length > 0 ? { AND: whereConditions } : {})
+  // 构建查询条件
+  const whereClause = {
+    status: {
+      not: TeacherStatus.NOT_STARTED
     },
+    ...(whereConditions.length > 0 ? { AND: whereConditions } : {})
+  }
+  
+  // 计算总数
+  const totalCount = await prisma.teacher.count({
+    where: whereClause
+  })
+  
+  // 分页查询
+  const teachers = await prisma.teacher.findMany({
+    where: whereClause,
     orderBy: {
       createdAt: 'desc'
     },
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
     select: {
       id: true,
       name: true,
@@ -75,6 +91,17 @@ export default async function AdminTeachersPage({
       createdAt: true
     }
   })
+  
+  // 分页信息
+  const totalPages = Math.ceil(totalCount / pageSize)
+  const pagination = {
+    currentPage,
+    totalPages,
+    totalCount,
+    pageSize,
+    hasNextPage: currentPage < totalPages,
+    hasPrevPage: currentPage > 1
+  }
   
   return (
     <div>
@@ -90,6 +117,7 @@ export default async function AdminTeachersPage({
       <TeachersManagementClient 
         initialTeachers={teachers}
         initialFilters={{ search, taskIndex, startDate, endDate }}
+        pagination={pagination}
       />
     </div>
   )

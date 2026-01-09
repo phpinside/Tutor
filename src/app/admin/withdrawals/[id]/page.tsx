@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { getWithdrawalDetail } from '@/app/actions/withdrawal'
+import { getWithdrawalDetail } from '@/app/actions/teacher'
 import WithdrawalDetailClient from './WithdrawalDetailClient'
 
 export default async function WithdrawalDetailPage({
@@ -34,10 +34,8 @@ export default async function WithdrawalDetailPage({
   return (
     <WithdrawalDetailClient
       withdrawal={result.withdrawal}
-      teacher={result.teacher}
-      referralStats={result.referralStats}
-      withdrawalStats={result.withdrawalStats}
-      withdrawalHistory={result.withdrawalHistory || []}
+      stats={result.stats}
+      adminId={adminSession.value}
     />
   )
 }

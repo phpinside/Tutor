@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { getTeacherStatusText } from '@/lib/utils'
+import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import ReferralList from './ReferralList'
 
 type Teacher = {
@@ -80,7 +80,7 @@ export default function TeacherRow({ teacher }: TeacherRowProps) {
           )}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-          {new Date(teacher.createdAt).toLocaleDateString('zh-CN')}
+          {formatDateTime(teacher.createdAt)}
         </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm">
           <Link

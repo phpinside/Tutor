@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { applyForWithdrawal } from '@/app/actions/teacher'
 import Image from 'next/image'
+import { formatDateTime } from '@/lib/utils'
 
 type WithdrawalData = {
   teacher: {
@@ -11,11 +12,14 @@ type WithdrawalData = {
     phone: string | null
   }
   earnings: {
+    directValid: number
+    indirectValid: number
+    directReward: number
+    indirectReward: number
     totalEarnings: number
     totalWithdrawn: number
     totalPending: number
     availableBalance: number
-    validReferralsCount: number
   }
   withdrawals: Array<{
     id: string
@@ -214,39 +218,6 @@ export default function WithdrawalClient({
         </div>
         
         {/* 收益概览 */}
-        <div className="card mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">💰 收益概览</h3>
-          {data.earnings.totalPending > 0 && (
-            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-blue-800 text-sm">
-                💡 您有 <span className="font-bold">¥{data.earnings.totalPending}</span> 的提现申请正在审核中，该金额已从可提现余额中扣除。审核通过后将转账至您的账户，若被驳回则会自动恢复到可提现余额。
-              </p>
-            </div>
-          )}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-primary-600">{data.earnings.validReferralsCount}</div>
-              <div className="text-sm text-gray-600 mt-1">有效邀请数</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-success-600">{data.earnings.totalEarnings}</div>
-              <div className="text-sm text-gray-600 mt-1">总收益（元）</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-blue-600">{data.earnings.totalWithdrawn}</div>
-              <div className="text-sm text-gray-600 mt-1">已提现（元）</div>
-            </div>
-            <div className="text-center p-4 bg-gray-50 rounded-lg">
-              <div className="text-2xl font-bold text-orange-600">{data.earnings.totalPending}</div>
-              <div className="text-sm text-gray-600 mt-1">待审核（元）</div>
-            </div>
-            <div className="text-center p-4 bg-amber-50 rounded-lg border-2 border-amber-200">
-              <div className="text-2xl font-bold text-amber-600">{data.earnings.availableBalance}</div>
-              <div className="text-sm text-gray-600 mt-1">可提现（元）</div>
-            </div>
-          </div>
-        </div>
-        
         {/* Tab 切换 */}
         <div className="card mb-6">
           <div className="flex border-b border-gray-200 mb-6">
@@ -445,7 +416,7 @@ export default function WithdrawalClient({
                         {data.withdrawals.map((withdrawal) => (
                           <tr key={withdrawal.id} className="border-b border-gray-100 hover:bg-gray-50">
                             <td className="py-3 px-4 text-sm">
-                              {new Date(withdrawal.createdAt).toLocaleDateString('zh-CN')}
+                              {formatDateTime(withdrawal.createdAt)}
                             </td>
                             <td className="py-3 px-4 text-sm font-medium text-amber-600">
                               ¥{withdrawal.amount}
@@ -477,7 +448,7 @@ export default function WithdrawalClient({
                           <div>
                             <div className="font-medium text-lg text-amber-600">¥{withdrawal.amount}</div>
                             <div className="text-xs text-gray-500">
-                              {new Date(withdrawal.createdAt).toLocaleDateString('zh-CN')}
+                              {formatDateTime(withdrawal.createdAt)}
                             </div>
                           </div>
                           {getStatusBadge(withdrawal.status)}

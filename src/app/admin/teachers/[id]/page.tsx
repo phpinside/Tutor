@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
-import { getTeacherStatusText, getTaskStatusText } from '@/lib/utils'
+import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
@@ -194,13 +194,13 @@ export default async function TeacherDetailPage({
             <div>
               <p className="text-gray-500 mb-1">注册时间</p>
               <p className="font-medium text-gray-900">
-                {new Date(teacher.createdAt).toLocaleDateString('zh-CN')}
+                {formatDateTime(teacher.createdAt)}
               </p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">最后更新</p>
               <p className="font-medium text-gray-900">
-                {new Date(teacher.updatedAt).toLocaleDateString('zh-CN')}
+                {formatDateTime(teacher.updatedAt)}
               </p>
             </div>
           </div>
@@ -350,7 +350,7 @@ export default async function TeacherDetailPage({
                   {/* 提交信息 */}
                   <div className="mt-3 pt-3 border-t border-gray-200 flex justify-between text-xs text-gray-500">
                     <span>
-                      提交于: {new Date(submission.createdAt).toLocaleString('zh-CN')}
+                      提交于: {formatDateTime(submission.createdAt)}
                     </span>
                     {submission.attemptCount > 1 && (
                       <span>第 {submission.attemptCount} 次提交</span>

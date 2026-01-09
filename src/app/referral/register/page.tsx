@@ -1,17 +1,42 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { registerReferrer } from '@/app/actions/auth'
 
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  
+  // 从URL获取ref参数或localStorage获取
+  const [initialRefCode, setInitialRefCode] = useState('')
+  
+  useEffect(() => {
+    // 优先从URL获取
+    const refFromUrl = searchParams.get('ref')
+    if (refFromUrl) {
+      setInitialRefCode(refFromUrl)
+      setFormData(prev => ({ ...prev, referralCode: refFromUrl }))
+      return
+    }
+    
+    // 否则从localStorage获取
+    if (typeof window !== 'undefined') {
+      const savedRef = localStorage.getItem('tutor_referral_code')
+      if (savedRef) {
+        setInitialRefCode(savedRef)
+        setFormData(prev => ({ ...prev, referralCode: savedRef }))
+      }
+    }
+  }, [searchParams])
+  
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
     password: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    referralCode: '' // 新增：邀请码字段
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -204,6 +229,27 @@ export default function RegisterPage() {
               )}
             </div>
 
+            {/* 邀请码（新增） */}
+            <div>
+              <label htmlFor="referralCode" className="block text-sm font-medium text-gray-700 mb-2">
+                邀请码（可选）
+              </label>
+              <input
+                id="referralCode"
+                type="text"
+                value={formData.referralCode}
+                onChange={(e) => handleChange('referralCode', e.target.value.toUpperCase())}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                placeholder="如有邀请码请填写"
+                disabled={isSubmitting}
+              />
+              {initialRefCode && (
+                <p className="mt-1 text-xs text-green-600">
+                  ✓ 已自动填充邀请码
+                </p>
+              )}
+            </div>
+
             {/* 提交按钮 */}
             <button
               type="submit"
@@ -229,5 +275,17 @@ export default function RegisterPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 flex items-center justify-center">
+        <div className="text-gray-600">加载中...</div>
+      </div>
+    }>
+      <RegisterForm />
+    </Suspense>
   )
 }

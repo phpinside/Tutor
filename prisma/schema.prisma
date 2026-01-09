@@ -43,6 +43,12 @@ enum ReferralStatus {
   INVALID // 无效邀请
 }
 
+// 邀请类型枚举
+enum ReferralType {
+  DIRECT   // 直接邀请
+  INDIRECT // 间接邀请
+}
+
 // 提现状态枚举
 enum WithdrawalStatus {
   PENDING  // 已申请
@@ -95,8 +101,9 @@ model Teacher {
   invitedBy          Teacher?         @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
   invitedTeachers    Teacher[]        @relation("TeacherReferrals")
   referrals          Referral[]       @relation("ReferrerReferrals")
-  referredReferral   Referral?        @relation("ReferredReferral")
+  referredReferrals  Referral[]       @relation("ReferredReferrals")
   withdrawals        Withdrawal[]
+  referralStats      ReferralStats?
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -182,7 +189,11 @@ model Referral {
   
   // 邀请关系
   referrerId String // 邀请人ID
-  referredId String @unique // 被邀请人ID
+  referredId String // 被邀请人ID
+  
+  // 邀请类型
+  type                ReferralType @default(DIRECT) // 邀请类型：直接/间接
+  indirectReferrerId String?      // 间接邀请时的中间人ID（仅INDIRECT类型有值）
   
   // 状态管理
   status     ReferralStatus @default(PENDING) // 邀请状态
@@ -198,10 +209,14 @@ model Referral {
   
   // 关系
   referrer Teacher @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
-  referred Teacher @relation("ReferredReferral", fields: [referredId], references: [id], onDelete: Cascade)
+  referred Teacher @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
   
+  @@unique([referrerId, referredId, type]) // 同一个人对同一个被邀请人只能有一种邀请类型
   @@index([referrerId])
+  @@index([referredId])
   @@index([status])
+  @@index([type])
+  @@index([indirectReferrerId])
   @@map("referrals")
 }
 
@@ -240,4 +255,49 @@ model Withdrawal {
   @@index([status])
   @@index([createdAt])
   @@map("withdrawals")
+}
+
+// 系统配置表
+model SystemConfig {
+  id    String @id @default(cuid())
+  key   String @unique // 配置键（如 'DIRECT_REWARD', 'INDIRECT_REWARD'）
+  value String         // 配置值
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@map("system_configs")
+}
+
+// 邀请统计表
+model ReferralStats {
+  id String @id @default(cuid())
+  teacherId String @unique // 老师ID
+  
+  // 直接邀请统计
+  directTotal   Int @default(0) // 直接邀请总数
+  directValid   Int @default(0) // 有效直接邀请数
+  directPending Int @default(0) // 待审核直接邀请数
+  directInvalid Int @default(0) // 无效直接邀请数
+  
+  // 间接邀请统计
+  indirectTotal   Int @default(0) // 间接邀请总数
+  indirectValid   Int @default(0) // 有效间接邀请数
+  indirectPending Int @default(0) // 待审核间接邀请数
+  indirectInvalid Int @default(0) // 无效间接邀请数
+  
+  // 收益统计
+  totalEarnings     Float @default(0) // 总收益（元）
+  totalWithdrawn    Float @default(0) // 已提现金额（元）
+  pendingWithdrawal Float @default(0) // 待审核提现金额（元）
+  availableBalance  Float @default(0) // 可提现余额（元）
+  
+  lastUpdated DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  
+  // 关系
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  
+  @@index([teacherId])
+  @@map("referral_stats")
 }

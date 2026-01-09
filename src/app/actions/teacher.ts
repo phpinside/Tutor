@@ -2,7 +2,9 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import { REFERRAL_CONFIG } from '@/lib/config'
+import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
+import bcrypt from 'bcryptjs'
+import { cookies } from 'next/headers'
 
 // 获取或创建老师
 export async function getOrCreateTeacher(teacherId?: string) {
@@ -34,6 +36,147 @@ export async function getOrCreateTeacher(teacherId?: string) {
   } catch (error) {
     console.error('获取或创建老师失败:', error)
     throw new Error('操作失败,请重试')
+  }
+}
+
+// 验证手机号格式
+function isValidPhone(phone: string): boolean {
+  return /^1[3-9]\d{9}$/.test(phone)
+}
+
+// 注册并创建老师（用于匿名用户在任务1注册）
+export async function registerAndCreateTeacher(formData: {
+  phone: string
+  password: string
+  confirmPassword: string
+  referralCode?: string
+  // 基础信息
+  name: string
+  gender: string
+  age: string
+  school: string
+  graduationYear?: string
+  identity: string
+  // 教学能力 & 资质
+  mathScore: string
+  mathCompetition?: string
+  teachingExperience?: string
+  gradePreference: string
+  teachingStrengths?: string
+  teachingStyle?: string
+  studentTypes?: string
+  // 可辅导时间
+  weekdayTime?: string
+  weekendTime?: string
+  holidayTime?: string
+}) {
+  try {
+    const { phone, password, confirmPassword, referralCode, ...teacherInfo } = formData
+
+    // 验证必填字段
+    if (!phone?.trim()) {
+      return { success: false, error: '请输入手机号' }
+    }
+    if (!password) {
+      return { success: false, error: '请输入密码' }
+    }
+    if (!confirmPassword) {
+      return { success: false, error: '请确认密码' }
+    }
+
+    // 验证手机号格式
+    if (!isValidPhone(phone)) {
+      return { success: false, error: '手机号格式不正确' }
+    }
+
+    // 验证密码长度
+    if (password.length < 6) {
+      return { success: false, error: '密码至少需要6位' }
+    }
+
+    // 验证密码确认
+    if (password !== confirmPassword) {
+      return { success: false, error: '两次密码输入不一致' }
+    }
+
+    // 检查手机号是否已注册
+    const existingTeacher = await prisma.teacher.findUnique({
+      where: { phone: phone.trim() }
+    })
+
+    if (existingTeacher) {
+      return { success: false, error: '该手机号已被注册，请直接登录' }
+    }
+
+    // 查找邀请人
+    let invitedById: string | null = null
+    if (referralCode) {
+      const referrer = await prisma.teacher.findUnique({
+        where: { inviteCode: referralCode },
+        select: { id: true }
+      })
+      if (referrer) {
+        invitedById = referrer.id
+      }
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // 创建老师记录，包含所有基本信息
+    const teacher = await prisma.teacher.create({
+      data: {
+        phone: phone.trim(),
+        password: hashedPassword,
+        invitedById,
+        status: 'NOT_STARTED',
+        currentTaskIndex: 1, // 已完成任务0，当前在任务1
+        ...teacherInfo
+      }
+    })
+
+    // 生成邀请码和查看码
+    await ensureInviteCodes(teacher.id)
+
+    // 如果有邀请人，创建邀请记录
+    if (invitedById) {
+      await createReferralRecord(invitedById, teacher.id)
+    }
+
+    // 提交任务1（标记为已完成）
+    await prisma.taskSubmission.create({
+      data: {
+        teacherId: teacher.id,
+        taskIndex: 1,
+        taskType: 'FORM', // Task 1 is a FORM type
+        status: 'COMPLETED',
+        formData: teacherInfo as any
+      }
+    })
+
+    // 更新当前任务索引到2
+    await prisma.teacher.update({
+      where: { id: teacher.id },
+      data: { currentTaskIndex: 2 }
+    })
+
+    // 设置认证 cookie
+    const cookieStore = await cookies()
+    cookieStore.set('teacherId', teacher.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365 // 1年
+    })
+
+    return {
+      success: true,
+      teacherId: teacher.id,
+      message: '注册成功'
+    }
+  } catch (error) {
+    console.error('注册失败:', error)
+    return { success: false, error: '注册失败，请重试' }
   }
 }
 
@@ -306,38 +449,41 @@ export async function getReferralDataByTeacherId(
     // 计算收益统计
     const earningsResult = await calculateReferralEarnings(teacher.id)
     const earnings = earningsResult.success ? earningsResult.earnings : {
+      directValid: 0,
+      indirectValid: 0,
+      directReward: 10,
+      indirectReward: 5,
       totalEarnings: 0,
       totalWithdrawn: 0,
       totalPending: 0,
-      availableBalance: 0,
-      validReferralsCount: 0
+      availableBalance: 0
     }
+
+    // 获取统计数据（从 ReferralStats 表）
+    const referralStats = await prisma.referralStats.findUnique({
+      where: { teacherId: teacher.id }
+    })
 
     // 计算统计数据
     const stats = {
-      total: allReferrals.length,
-      validReferrals: earnings!.validReferralsCount,
+      directTotal: referralStats?.directTotal || 0,
+      directValid: referralStats?.directValid || 0,
+      indirectTotal: referralStats?.indirectTotal || 0,
+      indirectValid: referralStats?.indirectValid || 0,
+      directReward: earnings!.directReward,
+      indirectReward: earnings!.indirectReward,
+      totalEarnings: earnings!.totalEarnings,
       totalWithdrawn: earnings!.totalWithdrawn,
       totalPending: earnings!.totalPending,
-      availableBalance: earnings!.availableBalance,
-      // 保留旧的统计字段以兼容
-      pending: allReferrals.filter(r => r.status === 'PENDING').length,
-      valid: allReferrals.filter(r => r.status === 'VALID').length,
-      completed: allReferrals.filter(r => 
-        r.referred.status === 'COMPLETED' || r.referred.status === 'UNLOCKED'
-      ).length,
-      invalid: allReferrals.filter(r => r.status === 'INVALID').length,
-      rewardsSent: allReferrals.filter(r => r.rewardSent).length
+      availableBalance: earnings!.availableBalance
     }
 
-    // 分页参数
-    const page = filters?.page || 1
-    const pageSize = filters?.pageSize || 100
-    const skip = (page - 1) * pageSize
-
-    // 获取分页数据
-    const referrals = await prisma.referral.findMany({
-      where: whereConditions,
+    // 获取直接邀请列表（应用筛选条件）
+    const directReferrals = await prisma.referral.findMany({
+      where: {
+        ...whereConditions,
+        type: 'DIRECT'
+      },
       include: {
         referred: {
           select: {
@@ -351,13 +497,48 @@ export async function getReferralDataByTeacherId(
           }
         }
       },
-      orderBy: { createdAt: 'desc' },
-      skip,
-      take: pageSize
+      orderBy: { createdAt: 'desc' }
     })
 
-    // 计算分页信息
-    const totalPages = Math.ceil(totalCount / pageSize)
+    // 获取间接邀请列表（应用筛选条件，包含中间人信息）
+    const indirectReferrals = await prisma.referral.findMany({
+      where: {
+        ...whereConditions,
+        type: 'INDIRECT'
+      },
+      include: {
+        referred: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            currentPhase: true,
+            currentTaskIndex: true,
+            status: true,
+            createdAt: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+
+    // 获取间接邀请的中间人信息
+    const indirectWithReferrers = await Promise.all(
+      indirectReferrals.map(async (ref) => {
+        // 通过 indirectReferrerId 获取中间人信息
+        const middlePerson = ref.indirectReferrerId
+          ? await prisma.teacher.findUnique({
+              where: { id: ref.indirectReferrerId },
+              select: { name: true }
+            })
+          : null
+
+        return {
+          ...ref,
+          referrerName: middlePerson?.name || null
+        }
+      })
+    )
 
     return {
       success: true,
@@ -366,9 +547,9 @@ export async function getReferralDataByTeacherId(
         referrerName: teacher.name,
         inviteCode: teacher.inviteCode,
         stats,
-        referrals: referrals.map((ref, index) => ({
+        directReferrals: directReferrals.map((ref, index) => ({
           id: ref.id,
-          index: skip + index + 1,
+          index: index + 1,
           referredName: ref.referred.name,
           referredPhone: ref.referred.phone,
           currentPhase: ref.referred.currentPhase,
@@ -379,13 +560,26 @@ export async function getReferralDataByTeacherId(
           adminNote: ref.adminNote,
           createdAt: ref.createdAt
         })),
+        indirectReferrals: indirectWithReferrers.map((ref, index) => ({
+          id: ref.id,
+          index: index + 1,
+          referredName: ref.referred.name,
+          referredPhone: ref.referred.phone,
+          referrerName: ref.referrerName, // 中间人名字
+          currentPhase: ref.referred.currentPhase,
+          currentTaskIndex: ref.referred.currentTaskIndex,
+          status: ref.referred.status,
+          referralStatus: ref.status,
+          adminNote: ref.adminNote,
+          createdAt: ref.createdAt
+        })),
         pagination: {
-          currentPage: page,
-          pageSize,
-          totalCount,
-          totalPages,
-          hasNextPage: page < totalPages,
-          hasPrevPage: page > 1
+          currentPage: 1,
+          pageSize: 100,
+          totalCount: directReferrals.length + indirectReferrals.length,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPrevPage: false
         }
       }
     }
@@ -444,21 +638,206 @@ export async function getMyReferrals(teacherId: string) {
   }
 }
 
-// ==================== 提现相关功能 ====================
+// ==================== 邀请统计相关功能 ====================
 
-// 计算邀请收益
-export async function calculateReferralEarnings(teacherId: string) {
+// 更新邀请统计数据
+export async function updateReferralStats(teacherId: string) {
   try {
-    // 获取所有有效邀请
-    const validReferrals = await prisma.referral.count({
-      where: {
-        referrerId: teacherId,
-        status: 'VALID'
+    // 查询该教师的所有邀请记录
+    const referrals = await prisma.referral.findMany({
+      where: { referrerId: teacherId }
+    })
+    
+    // 分类统计
+    const direct = referrals.filter(r => r.type === 'DIRECT')
+    const indirect = referrals.filter(r => r.type === 'INDIRECT')
+    
+    const stats = {
+      directTotal: direct.length,
+      directValid: direct.filter(r => r.status === 'VALID').length,
+      directPending: direct.filter(r => r.status === 'PENDING').length,
+      directInvalid: direct.filter(r => r.status === 'INVALID').length,
+      
+      indirectTotal: indirect.length,
+      indirectValid: indirect.filter(r => r.status === 'VALID').length,
+      indirectPending: indirect.filter(r => r.status === 'PENDING').length,
+      indirectInvalid: indirect.filter(r => r.status === 'INVALID').length,
+    }
+    
+    // 计算总收益
+    const directReward = await getSystemConfigFromDB('DIRECT_REWARD', 10)
+    const indirectReward = await getSystemConfigFromDB('INDIRECT_REWARD', 5)
+    const totalEarnings = stats.directValid * directReward + stats.indirectValid * indirectReward
+    
+    // 更新或创建统计记录
+    await prisma.referralStats.upsert({
+      where: { teacherId },
+      create: {
+        teacherId,
+        ...stats,
+        totalEarnings
+      },
+      update: {
+        ...stats,
+        totalEarnings
       }
     })
     
+    return { success: true }
+  } catch (error) {
+    console.error('更新邀请统计失败:', error)
+    return { success: false, error: '更新统计失败' }
+  }
+}
+
+// 创建邀请记录（支持直接和间接邀请）
+export async function createReferralRecord(referrerId: string, referredId: string) {
+  try {
+    // 1. 创建直接邀请记录
+    const directReferral = await prisma.referral.create({
+      data: {
+        referrerId,
+        referredId,
+        type: 'DIRECT',
+        status: 'PENDING'
+      }
+    })
+    
+    // 2. 检查邀请人是否被别人邀请（查找间接邀请人）
+    const referrerReferral = await prisma.referral.findFirst({
+      where: {
+        referredId: referrerId,
+        type: 'DIRECT'
+      }
+    })
+    
+    // 3. 如果邀请人有上级，为上级创建间接邀请记录
+    if (referrerReferral) {
+      await prisma.referral.create({
+        data: {
+          referrerId: referrerReferral.referrerId, // 间接邀请人（A）
+          referredId,                               // 被邀请人（C）
+          type: 'INDIRECT',
+          status: 'PENDING',
+          indirectReferrerId: referrerId           // 中间人（B）的ID
+        }
+      })
+      
+      // 更新间接邀请人的统计
+      await updateReferralStats(referrerReferral.referrerId)
+    }
+    
+    // 4. 更新直接邀请人的统计
+    await updateReferralStats(referrerId)
+    
+    return { success: true, directReferral }
+  } catch (error) {
+    console.error('创建邀请记录失败:', error)
+    return { success: false, error: '创建邀请记录失败' }
+  }
+}
+
+// 更新邀请状态（同步更新间接邀请）
+export async function updateReferralStatus(
+  referralId: string, 
+  newStatus: 'VALID' | 'INVALID',
+  adminId: string,
+  note?: string
+) {
+  try {
+    // 更新邀请状态
+    const referral = await prisma.referral.update({
+      where: { id: referralId },
+      data: {
+        status: newStatus,
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+        adminNote: note
+      }
+    })
+    
+    // 如果是直接邀请，同步更新相关的间接邀请
+    if (referral.type === 'DIRECT') {
+      await prisma.referral.updateMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        data: {
+          status: newStatus,
+          reviewedBy: adminId,
+          reviewedAt: new Date()
+        }
+      })
+      
+      // 获取所有间接邀请人并更新他们的统计
+      const indirectReferrals = await prisma.referral.findMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        select: {
+          referrerId: true
+        }
+      })
+      
+      for (const ir of indirectReferrals) {
+        await updateReferralStats(ir.referrerId)
+      }
+    }
+    
+    // 更新直接邀请人的统计
+    await updateReferralStats(referral.referrerId)
+    
+    revalidatePath('/admin/referrals')
+    
+    return { success: true }
+  } catch (error) {
+    console.error('更新邀请状态失败:', error)
+    return { success: false, error: '更新状态失败' }
+  }
+}
+
+// ==================== 提现相关功能 ====================
+
+// 计算邀请收益（支持直接和间接奖励）
+export async function calculateReferralEarnings(teacherId: string) {
+  try {
+    // 从统计表获取数据（避免实时查询）
+    let stats = await prisma.referralStats.findUnique({
+      where: { teacherId }
+    })
+    
+    // 如果没有统计数据，先创建
+    if (!stats) {
+      await updateReferralStats(teacherId)
+      stats = await prisma.referralStats.findUnique({
+        where: { teacherId }
+      })
+    }
+    
+    if (!stats) {
+      return {
+        success: true,
+        earnings: {
+          directValid: 0,
+          indirectValid: 0,
+          directReward: await getSystemConfigFromDB('DIRECT_REWARD', 10),
+          indirectReward: await getSystemConfigFromDB('INDIRECT_REWARD', 5),
+          totalEarnings: 0,
+          totalWithdrawn: 0,
+          totalPending: 0,
+          availableBalance: 0
+        }
+      }
+    }
+    
+    // 获取奖励配置
+    const directReward = await getSystemConfigFromDB('DIRECT_REWARD', 10)
+    const indirectReward = await getSystemConfigFromDB('INDIRECT_REWARD', 5)
+    
     // 计算总收益
-    const totalEarnings = validReferrals * REFERRAL_CONFIG.rewardPerValidReferral
+    const totalEarnings = stats.directValid * directReward + stats.indirectValid * indirectReward
     
     // 获取已批准提现总额
     const approvedWithdrawals = await prisma.withdrawal.findMany({
@@ -473,7 +852,7 @@ export async function calculateReferralEarnings(teacherId: string) {
     
     const totalWithdrawn = approvedWithdrawals.reduce((sum, w) => sum + w.amount, 0)
     
-    // 获取待审核提现总额（申请后立即冻结，驳回后自动释放）
+    // 获取待审核提现总额
     const pendingWithdrawals = await prisma.withdrawal.findMany({
       where: {
         teacherId,
@@ -492,11 +871,14 @@ export async function calculateReferralEarnings(teacherId: string) {
     return {
       success: true,
       earnings: {
+        directValid: stats.directValid,
+        indirectValid: stats.indirectValid,
+        directReward,
+        indirectReward,
         totalEarnings,
         totalWithdrawn,
         totalPending,
-        availableBalance,
-        validReferralsCount: validReferrals
+        availableBalance
       }
     }
   } catch (error) {
@@ -819,6 +1201,187 @@ export async function getTeachersWithReferrals(filters: {
   } catch (error) {
     console.error('获取老师列表失败:', error)
     return { success: false, error: '获取老师列表失败' }
+  }
+}
+
+// ==================== 提现审核管理 ====================
+
+// 获取所有提现申请列表
+export async function getAllWithdrawals(filters?: {
+  status?: string
+  startDate?: string
+  endDate?: string
+  search?: string
+}) {
+  try {
+    const where: any = {}
+    
+    if (filters?.status && filters.status !== 'ALL') {
+      where.status = filters.status
+    }
+    
+    if (filters?.startDate || filters?.endDate) {
+      where.createdAt = {}
+      if (filters.startDate) {
+        where.createdAt.gte = new Date(filters.startDate)
+      }
+      if (filters.endDate) {
+        const endDate = new Date(filters.endDate)
+        endDate.setHours(23, 59, 59, 999)
+        where.createdAt.lte = endDate
+      }
+    }
+    
+    if (filters?.search) {
+      where.teacher = {
+        OR: [
+          { name: { contains: filters.search, mode: 'insensitive' } },
+          { phone: { contains: filters.search } }
+        ]
+      }
+    }
+    
+    const withdrawals = await prisma.withdrawal.findMany({
+      where,
+      include: {
+        teacher: {
+          select: {
+            id: true,
+            name: true,
+            phone: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' }
+    })
+    
+    return { success: true, withdrawals }
+  } catch (error) {
+    console.error('获取提现申请列表失败:', error)
+    return { success: false, error: '获取提现申请列表失败' }
+  }
+}
+
+// 获取单个提现申请详情
+export async function getWithdrawalDetail(withdrawalId: string) {
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      include: {
+        teacher: {
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            inviteCode: true,
+            createdAt: true
+          }
+        }
+      }
+    })
+    
+    if (!withdrawal) {
+      return { success: false, error: '提现申请不存在' }
+    }
+    
+    // 获取推荐人的统计信息
+    const stats = await prisma.referralStats.findUnique({
+      where: { teacherId: withdrawal.teacherId }
+    })
+    
+    return {
+      success: true,
+      withdrawal,
+      stats
+    }
+  } catch (error) {
+    console.error('获取提现详情失败:', error)
+    return { success: false, error: '获取提现详情失败' }
+  }
+}
+
+// 批准提现申请
+export async function approveWithdrawal(withdrawalId: string, adminId: string) {
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      select: { status: true, teacherId: true }
+    })
+    
+    if (!withdrawal) {
+      return { success: false, error: '提现申请不存在' }
+    }
+    
+    if (withdrawal.status !== 'PENDING') {
+      return { success: false, error: '该申请已处理，无法重复操作' }
+    }
+    
+    // 更新提现申请状态
+    await prisma.withdrawal.update({
+      where: { id: withdrawalId },
+      data: {
+        status: 'APPROVED',
+        reviewedBy: adminId,
+        reviewedAt: new Date()
+      }
+    })
+    
+    // 重新计算收益（会更新ReferralStats表）
+    await calculateReferralEarnings(withdrawal.teacherId)
+    
+    revalidatePath('/admin/withdrawals')
+    
+    return { success: true, message: '已批准提现申请' }
+  } catch (error) {
+    console.error('批准提现失败:', error)
+    return { success: false, error: '批准提现失败，请重试' }
+  }
+}
+
+// 驳回提现申请
+export async function rejectWithdrawal(
+  withdrawalId: string,
+  adminId: string,
+  rejectNote: string
+) {
+  try {
+    const withdrawal = await prisma.withdrawal.findUnique({
+      where: { id: withdrawalId },
+      select: { status: true, teacherId: true, amount: true }
+    })
+    
+    if (!withdrawal) {
+      return { success: false, error: '提现申请不存在' }
+    }
+    
+    if (withdrawal.status !== 'PENDING') {
+      return { success: false, error: '该申请已处理，无法重复操作' }
+    }
+    
+    if (!rejectNote?.trim()) {
+      return { success: false, error: '请填写驳回原因' }
+    }
+    
+    // 更新提现申请状态
+    await prisma.withdrawal.update({
+      where: { id: withdrawalId },
+      data: {
+        status: 'REJECTED',
+        reviewedBy: adminId,
+        reviewedAt: new Date(),
+        rejectNote: rejectNote.trim()
+      }
+    })
+    
+    // 重新计算收益（会释放冻结的金额）
+    await calculateReferralEarnings(withdrawal.teacherId)
+    
+    revalidatePath('/admin/withdrawals')
+    
+    return { success: true, message: '已驳回提现申请' }
+  } catch (error) {
+    console.error('驳回提现失败:', error)
+    return { success: false, error: '驳回提现失败，请重试' }
   }
 }
 

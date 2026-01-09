@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { NextRequest } from 'next/server'
+import { createReferralRecord } from '@/app/actions/teacher'
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies()
@@ -54,15 +55,9 @@ export async function GET(request: NextRequest) {
     
     teacherId = teacher.id
     
-    // 如果有邀请人，创建邀请记录
+    // 如果有邀请人，创建邀请记录（会自动创建直接和间接邀请）
     if (referrerId) {
-      await prisma.referral.create({
-        data: {
-          referrerId: referrerId,
-          referredId: teacher.id,
-          status: 'PENDING'
-        }
-      })
+      await createReferralRecord(referrerId, teacher.id)
     }
     
     // 设置 cookie
@@ -78,4 +73,5 @@ export async function GET(request: NextRequest) {
   const redirectUrl = refCode ? `/onboarding?ref=${refCode}` : '/onboarding'
   return NextResponse.redirect(new URL(redirectUrl, process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'))
 }
+
 

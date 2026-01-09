@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { getAllWithdrawals } from '@/app/actions/withdrawal'
+import { getAllWithdrawals } from '@/app/actions/teacher'
 import WithdrawalManagementClient from './WithdrawalManagementClient'
 
 export default async function WithdrawalsManagementPage({
@@ -30,7 +30,7 @@ export default async function WithdrawalsManagementPage({
     search: params.search
   })
 
-  if (!result.success || !result.withdrawals || !result.stats) {
+  if (!result.success || !result.withdrawals) {
     return (
       <div className="p-6">
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
@@ -42,9 +42,8 @@ export default async function WithdrawalsManagementPage({
 
   return (
     <WithdrawalManagementClient
-      withdrawals={result.withdrawals}
-      stats={result.stats}
-      filters={params}
+      initialWithdrawals={result.withdrawals}
+      initialFilters={params}
     />
   )
 }

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { formatName, formatPhone } from '@/lib/utils'
+import { formatName, formatPhone, formatDateTime } from '@/lib/utils'
 import { logoutReferrer } from '@/app/actions/auth'
 
 const PosterGenerator = dynamic(() => import('@/components/referral/PosterGenerator'), {
@@ -14,13 +14,18 @@ type ReferralData = {
   referrerName: string | null
   inviteCode: string | null
   stats: {
-    total: number
-    validReferrals: number
+    directTotal: number
+    directValid: number
+    indirectTotal: number
+    indirectValid: number
+    directReward: number
+    indirectReward: number
+    totalEarnings: number
     totalWithdrawn: number
     totalPending: number
     availableBalance: number
   }
-  referrals: Array<{
+  directReferrals: Array<{
     id: string
     index: number
     referredName: string | null
@@ -30,6 +35,19 @@ type ReferralData = {
     status: string
     referralStatus: 'PENDING' | 'VALID' | 'INVALID'
     rewardSent: boolean
+    adminNote: string | null
+    createdAt: Date
+  }>
+  indirectReferrals: Array<{
+    id: string
+    index: number
+    referredName: string | null
+    referredPhone: string | null
+    referrerName: string | null // 中间人（B）的名字
+    currentPhase: number
+    currentTaskIndex: number
+    status: string
+    referralStatus: 'PENDING' | 'VALID' | 'INVALID'
     adminNote: string | null
     createdAt: Date
   }>
@@ -63,9 +81,37 @@ export default function ReferralDashboard({
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { referrerName, inviteCode, stats, referrals } = data
+  const { referrerName, inviteCode, stats, directReferrals, indirectReferrals } = data
   const [copiedType, setCopiedType] = useState<'invite' | null>(null)
   const [showPosterGenerator, setShowPosterGenerator] = useState(false)
+  const [activeTab, setActiveTab] = useState<'direct' | 'indirect'>('direct')
+  
+  // 分页状态
+  const [directPage, setDirectPage] = useState(1)
+  const [indirectPage, setIndirectPage] = useState(1)
+  const pageSize = 20
+  
+  // 计算分页数据
+  const directTotalPages = Math.ceil(directReferrals.length / pageSize)
+  const indirectTotalPages = Math.ceil(indirectReferrals.length / pageSize)
+  
+  const paginatedDirectReferrals = directReferrals.slice(
+    (directPage - 1) * pageSize,
+    directPage * pageSize
+  )
+  
+  const paginatedIndirectReferrals = indirectReferrals.slice(
+    (indirectPage - 1) * pageSize,
+    indirectPage * pageSize
+  )
+  
+  // 切换Tab时重置分页
+  const handleTabChange = (tab: 'direct' | 'indirect') => {
+    setActiveTab(tab)
+    // 可选：切换Tab时重置到第一页（根据需求决定是否启用）
+    // if (tab === 'direct') setDirectPage(1)
+    // if (tab === 'indirect') setIndirectPage(1)
+  }
 
   // 筛选状态
   const [filterForm, setFilterForm] = useState({
@@ -102,13 +148,6 @@ export default function ReferralDashboard({
       referralStatus: ''
     })
     router.push(window.location.pathname)
-  }
-
-  // 翻页
-  const goToPage = (page: number) => {
-    const params = new URLSearchParams(searchParams.toString())
-    params.set('page', page.toString())
-    router.push(`?${params.toString()}`)
   }
 
   // 登出
@@ -194,152 +233,183 @@ export default function ReferralDashboard({
         </div>
         
         {/* 统计卡片 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-primary-600">{stats.total}</div>
-            <div className="text-sm text-gray-600 mt-1">总邀请人数</div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+          {/* 直接邀请统计 */}
+          <div className="card bg-gradient-to-br from-blue-50 to-white">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">👥 直接邀请</h4>
+              <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded-full">
+                {stats.directReward}元/人
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-2xl font-bold text-blue-600">{stats.directTotal}</div>
+                <div className="text-xs text-gray-600 mt-1">总邀请</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-success-600">{stats.directValid}</div>
+                <div className="text-xs text-gray-600 mt-1">有效邀请</div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="text-sm text-gray-600">
+                预计收益: <span className="font-bold text-blue-700">{stats.directValid * stats.directReward}</span> 元
+              </div>
+            </div>
           </div>
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-success-600">{stats.validReferrals}</div>
-            <div className="text-sm text-gray-600 mt-1">总有效邀请数</div>
+
+          {/* 间接邀请统计 */}
+          <div className="card bg-gradient-to-br from-purple-50 to-white">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">🔗 间接邀请</h4>
+              <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded-full">
+                {stats.indirectReward}元/人
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-2xl font-bold text-purple-600">{stats.indirectTotal}</div>
+                <div className="text-xs text-gray-600 mt-1">总邀请</div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold text-success-600">{stats.indirectValid}</div>
+                <div className="text-xs text-gray-600 mt-1">有效邀请</div>
+              </div>
+            </div>
+            <div className="mt-3 pt-3 border-t border-gray-200">
+              <div className="text-sm text-gray-600">
+                预计收益: <span className="font-bold text-purple-700">{stats.indirectValid * stats.indirectReward}</span> 元
+              </div>
+            </div>
           </div>
-          <div className="card text-center">
-            <div className="text-3xl font-bold text-blue-600">{stats.totalWithdrawn}</div>
-            <div className="text-sm text-gray-600 mt-1">已累计提现（元）</div>
-          </div>
-          <div className="card text-center relative">
-            <div className="text-3xl font-bold text-amber-600">{stats.availableBalance}</div>
-            <div className="text-sm text-gray-600 mt-1">可提现金额（元）</div>
+
+          {/* 收益统计 */}
+          <div className="card bg-gradient-to-br from-amber-50 to-white">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-semibold text-gray-700">💰 收益统计</h4>
+            </div>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">总收益</span>
+                <span className="text-lg font-bold text-gray-900">{stats.totalEarnings}元</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs text-gray-600">已提现</span>
+                <span className="text-sm text-gray-700">{stats.totalWithdrawn}元</span>
+              </div>
+              {stats.totalPending > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-xs text-gray-600">待审核</span>
+                  <span className="text-sm text-amber-600">{stats.totalPending}元</span>
+                </div>
+              )}
+              <div className="pt-2 border-t border-gray-200">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-gray-700">可提现</span>
+                  <span className="text-2xl font-bold text-amber-600">{stats.availableBalance}元</span>
+                </div>
+              </div>
+            </div>
             <button
               onClick={() => router.push('/referral/withdraw')}
-              className="mt-3 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium py-2 px-4 rounded-lg transition-all shadow-md hover:shadow-lg text-sm"
+              className="mt-3 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-medium py-2.5 px-4 rounded-lg transition-all shadow-md hover:shadow-lg text-sm"
             >
-              💰 申请提现
+              💳 申请提现
             </button>
           </div>
         </div>
 
-        {/* 筛选表单 */}
-        <div className="card mb-6">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4">🔍 筛选条件</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {/* 开始日期 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                开始日期
-              </label>
-              <input
-                type="date"
-                value={filterForm.startDate}
-                onChange={(e) => setFilterForm(prev => ({ ...prev, startDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            {/* 结束日期 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                结束日期
-              </label>
-              <input
-                type="date"
-                value={filterForm.endDate}
-                onChange={(e) => setFilterForm(prev => ({ ...prev, endDate: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-              />
-            </div>
-
-            {/* 任务进度 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                任务进度
-              </label>
-              <select
-                value={filterForm.taskStatus}
-                onChange={(e) => setFilterForm(prev => ({ ...prev, taskStatus: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-              >
-                <option value="">全部</option>
-                <option value="0">0/6</option>
-                <option value="1">1/6</option>
-                <option value="2">2/6</option>
-                <option value="3">3/6</option>
-                <option value="4">4/6</option>
-                <option value="5">5/6</option>
-                <option value="6">6/6</option>
-              </select>
-            </div>
-
-            {/* 邀请状态 */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                邀请状态
-              </label>
-              <select
-                value={filterForm.referralStatus}
-                onChange={(e) => setFilterForm(prev => ({ ...prev, referralStatus: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
-              >
-                <option value="">全部</option>
-                <option value="PENDING">待审核</option>
-                <option value="VALID">有效邀请</option>
-                <option value="INVALID">无效邀请</option>
-              </select>
-            </div>
-          </div>
-
-          {/* 筛选按钮 */}
-          <div className="mt-4 flex gap-3">
-            <button
-              onClick={applyFilters}
-              className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors font-medium"
-            >
-              应用筛选
-            </button>
-            <button
-              onClick={clearFilters}
-              className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-            >
-              清除筛选
-            </button>
-          </div>
-        </div>
-        
         {/* 被邀请人列表 */}
         <div className="card">
+          {/* Tab 切换 */}
+          <div className="border-b border-gray-200 mb-6">
+            <div className="flex gap-1">
+              <button
+                onClick={() => handleTabChange('direct')}
+                className={`px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'direct'
+                    ? 'text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  👥 直接邀请列表
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    activeTab === 'direct' 
+                      ? 'bg-primary-100 text-primary-700' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {stats.directTotal}
+                  </span>
+                </span>
+                {activeTab === 'direct' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600" />
+                )}
+              </button>
+              <button
+                onClick={() => handleTabChange('indirect')}
+                className={`px-6 py-3 font-medium text-sm transition-colors relative ${
+                  activeTab === 'indirect'
+                    ? 'text-primary-600'
+                    : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <span className="flex items-center gap-2">
+                  🔗 间接邀请列表
+                  <span className={`px-2 py-0.5 rounded-full text-xs ${
+                    activeTab === 'indirect' 
+                      ? 'bg-primary-100 text-primary-700' 
+                      : 'bg-gray-100 text-gray-600'
+                  }`}>
+                    {stats.indirectTotal}
+                  </span>
+                </span>
+                {activeTab === 'indirect' && (
+                  <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary-600" />
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* 列表头部 */}
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-lg font-semibold text-gray-900">👥 被邀请人列表</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              {activeTab === 'direct' ? '👥 直接邀请详情' : '🔗 间接邀请详情'}
+            </h3>
             {pagination && (
               <div className="text-sm text-gray-600">
-                共 {pagination.totalCount} 条记录
+                共 {activeTab === 'direct' ? directReferrals.length : indirectReferrals.length} 条记录
               </div>
             )}
           </div>
           
-          {referrals.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-6xl mb-4">🎯</div>
-              <p className="text-gray-600 mb-2">还没有人通过你的邀请加入</p>
-              <p className="text-sm text-gray-500">快去分享你的邀请链接吧！</p>
-            </div>
-          ) : (
+          {/* 直接邀请列表 */}
+          {activeTab === 'direct' && (
             <>
-              {/* 桌面端表格 */}
-              <div className="hidden md:block overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">序号</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">被邀请人</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
-                      <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">注册时间</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {referrals.map((referral) => (
+              {directReferrals.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🎯</div>
+                  <p className="text-gray-600 mb-2">还没有人通过你的邀请加入</p>
+                  <p className="text-sm text-gray-500">快去分享你的邀请链接吧！</p>
+                </div>
+              ) : (
+                <>
+                  {/* 桌面端表格 */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">序号</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">被邀请人</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">注册时间</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedDirectReferrals.map((referral) => (
                       <tr key={referral.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-3 px-4 text-sm">#{referral.index}</td>
                         <td className="py-3 px-4 text-sm">
@@ -389,17 +459,17 @@ export default function ReferralDashboard({
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm text-gray-600">
-                          {new Date(referral.createdAt).toLocaleDateString('zh-CN')}
+                          {formatDateTime(referral.createdAt)}
                         </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               
-              {/* 移动端卡片 */}
-              <div className="md:hidden space-y-4">
-                {referrals.map((referral) => (
+                {/* 移动端卡片 */}
+                <div className="md:hidden space-y-4">
+                  {directReferrals.map((referral) => (
                   <div key={referral.id} className="p-4 border border-gray-200 rounded-lg">
                     <div className="flex justify-between items-start mb-3">
                       <div>
@@ -439,84 +509,270 @@ export default function ReferralDashboard({
                         )}
                       </div>
                       <div className="text-xs">
-                        注册：{new Date(referral.createdAt).toLocaleDateString('zh-CN')}
+                        注册：{formatDateTime(referral.createdAt)}
                       </div>
                       {referral.adminNote && referral.referralStatus === 'INVALID' && (
                         <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs">
                           <strong>无效原因：</strong>{referral.adminNote}
                         </div>
                       )}
+                      </div>
                     </div>
+                  ))}
+                </div>
+              </>
+            )}
+            
+            {/* 直接邀请分页控件 */}
+            {directReferrals.length > pageSize && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    显示 {(directPage - 1) * pageSize + 1} - {Math.min(directPage * pageSize, directReferrals.length)} 条，
+                    共 {directReferrals.length} 条记录
                   </div>
-                ))}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setDirectPage(1)}
+                      disabled={directPage === 1}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      首页
+                    </button>
+                    <button
+                      onClick={() => setDirectPage(p => Math.max(1, p - 1))}
+                      disabled={directPage === 1}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      上一页
+                    </button>
+                    <span className="px-4 py-1.5 text-sm text-gray-700">
+                      第 {directPage} / {directTotalPages} 页
+                    </span>
+                    <button
+                      onClick={() => setDirectPage(p => Math.min(directTotalPages, p + 1))}
+                      disabled={directPage === directTotalPages}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      下一页
+                    </button>
+                    <button
+                      onClick={() => setDirectPage(directTotalPages)}
+                      disabled={directPage === directTotalPages}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      末页
+                    </button>
+                  </div>
+                </div>
               </div>
+            )}
+          </>
+        )}
+
+          {/* 间接邀请列表 */}
+          {activeTab === 'indirect' && (
+            <>
+              {indirectReferrals.length === 0 ? (
+                <div className="text-center py-12">
+                  <div className="text-6xl mb-4">🔗</div>
+                  <p className="text-gray-600 mb-2">暂无间接邀请记录</p>
+                  <p className="text-sm text-gray-500">
+                    当你邀请的人再邀请其他人时，会产生间接邀请
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {/* 桌面端表格 */}
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">序号</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请人</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">被邀请人</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">注册时间</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {paginatedIndirectReferrals.map((referral) => (
+                          <tr key={referral.id} className="border-b border-gray-100 hover:bg-gray-50">
+                            <td className="py-3 px-4 text-sm">#{referral.index}</td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded">中间人</span>
+                                <span className="font-medium text-gray-900">
+                                  {referral.referrerName ? formatName(referral.referrerName) : '未知'}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              <div className="font-medium">
+                                {referral.referredName ? formatName(referral.referredName) : `被邀请人 #${referral.index}`}
+                              </div>
+                              {referral.referredPhone && (
+                                <div className="text-xs text-gray-500 mt-0.5">
+                                  {formatPhone(referral.referredPhone)}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              第 {referral.currentTaskIndex}/6 个任务
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
+                                  ✓ 已完成
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                                  进行中
+                                </span>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm">
+                              {referral.referralStatus === 'PENDING' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                  ⏳ 待审核
+                                </span>
+                              ) : referral.referralStatus === 'VALID' ? (
+                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
+                                  ✅ 有效
+                                </span>
+                              ) : (
+                                <div className="group relative">
+                                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 cursor-help">
+                                    ❌ 无效
+                                  </span>
+                                  {referral.adminNote && (
+                                    <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                                      原因：{referral.adminNote}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600">
+                              {formatDateTime(referral.createdAt)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+              
+                  {/* 移动端卡片 */}
+                  <div className="md:hidden space-y-4">
+                    {indirectReferrals.map((referral) => (
+                      <div key={referral.id} className="p-4 border border-purple-200 rounded-lg bg-purple-50/30">
+                        <div className="flex items-center gap-2 mb-3">
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded font-medium">
+                            🔗 间接邀请
+                          </span>
+                          <span className="text-xs text-gray-600">
+                            通过 {referral.referrerName ? formatName(referral.referrerName) : '未知'} 邀请
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-start mb-3">
+                          <div>
+                            <div className="font-medium text-gray-900">
+                              {referral.referredName ? formatName(referral.referredName) : `被邀请人 #${referral.index}`}
+                            </div>
+                            {referral.referredPhone && (
+                              <div className="text-xs text-gray-500 mt-0.5">
+                                {formatPhone(referral.referredPhone)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-2">
+                            {referral.referralStatus === 'PENDING' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
+                                ⏳ 待审核
+                              </span>
+                            ) : referral.referralStatus === 'VALID' ? (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
+                                ✅ 有效
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
+                                ❌ 无效
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="space-y-2 text-sm text-gray-600">
+                          <div>进度：第 {referral.currentTaskIndex}/6 个任务</div>
+                          <div>
+                            状态：
+                            {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (
+                              <span className="text-success-700 font-medium">✓ 已完成</span>
+                            ) : (
+                              <span className="text-blue-700 font-medium">进行中</span>
+                            )}
+                          </div>
+                          <div className="text-xs">
+                            注册：{formatDateTime(referral.createdAt)}
+                          </div>
+                          {referral.adminNote && referral.referralStatus === 'INVALID' && (
+                            <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs">
+                              <strong>无效原因：</strong>{referral.adminNote}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            
+            {/* 间接邀请分页控件 */}
+            {indirectReferrals.length > pageSize && (
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+                  <div className="text-sm text-gray-600">
+                    显示 {(indirectPage - 1) * pageSize + 1} - {Math.min(indirectPage * pageSize, indirectReferrals.length)} 条，
+                    共 {indirectReferrals.length} 条记录
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => setIndirectPage(1)}
+                      disabled={indirectPage === 1}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      首页
+                    </button>
+                    <button
+                      onClick={() => setIndirectPage(p => Math.max(1, p - 1))}
+                      disabled={indirectPage === 1}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      上一页
+                    </button>
+                    <span className="px-4 py-1.5 text-sm text-gray-700">
+                      第 {indirectPage} / {indirectTotalPages} 页
+                    </span>
+                    <button
+                      onClick={() => setIndirectPage(p => Math.min(indirectTotalPages, p + 1))}
+                      disabled={indirectPage === indirectTotalPages}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      下一页
+                    </button>
+                    <button
+                      onClick={() => setIndirectPage(indirectTotalPages)}
+                      disabled={indirectPage === indirectTotalPages}
+                      className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      末页
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             </>
-          )}
-
-          {/* 分页控件 */}
-          {pagination && pagination.totalPages > 1 && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-                {/* 分页信息 */}
-                <div className="text-sm text-gray-600">
-                  第 {pagination.currentPage} / {pagination.totalPages} 页
-                  （共 {pagination.totalCount} 条记录）
-                </div>
-
-                {/* 分页按钮 */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => goToPage(1)}
-                    disabled={!pagination.hasPrevPage}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    首页
-                  </button>
-                  <button
-                    onClick={() => goToPage(pagination.currentPage - 1)}
-                    disabled={!pagination.hasPrevPage}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    上一页
-                  </button>
-                  <button
-                    onClick={() => goToPage(pagination.currentPage + 1)}
-                    disabled={!pagination.hasNextPage}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    下一页
-                  </button>
-                  <button
-                    onClick={() => goToPage(pagination.totalPages)}
-                    disabled={!pagination.hasNextPage}
-                    className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    末页
-                  </button>
-                </div>
-
-                {/* 快速跳转 */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-600">跳转到</span>
-                  <input
-                    type="number"
-                    min={1}
-                    max={pagination.totalPages}
-                    defaultValue={pagination.currentPage}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        const page = parseInt(e.currentTarget.value)
-                        if (page >= 1 && page <= pagination.totalPages) {
-                          goToPage(page)
-                        }
-                      }
-                    }}
-                    className="w-16 px-2 py-1.5 border border-gray-300 rounded-lg text-sm text-center"
-                  />
-                  <span className="text-sm text-gray-600">页</span>
-                </div>
-              </div>
-            </div>
           )}
         </div>
         

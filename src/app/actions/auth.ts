@@ -3,7 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
-import { ensureInviteCodes } from './teacher'
+import { ensureInviteCodes, createReferralRecord } from './teacher'
 
 // 验证手机号格式
 function isValidPhone(phone: string): boolean {
@@ -16,9 +16,10 @@ export async function registerReferrer(formData: {
   phone: string
   password: string
   confirmPassword: string
+  referralCode?: string  // 新增：可选的邀请码
 }) {
   try {
-    const { name, phone, password, confirmPassword } = formData
+    const { name, phone, password, confirmPassword, referralCode } = formData
 
     // 验证必填字段
     if (!name?.trim()) {
@@ -49,30 +50,90 @@ export async function registerReferrer(formData: {
       return { success: false, error: '两次密码输入不一致' }
     }
 
+    // 查找邀请人（如果提供了邀请码）
+    let invitedById: string | null = null
+    if (referralCode?.trim()) {
+      const referrer = await prisma.teacher.findUnique({
+        where: { inviteCode: referralCode.trim().toUpperCase() },
+        select: { id: true }
+      })
+      
+      if (!referrer) {
+        return { success: false, error: '邀请码无效' }
+      }
+      
+      invitedById = referrer.id
+    }
+
     // 检查手机号是否已注册
     const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone }
+      where: { phone: phone.trim() }
     })
 
     if (existingTeacher) {
-      return { success: false, error: '该手机号已被注册' }
+      // 如果已经设置了密码，说明已经注册过邀请人
+      if (existingTeacher.password) {
+        return { success: false, error: '该手机号已注册为邀请人，请直接登录' }
+      }
+      
+      // 如果没有密码，说明是通过引导系统创建的，升级为邀请人
+      const hashedPassword = await bcrypt.hash(password, 10)
+      
+      const teacher = await prisma.teacher.update({
+        where: { id: existingTeacher.id },
+        data: {
+          name: name.trim(),
+          password: hashedPassword,
+          // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
+          ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
+        }
+      })
+      
+      // 生成邀请码
+      await ensureInviteCodes(teacher.id)
+      
+      // 如果建立了新的邀请关系，创建邀请记录
+      if (invitedById && !existingTeacher.invitedById) {
+        await createReferralRecord(invitedById, teacher.id)
+      }
+      
+      // 设置认证 cookie
+      const cookieStore = await cookies()
+      cookieStore.set('referrer_session', teacher.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 30 // 30天
+      })
+
+      return {
+        success: true,
+        teacherId: teacher.id,
+        message: '注册成功'
+      }
     }
 
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // 创建老师记录
+    // 创建新的老师记录
     const teacher = await prisma.teacher.create({
       data: {
         name: name.trim(),
         phone: phone.trim(),
         password: hashedPassword,
-        status: 'NOT_STARTED'
+        status: 'NOT_STARTED',
+        invitedById
       }
     })
 
-    // 生成邀请码和查看码
+    // 生成邀请码
     await ensureInviteCodes(teacher.id)
+    
+    // 如果有邀请人，创建邀请记录
+    if (invitedById) {
+      await createReferralRecord(invitedById, teacher.id)
+    }
 
     // 设置认证 cookie
     const cookieStore = await cookies()
@@ -211,5 +272,88 @@ export async function getCurrentReferrer() {
   } catch (error) {
     console.error('获取当前用户失败:', error)
     return { success: false, error: '获取用户信息失败' }
+  }
+}
+
+// 老师登录（用于引导流程）
+export async function loginTeacher(phone: string, password: string) {
+  try {
+    // 验证必填字段
+    if (!phone?.trim()) {
+      return { success: false, error: '请输入手机号' }
+    }
+    if (!password) {
+      return { success: false, error: '请输入密码' }
+    }
+
+    // 验证手机号格式
+    if (!isValidPhone(phone)) {
+      return { success: false, error: '手机号格式不正确' }
+    }
+
+    // 查找用户
+    const teacher = await prisma.teacher.findUnique({
+      where: { phone: phone.trim() },
+      select: {
+        id: true,
+        name: true,
+        phone: true,
+        password: true,
+        inviteCode: true
+      }
+    })
+
+    if (!teacher) {
+      return { success: false, error: '手机号或密码错误' }
+    }
+
+    // 检查是否设置了密码
+    if (!teacher.password) {
+      return { success: false, error: '该账号未设置密码，请联系管理员' }
+    }
+
+    // 验证密码
+    const isPasswordValid = await bcrypt.compare(password, teacher.password)
+    if (!isPasswordValid) {
+      return { success: false, error: '手机号或密码错误' }
+    }
+
+    // 确保有邀请码
+    if (!teacher.inviteCode) {
+      const { ensureInviteCodes } = await import('./teacher')
+      await ensureInviteCodes(teacher.id)
+    }
+
+    // 设置认证 cookie
+    const cookieStore = await cookies()
+    cookieStore.set('teacherId', teacher.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365 // 1年
+    })
+
+    return {
+      success: true,
+      teacherId: teacher.id,
+      name: teacher.name,
+      message: '登录成功'
+    }
+  } catch (error) {
+    console.error('登录失败:', error)
+    return { success: false, error: '登录失败，请重试' }
+  }
+}
+
+// 老师登出
+export async function logoutTeacher() {
+  try {
+    const cookieStore = await cookies()
+    cookieStore.delete('teacherId')
+
+    return { success: true, message: '已退出登录' }
+  } catch (error) {
+    console.error('登出失败:', error)
+    return { success: false, error: '登出失败，请重试' }
   }
 }

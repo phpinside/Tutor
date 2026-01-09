@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
 import Link from 'next/link'
+import { formatDateTime } from '@/lib/utils'
 
 type Referral = {
   id: string
@@ -30,7 +31,8 @@ type Referral = {
 export default function ReferralManagementClient({
   initialReferrals,
   initialStats,
-  initialFilters
+  initialFilters,
+  pagination
 }: {
   initialReferrals: any[]
   initialStats: any
@@ -42,6 +44,14 @@ export default function ReferralManagementClient({
     endDate?: string
     taskProgress?: string
     rewardStatus?: string
+  }
+  pagination?: {
+    currentPage: number
+    totalPages: number
+    totalCount: number
+    pageSize: number
+    hasNextPage: boolean
+    hasPrevPage: boolean
   }
 }) {
   const router = useRouter()
@@ -128,6 +138,21 @@ export default function ReferralManagementClient({
     setTaskProgress('')
     setRewardStatus('')
     router.push('/admin/referrals')
+  }
+  
+  // 翻页
+  const goToPage = (page: number) => {
+    const params = new URLSearchParams()
+    params.set('page', page.toString())
+    if (statusFilter !== 'all') params.set('status', statusFilter)
+    if (searchTerm) params.set('search', searchTerm)
+    if (inviteCode) params.set('inviteCode', inviteCode)
+    if (startDate) params.set('startDate', startDate)
+    if (endDate) params.set('endDate', endDate)
+    if (taskProgress) params.set('taskProgress', taskProgress)
+    if (rewardStatus) params.set('rewardStatus', rewardStatus)
+    
+    router.push(`/admin/referrals?${params.toString()}`)
   }
   
   return (
@@ -254,7 +279,7 @@ export default function ReferralManagementClient({
               {initialReferrals.map((referral) => (
                 <tr key={referral.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4 text-sm">
-                    <div className="font-medium">{referral.referrer.name || '未填写'}</div>
+                    <div className="font-medium mb-1">{referral.referrer.name || '未填写'}</div>
                     <div className="text-xs text-gray-500">{referral.referrer.phone || '-'}</div>
                   </td>
                   <td className="py-3 px-4 text-sm">
@@ -309,7 +334,7 @@ export default function ReferralManagementClient({
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm text-gray-600">
-                    {new Date(referral.createdAt).toLocaleDateString('zh-CN')}
+                    {formatDateTime(referral.createdAt)}
                   </td>
                   <td className="py-3 px-4 text-sm">
                     <div className="flex gap-2">
@@ -370,6 +395,51 @@ export default function ReferralManagementClient({
           </table>
         )}
       </div>
+      
+      {/* 分页控件 */}
+      {pagination && pagination.totalPages > 1 && (
+        <div className="mt-6 pt-6 border-t border-gray-200">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="text-sm text-gray-600">
+              显示 {(pagination.currentPage - 1) * pagination.pageSize + 1} - {Math.min(pagination.currentPage * pagination.pageSize, pagination.totalCount)} 条，
+              共 {pagination.totalCount} 条记录
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => goToPage(1)}
+                disabled={!pagination.hasPrevPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                首页
+              </button>
+              <button
+                onClick={() => goToPage(pagination.currentPage - 1)}
+                disabled={!pagination.hasPrevPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                上一页
+              </button>
+              <span className="px-4 py-1.5 text-sm text-gray-700">
+                第 {pagination.currentPage} / {pagination.totalPages} 页
+              </span>
+              <button
+                onClick={() => goToPage(pagination.currentPage + 1)}
+                disabled={!pagination.hasNextPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                下一页
+              </button>
+              <button
+                onClick={() => goToPage(pagination.totalPages)}
+                disabled={!pagination.hasNextPage}
+                className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+              >
+                末页
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

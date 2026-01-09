@@ -222,11 +222,6 @@ export const QINIU_CONFIG = {
   domain:  'https://cdn.bytemath.cn',
 }
 
-// 邀请奖励配置
-export const REFERRAL_CONFIG = {
-  rewardPerValidReferral: 10, // 每个有效邀请的奖励金额（元）
-}
-
 // 任务视频配置（支持单视频或多视频）
 export interface VideoConfig {
   key: string // 七牛云上的文件路径
