@@ -310,7 +310,8 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
         '校区账号：18701557327， 密码：123qwe',
         '用自己手机号从试课学员入口注册体验',
 
-        '附：【鼎伴学软件下载】百度网盘: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
+        '附：【鼎伴学软件下载】https://www.aicase.top/dingbanxue1.0.zip ',
+        '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
 
       ]
     }
