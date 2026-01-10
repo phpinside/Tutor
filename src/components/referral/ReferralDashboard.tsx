@@ -232,7 +232,7 @@ export default function ReferralDashboard({
                     TA 再邀请别人
                   </p>
                   <p className="text-purple-600 font-bold text-lg mt-1">
-                    你也能继续拿钱（+{stats.indirectReward}元/人 + 授课奖励）
+                    你也能继续拿钱（成功入驻：+{stats.indirectReward}元/人 ， 开始接课 ：{stats.indirectTeachingReward}元/人）
                   </p>
                 </div>
               </div>
