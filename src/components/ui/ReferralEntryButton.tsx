@@ -4,13 +4,13 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 
 export default function ReferralEntryButton({ teacherId }: { teacherId: string }) {
-  const searchParams = useSearchParams()
+  // const searchParams = useSearchParams()
   
-  // 如果 URL 中有 ref 参数，说明是通过邀请链接进入的新用户，隐藏邀请按钮
-  const hasRefParam = searchParams.get('ref')
-  if (hasRefParam) {
-    return null
-  }
+  // // 如果 URL 中有 ref 参数，说明是通过邀请链接进入的新用户，隐藏邀请按钮
+  // const hasRefParam = searchParams.get('ref')
+  // if (hasRefParam) {
+  //   return null
+  // }
 
   return (
     <Link
