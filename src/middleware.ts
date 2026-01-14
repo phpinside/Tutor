@@ -1,6 +1,24 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// 路由权限映射：定义每个路径需要的角色
+const ROUTE_PERMISSIONS: Record<string, string[]> = {
+  '/admin/teachers': ['super_admin', 'teacher_admin'],
+  '/admin/referrals': ['super_admin'],
+  '/admin/withdrawals': ['super_admin'],
+  '/admin/config': ['super_admin'],
+}
+
+// 检查路径是否需要权限验证
+function getRequiredRoles(pathname: string): string[] | null {
+  for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
+    if (pathname.startsWith(route)) {
+      return roles
+    }
+  }
+  return null
+}
+
 export function middleware(request: NextRequest) {
   // 检查管理后台路径
   if (
@@ -13,6 +31,23 @@ export function middleware(request: NextRequest) {
     
     if (!session) {
       // 未登录，重定向到登录页
+      return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+
+    // 解析 session 数据，获取角色
+    try {
+      const sessionData = JSON.parse(session.value)
+      const userRole = sessionData.role
+
+      // 检查当前路径需要的权限
+      const requiredRoles = getRequiredRoles(request.nextUrl.pathname)
+      
+      if (requiredRoles && !requiredRoles.includes(userRole)) {
+        // 没有权限，重定向到老师管理页面（所有管理员都能访问）
+        return NextResponse.redirect(new URL('/admin/teachers', request.url))
+      }
+    } catch (error) {
+      // session 数据解析失败，重定向到登录页
       return NextResponse.redirect(new URL('/admin/login', request.url))
     }
   }

@@ -1,22 +1,30 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-// 写死的账号密码
-const ADMIN_CREDENTIALS = {
-  username: 'admin',
-  password: 'admin123'
-}
+// 管理员账号列表
+const ADMIN_ACCOUNTS = [
+  { username: 'admin', password: 'admin123', role: 'super_admin' },
+  { username: 'teacher_manager', password: 'teacher2026', role: 'teacher_admin' }
+]
 
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    // 验证账号密码
-    if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-      // 设置 cookie 标记已登录
-      // 使用简单的 token（实际项目中应该使用 JWT 或其他安全方案）
+    // 查找匹配的账号
+    const account = ADMIN_ACCOUNTS.find(
+      acc => acc.username === username && acc.password === password
+    )
+
+    if (account) {
+      // 设置 cookie 标记已登录，包含角色信息
       const cookieStore = await cookies()
-      cookieStore.set('admin_session', 'authenticated', {
+      const sessionData = JSON.stringify({
+        authenticated: true,
+        role: account.role
+      })
+      
+      cookieStore.set('admin_session', sessionData, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
