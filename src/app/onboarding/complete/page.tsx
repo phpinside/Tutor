@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getOrCreateTeacher, updateTeacherStatus } from '@/app/actions/teacher'
+import { getOrCreateTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
+import { TeacherStatus } from '@prisma/client'
 import CompletionContent from './CompletionContent'
+import EvaluationGuard from './EvaluationGuard'
 
 export default async function CompletePage() {
   const cookieStore = await cookies()
@@ -19,21 +21,26 @@ export default async function CompletePage() {
   const TOTAL_TASKS = TASKS_CONFIG.length
   const allCompleted = teacher.currentTaskIndex >= TOTAL_TASKS
   
-  // 如果还没完成所有任务,重定向回引导页
-  if (!allCompleted && teacher.status !== 'COMPLETED' && teacher.status !== 'UNLOCKED') {
+  // 如果还没完成所有任务，重定向回引导页
+  if (!allCompleted && teacher.status !== TeacherStatus.COMPLETED && teacher.status !== TeacherStatus.UNLOCKED) {
     redirect('/onboarding')
   }
   
-  // 自动更新状态为已完成
-  if (teacher.status !== 'COMPLETED' && teacher.status !== 'UNLOCKED') {
-    await updateTeacherStatus(teacherId, 'COMPLETED')
+  // 只有状态为 COMPLETED 或 UNLOCKED 的用户才能访问完成页面
+  if (teacher.status !== TeacherStatus.COMPLETED && teacher.status !== TeacherStatus.UNLOCKED) {
+    redirect('/onboarding/evaluation')
   }
   
   return (
-    <CompletionContent 
-      teacherName={teacher.name} 
-      teacherId={teacherId} 
-      totalTasks={TOTAL_TASKS}
-    />
+    <>
+      {/* 客户端组件：检查 localStorage 中的评估状态 */}
+      <EvaluationGuard teacherId={teacherId} />
+      
+      <CompletionContent 
+        teacherName={teacher.name} 
+        teacherId={teacherId} 
+        totalTasks={TOTAL_TASKS}
+      />
+    </>
   )
 }
