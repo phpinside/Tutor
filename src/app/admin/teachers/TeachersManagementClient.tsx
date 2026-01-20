@@ -215,8 +215,13 @@ export default function TeachersManagementClient({
             <tbody className="bg-white divide-y divide-gray-200">
               {initialTeachers.map(teacher => (
                 <tr key={teacher.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500">
-                    {teacher.id.substring(0, 8)}...
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
+                    <Link
+                      href={`/admin/teachers/${teacher.id}`}
+                      className="text-primary-600 hover:text-primary-900 hover:underline"
+                    >
+                      {teacher.id.substring(0, 8)}...
+                    </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {teacher.name || <span className="text-gray-400">未填写</span>}
