@@ -302,7 +302,7 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
       emoji: '💻',
       tips: [
         '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量',
-        '参考课程回放：https://meeting.tencent.com/crm/N1EbwQbmf4',
+        '参考课程回放：https://meeting.tencent.com/cw/2qxkPmpm99 ',
         '参考上述上课流程，用腾讯会议录制一段试讲视频，可不出镜：',
         '时长：约 20 分钟',
         '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
@@ -310,7 +310,7 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
         '校区账号：18701557327， 密码：123qwe',
         '用自己手机号从试课学员入口注册体验',
 
-        '附：【鼎伴学软件下载】https://www.aicase.top/dingbanxue1.0.zip ',
+        '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
         '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
 
       ]
