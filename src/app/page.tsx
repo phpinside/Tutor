@@ -1,6 +1,5 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { prisma } from '@/lib/prisma'
 
 export default async function HomePage({
   searchParams
@@ -24,26 +23,8 @@ export default async function HomePage({
     redirect('/auth/login')
   }
   
-  // 已登录：检查是否有手机号和密码
-  const teacher = await prisma.teacher.findUnique({
-    where: { id: teacherId },
-    select: { phone: true, password: true }
-  })
-  
-  // 如果找不到用户（可能 cookie 过期或数据被删除），跳转登录
-  if (!teacher) {
-    if (refCode) {
-      redirect(`/auth/register?ref=${refCode}`)
-    }
-    redirect('/auth/login')
-  }
-  
-  // 如果没有手机号或密码，跳转到补充信息页
-  if (!teacher.phone || !teacher.password) {
-    redirect('/auth/complete')
-  }
-  
-  // 已完成认证，跳转到引导页面
+  // 已登录：直接跳转到引导页面
+  // 注：所有用户注册时必须填写完整信息，无需额外检查
   redirect('/onboarding')
 }
 

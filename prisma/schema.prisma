@@ -9,7 +9,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 老师状态枚举
+// 老师状态枚举gi t
 enum TeacherStatus {
   NOT_STARTED // 未开始
   IN_PROGRESS // 引导中
@@ -66,10 +66,12 @@ enum TeachingStatus {
 model Teacher {
   id String @id @default(cuid())
 
-  // 基础信息
-  name           String? // 姓名
-  phone          String? @unique // 联系电话（唯一，必填项，用于登录。老用户为 null 时需补充）
-  password       String? // 密码（bcrypt加密，必填项，用于登录。老用户为 null 时需补充）
+  // 基础信息（必填）
+  name     String // 姓名（必填）
+  phone    String @unique // 联系电话（唯一，必填，用于登录）
+  password String // 密码（bcrypt加密，必填，用于登录）
+
+  // 基础信息（可选）
   gender         String? // 性别：男/女
   age            String? // 年龄
   school         String? // 学历/学校（包含专业）

@@ -32,11 +32,6 @@ export default async function OnboardingPage({
     redirect(refCode ? `/auth/register?ref=${refCode}` : '/auth/login')
   }
   
-  // 检查是否有手机号和密码（老用户需要补充信息）
-  if (!teacher.phone || !teacher.password) {
-    redirect('/auth/complete')
-  }
-  
   // 如果有 ref 参数且用户没有邀请人，重定向到 init 处理邀请关系
   if (refCode && !teacher.invitedById) {
     redirect(`/api/init?ref=${refCode}`)
