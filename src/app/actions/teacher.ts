@@ -6,35 +6,25 @@ import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 
-// 获取或创建老师
-export async function getOrCreateTeacher(teacherId?: string) {
+// 获取老师信息
+export async function getTeacher(teacherId: string) {
   try {
-    if (teacherId) {
-      const teacher = await prisma.teacher.findUnique({
-        where: { id: teacherId },
-        include: {
-          taskSubmissions: {
-            orderBy: { taskIndex: 'asc' }
-          }
-        }
-      })
-      
-      if (teacher) return teacher
-    }
-    
-    // 创建新老师
-    const newTeacher = await prisma.teacher.create({
-      data: {
-        status: 'NOT_STARTED'
-      },
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
       include: {
-        taskSubmissions: true
+        taskSubmissions: {
+          orderBy: { taskIndex: 'asc' }
+        }
       }
     })
     
-    return newTeacher
+    if (!teacher) {
+      throw new Error('老师不存在')
+    }
+    
+    return teacher
   } catch (error) {
-    console.error('获取或创建老师失败:', error)
+    console.error('获取老师失败:', error)
     throw new Error('操作失败,请重试')
   }
 }

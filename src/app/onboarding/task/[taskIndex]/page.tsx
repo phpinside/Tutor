@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
-import { getOrCreateTeacher } from '@/app/actions/teacher'
+import { getTeacher } from '@/app/actions/teacher'
 import { getTaskSubmission } from '@/app/actions/task'
 import { getTaskConfigs } from '@/lib/config'
 import TaskIntro from '@/components/tasks/TaskIntro'
@@ -33,7 +33,7 @@ export default async function TaskPage({
     redirect('/onboarding')
   }
   
-  const teacher = await getOrCreateTeacher(teacherId)
+  const teacher = await getTeacher(teacherId)
   const task = TASKS_CONFIG[taskIndex]
   const submission = await getTaskSubmission(teacherId, taskIndex)
   

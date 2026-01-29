@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getOrCreateTeacher } from '@/app/actions/teacher'
+import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import { TeacherStatus } from '@prisma/client'
 import CompletionContent from './CompletionContent'
@@ -14,7 +14,7 @@ export default async function CompletePage() {
     redirect('/onboarding')
   }
   
-  const teacher = await getOrCreateTeacher(teacherId)
+  const teacher = await getTeacher(teacherId)
   
   // 从数据库获取任务总数
   const TASKS_CONFIG = await getTaskConfigs()

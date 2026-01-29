@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getOrCreateTeacher } from '@/app/actions/teacher'
+import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs, getPhaseConfigs } from '@/lib/config'
 import ProgressBar from '@/components/ui/ProgressBar'
 import PhaseIndicator from '@/components/ui/PhaseIndicator'
@@ -26,7 +26,7 @@ export default async function OnboardingPage({
   
   let teacher
   try {
-    teacher = await getOrCreateTeacher(teacherId)
+    teacher = await getTeacher(teacherId)
   } catch (error) {
     // 如果获取失败（比如 teacherId 无效），重定向到登录页
     redirect(refCode ? `/auth/register?ref=${refCode}` : '/auth/login')

@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getOrCreateTeacher } from '@/app/actions/teacher'
+import { getTeacher } from '@/app/actions/teacher'
 import EvaluationContent from './EvaluationContent'
 
 export default async function EvaluationPage() {
@@ -11,7 +11,7 @@ export default async function EvaluationPage() {
     redirect('/onboarding')
   }
   
-  const teacher = await getOrCreateTeacher(teacherId)
+  const teacher = await getTeacher(teacherId)
   
   // 检查教师状态
   // 如果还没完成所有任务，重定向回引导页
