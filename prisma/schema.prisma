@@ -39,19 +39,19 @@ enum TaskType {
 // 邀请状态枚举
 enum ReferralStatus {
   PENDING // 待审核（默认状态）
-  VALID   // 有效邀请
+  VALID // 有效邀请
   INVALID // 无效邀请
 }
 
 // 邀请类型枚举
 enum ReferralType {
-  DIRECT   // 直接邀请
+  DIRECT // 直接邀请
   INDIRECT // 间接邀请
 }
 
 // 提现状态枚举
 enum WithdrawalStatus {
-  PENDING  // 已申请
+  PENDING // 已申请
   APPROVED // 已成功
   REJECTED // 已驳回
 }
@@ -59,7 +59,7 @@ enum WithdrawalStatus {
 // 授课状态枚举
 enum TeachingStatus {
   NOT_TAUGHT // 未授课
-  TAUGHT     // 已授课
+  TAUGHT // 已授课
 }
 
 // 老师信息
@@ -68,8 +68,8 @@ model Teacher {
 
   // 基础信息
   name           String? // 姓名
-  phone          String? @unique // 联系电话（唯一，用于邀请人登录）
-  password       String? // 密码（bcrypt加密，仅邀请人使用）
+  phone          String? @unique // 联系电话（唯一，必填项，用于登录。老用户为 null 时需补充）
+  password       String? // 密码（bcrypt加密，必填项，用于登录。老用户为 null 时需补充）
   gender         String? // 性别：男/女
   age            String? // 年龄
   school         String? // 学历/学校（包含专业）
@@ -96,21 +96,21 @@ model Teacher {
   currentTaskIndex Int           @default(0) // 当前任务索引 0-5
 
   // 邀请相关
-  inviteCode  String? @unique // 唯一邀请码（用于分享给他人）
-  invitedById String? // 邀请人ID
+  inviteCode     String?        @unique // 唯一邀请码（用于分享给他人）
+  invitedById    String? // 邀请人ID
   teachingStatus TeachingStatus @default(NOT_TAUGHT) // 授课状态
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // 关系
-  taskSubmissions    TaskSubmission[]
-  invitedBy          Teacher?         @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
-  invitedTeachers    Teacher[]        @relation("TeacherReferrals")
-  referrals          Referral[]       @relation("ReferrerReferrals")
-  referredReferrals  Referral[]       @relation("ReferredReferrals")
-  withdrawals        Withdrawal[]
-  referralStats      ReferralStats?
+  taskSubmissions   TaskSubmission[]
+  invitedBy         Teacher?         @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedTeachers   Teacher[]        @relation("TeacherReferrals")
+  referrals         Referral[]       @relation("ReferrerReferrals")
+  referredReferrals Referral[]       @relation("ReferredReferrals")
+  withdrawals       Withdrawal[]
+  referralStats     ReferralStats?
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -192,37 +192,37 @@ model PhaseConfig {
 
 // 邀请记录表
 model Referral {
-  id         String         @id @default(cuid())
-  
+  id String @id @default(cuid())
+
   // 邀请关系
   referrerId String // 邀请人ID
   referredId String // 被邀请人ID
-  
+
   // 邀请类型
-  type                ReferralType @default(DIRECT) // 邀请类型：直接/间接
-  indirectReferrerId String?      // 间接邀请时的中间人ID（仅INDIRECT类型有值）
-  
+  type               ReferralType @default(DIRECT) // 邀请类型：直接/间接
+  indirectReferrerId String? // 间接邀请时的中间人ID（仅INDIRECT类型有值）
+
   // 状态管理
   status     ReferralStatus @default(PENDING) // 邀请状态
   rewardSent Boolean        @default(false) // 是否已发放奖励
-  
+
   // 管理员操作
   adminNote  String? // 管理员备注（如标记无效的理由）
   reviewedBy String? // 审核人
   reviewedAt DateTime? // 审核时间
-  
+
   // 授课相关
-  lessonNote String?   // 授课备注
-  verifiedBy String?   // 授课审核人
+  lessonNote String? // 授课备注
+  verifiedBy String? // 授课审核人
   verifiedAt DateTime? // 授课审核时间
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // 关系
   referrer Teacher @relation("ReferrerReferrals", fields: [referrerId], references: [id], onDelete: Cascade)
   referred Teacher @relation("ReferredReferrals", fields: [referredId], references: [id], onDelete: Cascade)
-  
+
   @@unique([referrerId, referredId, type]) // 同一个人对同一个被邀请人只能有一种邀请类型
   @@index([referrerId])
   @@index([referredId])
@@ -235,34 +235,34 @@ model Referral {
 // 提现申请表
 model Withdrawal {
   id String @id @default(cuid())
-  
+
   // 提现人信息
   teacherId String // 申请提现的老师ID
-  
+
   // 提现金额
   amount Float // 提现金额（元）
-  
+
   // 银行账户信息
   accountName String // 账户名称（姓名）
   bankName    String // 开户行名称
   cardNumber  String // 银行卡号
   phone       String // 手机号
   idCard      String // 身份证号码
-  
+
   // 状态管理
   status WithdrawalStatus @default(PENDING) // 提现状态
-  
+
   // 管理员操作
-  rejectNote String?   // 驳回备注
-  reviewedBy String?   // 审核人
+  rejectNote String? // 驳回备注
+  reviewedBy String? // 审核人
   reviewedAt DateTime? // 审核时间
-  
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   // 关系
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
+
   @@index([teacherId])
   @@index([status])
   @@index([createdAt])
@@ -273,45 +273,45 @@ model Withdrawal {
 model SystemConfig {
   id    String @id @default(cuid())
   key   String @unique // 配置键（如 'DIRECT_REWARD', 'INDIRECT_REWARD'）
-  value String         // 配置值
-  
+  value String // 配置值
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
+
   @@map("system_configs")
 }
 
 // 邀请统计表
 model ReferralStats {
-  id String @id @default(cuid())
+  id        String @id @default(cuid())
   teacherId String @unique // 老师ID
-  
+
   // 直接邀请统计
   directTotal   Int @default(0) // 直接邀请总数
   directValid   Int @default(0) // 有效直接邀请数
   directPending Int @default(0) // 待审核直接邀请数
   directInvalid Int @default(0) // 无效直接邀请数
   directTaught  Int @default(0) // 直接邀请完成授课数
-  
+
   // 间接邀请统计
   indirectTotal   Int @default(0) // 间接邀请总数
   indirectValid   Int @default(0) // 有效间接邀请数
   indirectPending Int @default(0) // 待审核间接邀请数
   indirectInvalid Int @default(0) // 无效间接邀请数
   indirectTaught  Int @default(0) // 间接邀请完成授课数
-  
+
   // 收益统计
   totalEarnings     Float @default(0) // 总收益（元）
   totalWithdrawn    Float @default(0) // 已提现金额（元）
   pendingWithdrawal Float @default(0) // 待审核提现金额（元）
   availableBalance  Float @default(0) // 可提现余额（元）
-  
+
   lastUpdated DateTime @updatedAt
   createdAt   DateTime @default(now())
-  
+
   // 关系
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
-  
+
   @@index([teacherId])
   @@map("referral_stats")
 }

@@ -6,17 +6,17 @@ import WithdrawalClient from './WithdrawalClient'
 
 export default async function WithdrawalPage() {
   const cookieStore = await cookies()
-  const session = cookieStore.get('referrer_session')
+  const teacherId = cookieStore.get('teacherId')?.value
 
   // 检查是否已登录
-  if (!session?.value) {
-    redirect('/referral/login?redirect=/referral/withdraw')
+  if (!teacherId) {
+    redirect('/auth/login?redirect=/referral/withdraw')
   }
 
   // 获取当前用户信息
   const currentUserResult = await getCurrentReferrer()
   if (!currentUserResult.success || !currentUserResult.teacher) {
-    redirect('/referral/login?redirect=/referral/withdraw')
+    redirect('/auth/login?redirect=/referral/withdraw')
   }
 
   const teacher = currentUserResult.teacher

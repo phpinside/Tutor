@@ -16,17 +16,17 @@ export default async function ReferralDashboardPage({
   }>
 }) {
   const cookieStore = await cookies()
-  const session = cookieStore.get('referrer_session')
+  const teacherId = cookieStore.get('teacherId')?.value
 
   // 检查是否已登录
-  if (!session?.value) {
-    redirect('/referral/login?redirect=/referral/dashboard')
+  if (!teacherId) {
+    redirect('/auth/login?redirect=/referral/dashboard')
   }
 
   // 获取当前用户信息
   const currentUserResult = await getCurrentReferrer()
   if (!currentUserResult.success || !currentUserResult.teacher) {
-    redirect('/referral/login?redirect=/referral/dashboard')
+    redirect('/auth/login?redirect=/referral/dashboard')
   }
 
   const teacher = currentUserResult.teacher

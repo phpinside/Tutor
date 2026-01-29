@@ -19,17 +19,22 @@ export default async function OnboardingPage({
   const cookieStore = await cookies()
   const teacherId = cookieStore.get('teacherId')?.value
   
-  // 如果没有 teacherId，重定向到初始化页面
+  // 如果没有 teacherId，重定向到登录页
   if (!teacherId) {
-    redirect(refCode ? `/api/init?ref=${refCode}` : '/api/init')
+    redirect(refCode ? `/auth/register?ref=${refCode}` : '/auth/login')
   }
   
   let teacher
   try {
     teacher = await getOrCreateTeacher(teacherId)
   } catch (error) {
-    // 如果获取失败（比如 teacherId 无效），重定向到初始化页面
-    redirect(refCode ? `/api/init?ref=${refCode}` : '/api/init')
+    // 如果获取失败（比如 teacherId 无效），重定向到登录页
+    redirect(refCode ? `/auth/register?ref=${refCode}` : '/auth/login')
+  }
+  
+  // 检查是否有手机号和密码（老用户需要补充信息）
+  if (!teacher.phone || !teacher.password) {
+    redirect('/auth/complete')
   }
   
   // 如果有 ref 参数且用户没有邀请人，重定向到 init 处理邀请关系

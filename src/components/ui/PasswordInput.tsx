@@ -12,6 +12,7 @@ interface PasswordInputProps {
   name?: string
   autoComplete?: string
   className?: string
+  disabled?: boolean
 }
 
 export default function PasswordInput({
@@ -23,7 +24,8 @@ export default function PasswordInput({
   minLength = 6,
   name = 'password',
   autoComplete = 'current-password',
-  className = ''
+  className = '',
+  disabled = false
 }: PasswordInputProps) {
   const [showPassword, setShowPassword] = useState(false)
 
@@ -45,12 +47,14 @@ export default function PasswordInput({
           required={required}
           minLength={minLength}
           autoComplete={autoComplete}
+          disabled={disabled}
         />
         <button
           type="button"
           onClick={() => setShowPassword(!showPassword)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           tabIndex={-1}
+          disabled={disabled}
         >
           {showPassword ? (
             // Eye slash icon (hide)

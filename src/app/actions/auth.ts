@@ -97,13 +97,13 @@ export async function registerReferrer(formData: {
         await createReferralRecord(invitedById, teacher.id)
       }
       
-      // 设置认证 cookie
+      // 设置认证 cookie（统一使用 teacherId）
       const cookieStore = await cookies()
-      cookieStore.set('referrer_session', teacher.id, {
+      cookieStore.set('teacherId', teacher.id, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30 // 30天
+        maxAge: 60 * 60 * 24 * 365 // 365天
       })
 
       return {
@@ -135,13 +135,13 @@ export async function registerReferrer(formData: {
       await createReferralRecord(invitedById, teacher.id)
     }
 
-    // 设置认证 cookie
+    // 设置认证 cookie（统一使用 teacherId）
     const cookieStore = await cookies()
-    cookieStore.set('referrer_session', teacher.id, {
+    cookieStore.set('teacherId', teacher.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30 // 30天
+      maxAge: 60 * 60 * 24 * 365 // 365天
     })
 
     return {
@@ -208,13 +208,13 @@ export async function loginReferrer(formData: {
       await ensureInviteCodes(teacher.id)
     }
 
-    // 设置认证 cookie
+    // 设置认证 cookie（统一使用 teacherId）
     const cookieStore = await cookies()
-    cookieStore.set('referrer_session', teacher.id, {
+    cookieStore.set('teacherId', teacher.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30 // 30天
+      maxAge: 60 * 60 * 24 * 365 // 365天
     })
 
     return {
@@ -229,11 +229,11 @@ export async function loginReferrer(formData: {
   }
 }
 
-// 邀请人登出
+// 邀请人登出（统一使用 teacherId）
 export async function logoutReferrer() {
   try {
     const cookieStore = await cookies()
-    cookieStore.delete('referrer_session')
+    cookieStore.delete('teacherId')
 
     return { success: true, message: '已退出登录' }
   } catch (error) {
@@ -242,18 +242,18 @@ export async function logoutReferrer() {
   }
 }
 
-// 获取当前登录的邀请人信息
+// 获取当前登录的邀请人信息（统一使用 teacherId）
 export async function getCurrentReferrer() {
   try {
     const cookieStore = await cookies()
-    const session = cookieStore.get('referrer_session')
+    const teacherId = cookieStore.get('teacherId')?.value
 
-    if (!session?.value) {
+    if (!teacherId) {
       return { success: false, error: '未登录' }
     }
 
     const teacher = await prisma.teacher.findUnique({
-      where: { id: session.value },
+      where: { id: teacherId },
       select: {
         id: true,
         name: true,
@@ -263,8 +263,6 @@ export async function getCurrentReferrer() {
     })
 
     if (!teacher) {
-      // Cookie中的ID无效，清除cookie
-      cookieStore.delete('referrer_session')
       return { success: false, error: '会话已过期' }
     }
 
@@ -272,6 +270,145 @@ export async function getCurrentReferrer() {
   } catch (error) {
     console.error('获取当前用户失败:', error)
     return { success: false, error: '获取用户信息失败' }
+  }
+}
+
+// 老师注册（用于新用户注册）
+export async function registerTeacher(formData: {
+  phone: string
+  password: string
+  confirmPassword: string
+  referralCode?: string
+}) {
+  try {
+    const { phone, password, confirmPassword, referralCode } = formData
+
+    // 验证必填字段
+    if (!phone?.trim()) {
+      return { success: false, error: '请输入手机号' }
+    }
+    if (!password) {
+      return { success: false, error: '请输入密码' }
+    }
+    if (!confirmPassword) {
+      return { success: false, error: '请确认密码' }
+    }
+
+    // 验证手机号格式
+    if (!isValidPhone(phone)) {
+      return { success: false, error: '手机号格式不正确' }
+    }
+
+    // 验证密码长度
+    if (password.length < 6) {
+      return { success: false, error: '密码至少需要6位' }
+    }
+
+    // 验证密码确认
+    if (password !== confirmPassword) {
+      return { success: false, error: '两次密码输入不一致' }
+    }
+
+    // 查找邀请人（如果提供了邀请码）
+    let invitedById: string | null = null
+    if (referralCode?.trim()) {
+      const referrer = await prisma.teacher.findUnique({
+        where: { inviteCode: referralCode.trim().toUpperCase() },
+        select: { id: true }
+      })
+      
+      if (!referrer) {
+        return { success: false, error: '邀请码无效' }
+      }
+      
+      invitedById = referrer.id
+    }
+
+    // 检查手机号是否已注册
+    const existingTeacher = await prisma.teacher.findUnique({
+      where: { phone: phone.trim() }
+    })
+
+    if (existingTeacher) {
+      // 如果已经设置了密码，说明已经注册过
+      if (existingTeacher.password) {
+        return { success: false, error: '该手机号已注册，请直接登录' }
+      }
+      
+      // 如果没有密码，说明是通过引导系统创建的老用户，升级账号
+      const hashedPassword = await bcrypt.hash(password, 10)
+      
+      const teacher = await prisma.teacher.update({
+        where: { id: existingTeacher.id },
+        data: {
+          password: hashedPassword,
+          // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
+          ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
+        }
+      })
+      
+      // 生成邀请码
+      await ensureInviteCodes(teacher.id)
+      
+      // 如果建立了新的邀请关系，创建邀请记录
+      if (invitedById && !existingTeacher.invitedById) {
+        await createReferralRecord(invitedById, teacher.id)
+      }
+      
+      // 设置认证 cookie
+      const cookieStore = await cookies()
+      cookieStore.set('teacherId', teacher.id, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 60 * 60 * 24 * 365 // 1年
+      })
+
+      return {
+        success: true,
+        teacherId: teacher.id,
+        message: '注册成功'
+      }
+    }
+
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(password, 10)
+
+    // 创建新的老师记录
+    const teacher = await prisma.teacher.create({
+      data: {
+        phone: phone.trim(),
+        password: hashedPassword,
+        status: 'NOT_STARTED',
+        invitedById
+      }
+    })
+
+    // 生成邀请码
+    await ensureInviteCodes(teacher.id)
+    
+    // 如果有邀请人，创建邀请记录
+    if (invitedById) {
+      await createReferralRecord(invitedById, teacher.id)
+    }
+
+    // 设置认证 cookie
+    const cookieStore = await cookies()
+    cookieStore.set('teacherId', teacher.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 365 // 1年
+    })
+
+    return {
+      success: true,
+      teacherId: teacher.id,
+      message: '注册成功'
+    }
+  } catch (error) {
+    console.error('注册失败:', error)
+    return { success: false, error: '注册失败，请重试' }
   }
 }
 
