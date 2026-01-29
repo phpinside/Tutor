@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
+import { resetTeacherPassword } from '@/app/actions/teacher'
 
 type Teacher = {
   id: string
@@ -18,7 +19,8 @@ type Teacher = {
 export default function TeachersManagementClient({
   initialTeachers,
   initialFilters,
-  pagination
+  pagination,
+  adminRole
 }: {
   initialTeachers: Teacher[]
   initialFilters: {
@@ -36,6 +38,7 @@ export default function TeachersManagementClient({
     hasNextPage: boolean
     hasPrevPage: boolean
   }
+  adminRole: string
 }) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState(initialFilters.search || '')
@@ -43,6 +46,27 @@ export default function TeachersManagementClient({
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
   const [teachingStatus, setTeachingStatus] = useState(initialFilters.teachingStatus || '')
+  const [resettingTeacherId, setResettingTeacherId] = useState<string | null>(null)
+
+  // 重置密码处理函数
+  const handleResetPassword = async (teacherId: string, teacherName: string | null) => {
+    const confirmMessage = `确定要将"${teacherName || '该老师'}"的密码重置为"123456"吗？\n\n此操作不可撤销。`
+    
+    if (!confirm(confirmMessage)) {
+      return
+    }
+
+    setResettingTeacherId(teacherId)
+    const result = await resetTeacherPassword(teacherId)
+    setResettingTeacherId(null)
+
+    if (result.success) {
+      alert(result.message || '密码重置成功')
+      router.refresh()
+    } else {
+      alert('操作失败：' + (result.error || '未知错误'))
+    }
+  }
 
   // 应用筛选
   const handleApplyFilters = () => {
@@ -252,12 +276,23 @@ export default function TeachersManagementClient({
                     {formatDateTime(teacher.updatedAt)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <Link
-                      href={`/admin/teachers/${teacher.id}`}
-                      className="text-primary-600 hover:text-primary-900 font-medium"
-                    >
-                      查看详情
-                    </Link>
+                    <div className="flex items-center gap-3">
+                      <Link
+                        href={`/admin/teachers/${teacher.id}`}
+                        className="text-primary-600 hover:text-primary-900 font-medium transition-colors"
+                      >
+                        查看详情
+                      </Link>
+                      {adminRole === 'super_admin' && (
+                        <button
+                          onClick={() => handleResetPassword(teacher.id, teacher.name)}
+                          disabled={resettingTeacherId === teacher.id}
+                          className="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {resettingTeacherId === teacher.id ? '重置中...' : '重置密码'}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

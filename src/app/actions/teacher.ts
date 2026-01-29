@@ -1423,4 +1423,53 @@ export async function rejectWithdrawal(
   }
 }
 
+// 重置老师密码（管理员功能）
+export async function resetTeacherPassword(teacherId: string) {
+  try {
+    // 验证管理员权限
+    const cookieStore = await cookies()
+    const session = cookieStore.get('admin_session')
+    
+    if (!session) {
+      return { success: false, error: '无权限执行此操作' }
+    }
+    
+    const sessionData = JSON.parse(session.value)
+    if (sessionData.role !== 'super_admin') {
+      return { success: false, error: '无权限执行此操作' }
+    }
+
+    // 验证老师是否存在
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { id: true, name: true, phone: true }
+    })
+
+    if (!teacher) {
+      return { success: false, error: '老师不存在' }
+    }
+
+    // 固定密码
+    const DEFAULT_PASSWORD = '123456'
+    
+    // 加密密码
+    const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10)
+
+    // 更新密码
+    await prisma.teacher.update({
+      where: { id: teacherId },
+      data: { password: hashedPassword }
+    })
+
+    revalidatePath('/admin/teachers')
+    
+    return { 
+      success: true, 
+      message: `密码已重置为 ${DEFAULT_PASSWORD}` 
+    }
+  } catch (error) {
+    console.error('重置密码失败:', error)
+    return { success: false, error: '重置密码失败，请重试' }
+  }
+}
 

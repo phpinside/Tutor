@@ -1,8 +1,26 @@
 import { prisma } from '@/lib/prisma'
 import { TeacherStatus } from '@prisma/client'
+import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
 
 export const dynamic = 'force-dynamic'
+
+// 获取当前管理员角色
+async function getAdminRole(): Promise<string> {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')
+  
+  if (!session) {
+    return 'super_admin'
+  }
+  
+  try {
+    const sessionData = JSON.parse(session.value)
+    return sessionData.role || 'super_admin'
+  } catch {
+    return 'super_admin'
+  }
+}
 
 export default async function AdminTeachersPage({
   searchParams
@@ -19,6 +37,9 @@ export default async function AdminTeachersPage({
   // 解析筛选参数
   const params = await searchParams
   const { search, taskIndex, startDate, endDate, teachingStatus } = params
+  
+  // 获取管理员角色
+  const adminRole = await getAdminRole()
   
   // 分页参数
   const currentPage = params.page ? parseInt(params.page) : 1
@@ -127,6 +148,7 @@ export default async function AdminTeachersPage({
         initialTeachers={teachers}
         initialFilters={{ search, taskIndex, startDate, endDate, teachingStatus }}
         pagination={pagination}
+        adminRole={adminRole}
       />
     </div>
   )
