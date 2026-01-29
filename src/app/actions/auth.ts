@@ -275,15 +275,19 @@ export async function getCurrentReferrer() {
 
 // 老师注册（用于新用户注册）
 export async function registerTeacher(formData: {
+  name: string
   phone: string
   password: string
   confirmPassword: string
   referralCode?: string
 }) {
   try {
-    const { phone, password, confirmPassword, referralCode } = formData
+    const { name, phone, password, confirmPassword, referralCode } = formData
 
     // 验证必填字段
+    if (!name?.trim()) {
+      return { success: false, error: '请输入姓名' }
+    }
     if (!phone?.trim()) {
       return { success: false, error: '请输入手机号' }
     }
@@ -341,6 +345,7 @@ export async function registerTeacher(formData: {
       const teacher = await prisma.teacher.update({
         where: { id: existingTeacher.id },
         data: {
+          name: name.trim(),
           password: hashedPassword,
           // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
           ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
@@ -377,6 +382,7 @@ export async function registerTeacher(formData: {
     // 创建新的老师记录
     const teacher = await prisma.teacher.create({
       data: {
+        name: name.trim(),
         phone: phone.trim(),
         password: hashedPassword,
         status: 'NOT_STARTED',
