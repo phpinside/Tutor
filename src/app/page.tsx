@@ -23,8 +23,8 @@ export default async function HomePage({
     redirect('/auth/login')
   }
   
-  // 已登录：直接跳转到引导页面
+  // 已登录：跳转到引导页面，如果有邀请码则传递
   // 注：所有用户注册时必须填写完整信息，无需额外检查
-  redirect('/onboarding')
+  redirect(refCode ? `/onboarding?ref=${refCode}` : '/onboarding')
 }
 

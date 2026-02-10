@@ -717,28 +717,47 @@ export async function createReferralRecord(referrerId: string, referredId: strin
       }
     })
     
-    // 2. 检查邀请人是否被别人邀请（查找间接邀请人）
+    // 2. 查找邀请人的上级（间接邀请人）
+    // 优先从 Referral 表查询，找不到再查 Teacher.invitedById（兼容历史数据）
+    let indirectReferrerId: string | null = null
+    
+    // 方式1：从 Referral 表查询直接邀请记录
     const referrerReferral = await prisma.referral.findFirst({
       where: {
         referredId: referrerId,
         type: 'DIRECT'
-      }
+      },
+      select: { referrerId: true }
     })
     
-    // 3. 如果邀请人有上级，为上级创建间接邀请记录
     if (referrerReferral) {
+      indirectReferrerId = referrerReferral.referrerId
+    } else {
+      // 方式2：从 Teacher.invitedById 查询（兼容历史数据或未同步的数据）
+      const referrerTeacher = await prisma.teacher.findUnique({
+        where: { id: referrerId },
+        select: { invitedById: true }
+      })
+      
+      if (referrerTeacher?.invitedById) {
+        indirectReferrerId = referrerTeacher.invitedById
+      }
+    }
+    
+    // 3. 如果邀请人有上级，为上级创建间接邀请记录
+    if (indirectReferrerId) {
       await prisma.referral.create({
         data: {
-          referrerId: referrerReferral.referrerId, // 间接邀请人（A）
-          referredId,                               // 被邀请人（C）
+          referrerId: indirectReferrerId,  // 间接邀请人（A）
+          referredId,                      // 被邀请人（C）
           type: 'INDIRECT',
           status: 'PENDING',
-          indirectReferrerId: referrerId           // 中间人（B）的ID
+          indirectReferrerId: referrerId  // 中间人（B）的ID
         }
       })
       
       // 更新间接邀请人的统计
-      await updateReferralStats(referrerReferral.referrerId)
+      await updateReferralStats(indirectReferrerId)
     }
     
     // 4. 更新直接邀请人的统计
