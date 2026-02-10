@@ -302,7 +302,7 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
       emoji: '💻',
       tips: [
         '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量',
-        '参考课程回放：https://meeting.tencent.com/cw/2qxkPmpm99 ',
+        '参考课程回放：https://meeting.tencent.com/crm/N1ERoG1L55',
         '参考上述上课流程，用腾讯会议录制一段试讲视频，可不出镜：',
         '时长：约 20 分钟',
         '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
