@@ -219,7 +219,7 @@ export default function ReferralDashboard({
                   <div className="flex items-start gap-2">
                     <span className="text-green-500 flex-shrink-0">•</span>
                     <p className="text-gray-700">
-                      被邀老师(张老师)正式开课后，邀请人A可再获
+                      被邀老师(张老师)正式开课，并完成10次授课后，邀请人A可再获
                       <span className="text-orange-600 font-bold"> {stats.directTeachingReward}元/人 </span>
                       奖励。
                     </p>
@@ -245,7 +245,7 @@ export default function ReferralDashboard({
                   <div className="flex items-start gap-2">
                     <span className="text-purple-500 flex-shrink-0">•</span>
                     <p className="text-gray-700">
-                      该新老师(李老师)正式开课后，原邀请人A可再获
+                      该新老师(李老师)正式开课，并完成10次授课后，原邀请人A可再获
                       <span className="text-pink-600 font-bold"> {stats.indirectTeachingReward}元/人 </span>
                       奖励。
                     </p>
