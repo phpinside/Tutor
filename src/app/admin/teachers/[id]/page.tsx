@@ -4,6 +4,7 @@ import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/u
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
+import SetInviterModal from './SetInviterModal'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,6 +22,9 @@ export default async function TeacherDetailPage({
     include: {
       taskSubmissions: {
         orderBy: { taskIndex: 'asc' }
+      },
+      invitedBy: {
+        select: { id: true, name: true, phone: true }
       }
     }
   })
@@ -53,13 +57,19 @@ export default async function TeacherDetailPage({
               ID: {teacher.id}
             </p>
           </div>
-          <span className={`badge text-base ${
-            teacher.status === 'UNLOCKED' ? 'badge-success' :
-            teacher.status === 'COMPLETED' ? 'badge-primary' :
-            'badge-gray'
-          }`}>
-            {getTeacherStatusText(teacher.status)}
-          </span>
+          <div className="flex items-center gap-3">
+            <SetInviterModal
+              teacherId={teacher.id}
+              currentInviter={teacher.invitedBy}
+            />
+            <span className={`badge text-base ${
+              teacher.status === 'UNLOCKED' ? 'badge-success' :
+              teacher.status === 'COMPLETED' ? 'badge-primary' :
+              'badge-gray'
+            }`}>
+              {getTeacherStatusText(teacher.status)}
+            </span>
+          </div>
         </div>
         
         {/* 基础信息 */}
@@ -202,6 +212,16 @@ export default async function TeacherDetailPage({
               <p className="font-medium text-gray-900">
                 {formatDateTime(teacher.updatedAt)}
               </p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">邀请人</p>
+              {teacher.invitedBy ? (
+                <p className="font-medium text-gray-900">
+                  {teacher.invitedBy.name || '未命名'} · {teacher.invitedBy.id}
+                </p>
+              ) : (
+                <p className="font-medium text-gray-400">暂无</p>
+              )}
             </div>
           </div>
         </div>

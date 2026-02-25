@@ -1482,3 +1482,69 @@ export async function resetTeacherPassword(teacherId: string) {
   }
 }
 
+// 管理员设置教师的邀请人
+export async function setTeacherInviter(teacherId: string, inviterId: string) {
+  try {
+    if (!teacherId || !inviterId) {
+      return { success: false, error: '参数不完整' }
+    }
+
+    if (teacherId === inviterId) {
+      return { success: false, error: '不能将自己设为邀请人' }
+    }
+
+    // 验证被操作的教师存在
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { id: true, name: true, invitedById: true }
+    })
+    if (!teacher) {
+      return { success: false, error: '教师不存在' }
+    }
+
+    // 验证邀请人存在
+    const inviter = await prisma.teacher.findUnique({
+      where: { id: inviterId },
+      select: { id: true, name: true }
+    })
+    if (!inviter) {
+      return { success: false, error: '邀请人不存在，请确认 ID 是否正确' }
+    }
+
+    // 如果已有旧邀请人，清除旧的邀请关系记录
+    // 找出所有关于该教师的邀请记录（直接 + 间接），这些记录来自旧邀请链
+    const oldReferrals = await prisma.referral.findMany({
+      where: { referredId: teacherId },
+      select: { id: true, referrerId: true }
+    })
+
+    if (oldReferrals.length > 0) {
+      // 删除所有旧记录
+      await prisma.referral.deleteMany({
+        where: { referredId: teacherId }
+      })
+
+      // 收集受影响的旧邀请人 ID（去重），重算其统计
+      const affectedReferrerIds = [...new Set(oldReferrals.map(r => r.referrerId))]
+      await Promise.all(affectedReferrerIds.map(id => updateReferralStats(id)))
+    }
+
+    // 更新 invitedById 字段
+    await prisma.teacher.update({
+      where: { id: teacherId },
+      data: { invitedById: inviterId }
+    })
+
+    // 为新邀请人创建邀请记录（含间接邀请逻辑）
+    await createReferralRecord(inviterId, teacherId)
+
+    revalidatePath(`/admin/teachers/${teacherId}`)
+    revalidatePath('/admin/referrals')
+
+    return { success: true, inviterName: inviter.name || inviterId }
+  } catch (error) {
+    console.error('设置邀请人失败:', error)
+    return { success: false, error: '设置邀请人失败，请重试' }
+  }
+}
+
