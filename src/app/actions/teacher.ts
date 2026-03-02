@@ -48,7 +48,7 @@ export async function registerAndCreateTeacher(formData: {
   graduationYear?: string
   identity: string
   // 教学能力 & 资质
-  mathScore: string
+  mathScore: number
   mathCompetition?: string
   teachingExperience?: string
   gradePreference: string
@@ -182,7 +182,7 @@ export async function updateTeacherInfo(teacherId: string, data: {
   identity?: string
   
   // 教学能力 & 资质
-  mathScore?: string
+  mathScore?: number
   mathCompetition?: string
   teachingExperience?: string
   gradePreference?: string

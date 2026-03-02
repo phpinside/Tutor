@@ -8,7 +8,7 @@ interface EvaluationContentProps {
   teacherId: string
   teacherName: string
   currentStatus: string
-  mathScore: string
+  mathScore: number
 }
 
 export default function EvaluationContent({ 
@@ -28,7 +28,7 @@ export default function EvaluationContent({
   
   // 根据数学成绩决定评估时长（随机化）
   const [evaluationDuration] = useState(() => {
-    const mathScoreNum = parseInt(mathScore, 10) || 0
+    const mathScoreNum = mathScore || 0
     if (mathScoreNum >= 100) {
       // 成绩 >= 100: 1-10秒随机
       return Math.floor(Math.random() * 10) + 1
@@ -116,7 +116,7 @@ export default function EvaluationContent({
       // 已完成：显示成功并跳转
       setEvaluationResult({
         passed: true,
-        mathScore: parseInt(mathScore, 10) || 0
+        mathScore: mathScore || 0
       })
       setIsEvaluating(false)
       // 清除可能存在的 rejected 标记

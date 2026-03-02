@@ -27,7 +27,7 @@ export default async function EvaluationPage() {
       teacherId={teacherId}
       teacherName={teacher.name || ''}
       currentStatus={teacher.status}
-      mathScore={teacher.mathScore || ''}
+      mathScore={teacher.mathScore ?? 0}
     />
   )
 }

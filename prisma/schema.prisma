@@ -79,7 +79,7 @@ model Teacher {
   identity       String? // 身份：在读学生/毕业生/其他
 
   // 教学能力 & 资质
-  mathScore          String? // 高考数学成绩
+  mathScore          Int? // 高考数学成绩
   mathCompetition    String? // 数学竞赛经历
   teachingExperience String? // 教学经验
   gradePreference    String? // 可辅导学段（多选，逗号分隔）

@@ -23,7 +23,7 @@ export async function evaluateTeacher(teacherId: string) {
     }
 
     // 解析数学成绩
-    const mathScore = parseInt(teacher.mathScore || '0', 10)
+    const mathScore = teacher.mathScore ?? 0
     
     // 判断是否通过评估
     const passed = mathScore >= 100

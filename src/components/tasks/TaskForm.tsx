@@ -29,7 +29,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     identity: teacher.identity || '',
     
     // 教学能力 & 资质
-    mathScore: teacher.mathScore || '',
+    mathScore: teacher.mathScore ?? 0,
     mathCompetition: teacher.mathCompetition || '',
     teachingExperience: teacher.teachingExperience || '',
     gradePreference: teacher.gradePreference ? teacher.gradePreference.split(',') : [],
@@ -43,7 +43,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     holidayTime: teacher.holidayTime || ''
   })
   
-  const handleChange = (field: string, value: string) => {
+  const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
   
@@ -297,7 +297,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
             <input
               type="number"
               value={formData.mathScore}
-              onChange={(e) => handleChange('mathScore', e.target.value)}
+              onChange={(e) => handleChange('mathScore', parseInt(e.target.value) || 0)}
               placeholder="如: 103"
               className="input"
               min="0"
