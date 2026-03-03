@@ -48,13 +48,14 @@ export default async function AdminTeachersPage({
   // 构建查询条件
   const whereConditions: any[] = []
   
-  // 搜索关键词（姓名/ID/邀请码）
+  // 搜索关键词（姓名/ID/邀请码/手机号）
   if (search) {
     whereConditions.push({
       OR: [
         { name: { contains: search, mode: 'insensitive' } },
         { id: { contains: search } },
-        { inviteCode: { contains: search, mode: 'insensitive' } }
+        { inviteCode: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search } }
       ]
     })
   }
@@ -114,6 +115,7 @@ export default async function AdminTeachersPage({
     select: {
       id: true,
       name: true,
+      phone: true,
       school: true,
       status: true,
       currentTaskIndex: true,

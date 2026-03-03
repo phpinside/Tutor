@@ -9,6 +9,7 @@ import { resetTeacherPassword } from '@/app/actions/teacher'
 type Teacher = {
   id: string
   name: string | null
+  phone: string
   school: string | null
   status: string
   currentTaskIndex: number
@@ -113,7 +114,7 @@ export default function TeachersManagementClient({
             <div className="flex-1">
               <input
                 type="text"
-                placeholder="搜索姓名/ID/邀请码..."
+                placeholder="搜索姓名/ID/邀请码/手机号..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
@@ -217,6 +218,9 @@ export default function TeachersManagementClient({
                   姓名
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  手机号
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   学校
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -249,6 +253,9 @@ export default function TeachersManagementClient({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {teacher.name || <span className="text-gray-400">未填写</span>}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-mono">
+                    {teacher.phone}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.school || <span className="text-gray-400">-</span>}
