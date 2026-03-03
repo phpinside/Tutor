@@ -295,13 +295,17 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               高考数学成绩 <span className="text-red-500">*</span>
             </label>
             <input
-              type="number"
-              value={formData.mathScore}
-              onChange={(e) => handleChange('mathScore', parseInt(e.target.value) || 0)}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formData.mathScore === 0 ? '' : formData.mathScore}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                const num = val === '' ? 0 : Math.min(150, parseInt(val));
+                handleChange('mathScore', num);
+              }}
               placeholder="如: 103"
               className="input"
-              min="0"
-              max="150"
               required
             />
             <p className="text-xs text-gray-500 mt-1">
