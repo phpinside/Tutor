@@ -1482,6 +1482,38 @@ export async function resetTeacherPassword(teacherId: string) {
   }
 }
 
+// 管理员搜索教师（按名字或 ID，用于设置邀请人弹窗）
+export async function searchTeachersForInviter(query: string, excludeId?: string) {
+  try {
+    const trimmed = query.trim()
+    if (!trimmed) {
+      return { success: true, teachers: [] }
+    }
+
+    const teachers = await prisma.teacher.findMany({
+      where: {
+        AND: [
+          { id: { not: excludeId } },
+          {
+            OR: [
+              { name: { contains: trimmed, mode: 'insensitive' } },
+              { id: { contains: trimmed } },
+            ]
+          }
+        ]
+      },
+      select: { id: true, name: true, phone: true },
+      take: 10,
+      orderBy: { createdAt: 'desc' }
+    })
+
+    return { success: true, teachers }
+  } catch (error) {
+    console.error('搜索教师失败:', error)
+    return { success: false, teachers: [], error: '搜索失败，请重试' }
+  }
+}
+
 // 管理员设置教师的邀请人
 export async function setTeacherInviter(teacherId: string, inviterId: string) {
   try {
