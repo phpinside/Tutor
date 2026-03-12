@@ -17,7 +17,12 @@ const TASK_TYPES = [
   { value: 'ONLINE_TEST', label: '在线测试' }
 ]
 
-const OPTION_LABELS = ['A', 'B', 'C', 'D']
+const MIN_OPTIONS = 2
+const MAX_OPTIONS = 8
+
+function getOptionLabel(idx: number) {
+  return String.fromCharCode(65 + idx)
+}
 
 function generateId() {
   return Math.random().toString(36).slice(2, 10)
@@ -28,16 +33,21 @@ function normalizeQuestion(input: any, usedIds?: Set<string>): TestQuestion {
   const id = rawId && !usedIds?.has(rawId) ? rawId : generateId()
   usedIds?.add(id)
 
+  const rawOptions = Array.isArray(input?.options) ? input.options : []
+  const optionCount = Math.max(MIN_OPTIONS, Math.min(MAX_OPTIONS, rawOptions.length || 4))
+  const options = Array.from({ length: optionCount }, (_, idx) => String(rawOptions[idx] || ''))
+
+  const validLabels = options.map((_, idx) => getOptionLabel(idx))
+  const answer = Array.isArray(input?.answer)
+    ? input.answer.map(String).filter((label: string) => validLabels.includes(label))
+    : []
+
   return {
     id,
     type: input?.type === 'MULTIPLE' ? 'MULTIPLE' : 'SINGLE',
     question: String(input?.question || ''),
-    options: OPTION_LABELS.map((_, idx) => String(input?.options?.[idx] || '')),
-    answer: Array.isArray(input?.answer)
-      ? input.answer
-          .map(String)
-          .filter((label: string) => OPTION_LABELS.includes(label))
-      : []
+    options,
+    answer
   }
 }
 
@@ -99,9 +109,31 @@ function QuestionEditor({ question, onSave, onCancel }: QuestionEditorProps) {
     setDraft(prev => ({ ...prev, options: opts }))
   }
 
+  const handleAddOption = () => {
+    if (draft.options.length >= MAX_OPTIONS) return
+    setDraft(prev => ({ ...prev, options: [...prev.options, ''] }))
+  }
+
+  const handleRemoveOption = (idx: number) => {
+    if (draft.options.length <= MIN_OPTIONS) return
+    const removedLabel = getOptionLabel(idx)
+    const opts = draft.options.filter((_, i) => i !== idx)
+    // Recalculate valid labels after removal and filter answers
+    const validLabels = opts.map((_, i) => getOptionLabel(i))
+    // Map old labels to new labels: options after the removed one shift down
+    const newAnswer = draft.answer
+      .filter(a => a !== removedLabel)
+      .map(a => {
+        const oldIdx = a.charCodeAt(0) - 65
+        return oldIdx > idx ? getOptionLabel(oldIdx - 1) : a
+      })
+      .filter(a => validLabels.includes(a))
+    setDraft(prev => ({ ...prev, options: opts, answer: newAnswer }))
+  }
+
   const handleSave = () => {
     if (!draft.question.trim()) { alert('请输入题目内容'); return }
-    if (draft.options.some(o => !o.trim())) { alert('请填写所有选项'); return }
+    if (draft.options.some(o => !o.trim())) { alert('请填写所有选项内容'); return }
     if (draft.answer.length === 0) { alert('请选择正确答案'); return }
     onSave(cloneQuestion(draft))
   }
@@ -137,40 +169,64 @@ function QuestionEditor({ question, onSave, onCancel }: QuestionEditorProps) {
 
       {/* 选项 */}
       <div className="space-y-2">
-        <p className="text-sm font-medium text-gray-700">
-          选项（点击右侧{draft.type === 'SINGLE' ? '单选按钮' : '复选框'}标记正确答案）
-        </p>
-        {OPTION_LABELS.map((label, idx) => (
-          <div key={label} className="flex items-center gap-2">
-            <span className="text-sm font-bold text-gray-500 w-4">{label}.</span>
-            <input
-              type="text"
-              value={draft.options[idx]}
-              onChange={e => handleOptionChange(idx, e.target.value)}
-              className="input flex-1"
-              placeholder={`选项 ${label}`}
-            />
-            {draft.type === 'SINGLE' ? (
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-medium text-gray-700">
+            选项（点击右侧{draft.type === 'SINGLE' ? '单选按钮' : '复选框'}标记正确答案）
+          </p>
+          <span className="text-xs text-gray-400">{draft.options.length} / {MAX_OPTIONS} 个选项</span>
+        </div>
+        {draft.options.map((opt, idx) => {
+          const label = getOptionLabel(idx)
+          return (
+            <div key={idx} className="flex items-center gap-2">
+              <span className="text-sm font-bold text-gray-500 w-4">{label}.</span>
               <input
-                type="radio"
-                checked={draft.answer.includes(label)}
-                onChange={() => toggleAnswer(label)}
-                className="w-4 h-4 accent-green-600"
-                title="设为正确答案"
+                type="text"
+                value={opt}
+                onChange={e => handleOptionChange(idx, e.target.value)}
+                className="input flex-1"
+                placeholder={`选项 ${label}`}
               />
-            ) : (
-              <input
-                type="checkbox"
-                checked={draft.answer.includes(label)}
-                onChange={() => toggleAnswer(label)}
-                className="w-4 h-4 accent-green-600"
-                title="设为正确答案"
-              />
-            )}
-          </div>
-        ))}
+              {draft.type === 'SINGLE' ? (
+                <input
+                  type="radio"
+                  checked={draft.answer.includes(label)}
+                  onChange={() => toggleAnswer(label)}
+                  className="w-4 h-4 accent-green-600"
+                  title="设为正确答案"
+                />
+              ) : (
+                <input
+                  type="checkbox"
+                  checked={draft.answer.includes(label)}
+                  onChange={() => toggleAnswer(label)}
+                  className="w-4 h-4 accent-green-600"
+                  title="设为正确答案"
+                />
+              )}
+              <button
+                type="button"
+                onClick={() => handleRemoveOption(idx)}
+                disabled={draft.options.length <= MIN_OPTIONS}
+                className="text-gray-400 hover:text-red-500 disabled:opacity-30 disabled:cursor-not-allowed text-lg leading-none px-0.5"
+                title="删除此选项"
+              >
+                ×
+              </button>
+            </div>
+          )
+        })}
         {draft.answer.length > 0 && (
           <p className="text-xs text-green-700">正确答案：{draft.answer.join('、')}</p>
+        )}
+        {draft.options.length < MAX_OPTIONS && (
+          <button
+            type="button"
+            onClick={handleAddOption}
+            className="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 mt-1"
+          >
+            <span className="text-base leading-none">+</span> 添加选项
+          </button>
         )}
       </div>
 
@@ -590,15 +646,18 @@ export default function TaskConfigForm({ task }: TaskConfigFormProps) {
                           </div>
                           <p className="text-sm text-gray-800 mb-2">{q.question}</p>
                           <div className="grid grid-cols-2 gap-x-4 gap-y-0.5">
-                            {OPTION_LABELS.map((label, i) => (
-                              <span
-                                key={label}
-                                className={`text-xs ${q.answer.includes(label) ? 'text-green-700 font-semibold' : 'text-gray-500'}`}
-                              >
-                                {label}. {q.options[i]}
-                                {q.answer.includes(label) && ' ✓'}
-                              </span>
-                            ))}
+                            {q.options.map((opt, i) => {
+                              const label = getOptionLabel(i)
+                              return (
+                                <span
+                                  key={i}
+                                  className={`text-xs ${q.answer.includes(label) ? 'text-green-700 font-semibold' : 'text-gray-500'}`}
+                                >
+                                  {label}. {opt}
+                                  {q.answer.includes(label) && ' ✓'}
+                                </span>
+                              )
+                            })}
                           </div>
                         </div>
                         <div className="flex gap-1 shrink-0">

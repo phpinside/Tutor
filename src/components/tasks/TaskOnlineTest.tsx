@@ -11,7 +11,7 @@ interface TaskOnlineTestProps {
   submission?: any
 }
 
-const OPTION_LABELS = ['A', 'B', 'C', 'D']
+const getOptionLabel = (idx: number) => String.fromCharCode(65 + idx)
 
 const renderTextWithLinks = (text: string) => {
   const urlRegex = /(https?:\/\/[^\s]+)/g
@@ -245,7 +245,8 @@ export default function TaskOnlineTest({ task, teacherId, submission }: TaskOnli
               </div>
 
               <div className="space-y-2 pl-5">
-                {OPTION_LABELS.map((label, i) => {
+                {q.options.map((option, i) => {
+                  const label = getOptionLabel(i)
                   const isSelected = selectedAnswers.includes(label)
                   const isCorrectOption = q.answer.includes(label)
 
@@ -286,7 +287,7 @@ export default function TaskOnlineTest({ task, teacherId, submission }: TaskOnli
                         />
                       )}
                       <span className="text-sm font-medium text-gray-600 shrink-0">{label}.</span>
-                      <span className="text-sm text-gray-800">{q.options[i]}</span>
+                      <span className="text-sm text-gray-800">{option}</span>
                       {submitted && isCorrectOption && (
                         <span className="ml-auto text-xs text-green-600 font-medium shrink-0">正确答案</span>
                       )}
