@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
+import { getTaskConfigs, TASK_VIDEO_UPLOADS, TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
@@ -223,7 +223,7 @@ export default async function TeacherDetailPage({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-gray-500 mb-1">当前任务</p>
-              <p className="font-medium text-gray-900">{teacher.currentTaskIndex} / 6</p>
+              <p className="font-medium text-gray-900">{teacher.currentTaskIndex} / {TOTAL_TASK_COUNT}</p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">注册时间</p>
@@ -365,6 +365,35 @@ export default async function TeacherDetailPage({
                             完成度: {submission.watchProgress}%
                           </div>
                         )}
+                      </div>
+                    ) : submission.taskType === 'ONLINE_TEST' && submission.formData ? (
+                      /* 在线测试数据：展示分数 */
+                      <div className="p-3 bg-gray-50 rounded text-sm space-y-2">
+                        {(() => {
+                          const data = submission.formData as { score?: number; answers?: Record<string, string[]> }
+                          const score = data.score
+                          const answerCount = data.answers ? Object.keys(data.answers).length : 0
+                          return (
+                            <>
+                              <div className="flex items-center gap-3">
+                                <span className="font-medium text-gray-700">测试得分：</span>
+                                <span className={`text-2xl font-bold ${
+                                  score === undefined ? 'text-gray-400' :
+                                  score >= 90 ? 'text-green-600' :
+                                  score >= 60 ? 'text-yellow-600' :
+                                  'text-red-600'
+                                }`}>
+                                  {score !== undefined ? `${score} 分` : '暂无'}
+                                </span>
+                              </div>
+                              {answerCount > 0 && (
+                                <div className="text-gray-500">
+                                  共作答 {answerCount} 道题
+                                </div>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     ) : submission.formData && (submission.taskType === 'FORM' || submission.taskType === 'INFO') ? (
                       /* 表单类型数据 */
