@@ -201,14 +201,7 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
       })
       
       if (result.success) {
-        // 检查是否需要进行系统评估（Task 5）
-        if (result.needsEvaluation) {
-          // 跳转到评估页面
-          router.push('/onboarding/evaluation')
-        } else {
-          // 返回首页
-          router.push('/onboarding')
-        }
+        router.push('/onboarding')
         router.refresh()
       } else {
         alert(result.error || '提交失败,请重试')

@@ -127,7 +127,7 @@ export async function searchAllTeachers(keyword: string) {
 
 export async function addTeacherRemark(data: {
   teacherId: string
-  operatorId: string
+  operatorId: string | null
   remarkBy: string
   content: string
 }) {
