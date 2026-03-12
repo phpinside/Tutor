@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { formatName, formatPhone, formatDateTime } from '@/lib/utils'
 import { logoutReferrer } from '@/app/actions/auth'
 
@@ -512,7 +513,7 @@ export default function ReferralDashboard({
                           )}
                         </td>
                         <td className="py-3 px-4 text-sm">
-                          第 {referral.currentTaskIndex}/6 个任务
+                          第 {referral.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务
                         </td>
                         <td className="py-3 px-4 text-sm">
                           {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (
@@ -588,7 +589,7 @@ export default function ReferralDashboard({
                       </div>
                     </div>
                     <div className="space-y-2 text-sm text-gray-600">
-                      <div>进度：第 {referral.currentTaskIndex}/6 个任务</div>
+                      <div>进度：第 {referral.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务</div>
                       <div>
                         状态：
                         {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (

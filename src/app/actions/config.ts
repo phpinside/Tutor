@@ -45,13 +45,15 @@ export async function createTaskConfig(data: {
   estimatedMinutes: number
   isOptional: boolean
   requirements: string[]
+  questions?: object[]
 }) {
   try {
     const config = await prisma.taskConfig.create({
       data: {
         ...data,
         type: data.type as any,
-        requirements: data.requirements
+        requirements: data.requirements,
+        questions: data.questions ?? undefined
       }
     })
     
@@ -75,6 +77,7 @@ export async function updateTaskConfig(id: string, data: {
   estimatedMinutes?: number
   isOptional?: boolean
   requirements?: string[]
+  questions?: object[]
   isActive?: boolean
   sortOrder?: number
 }) {

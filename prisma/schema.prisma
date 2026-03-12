@@ -33,7 +33,7 @@ enum TaskType {
   FORM // 填写表单
   VIDEO_UPLOAD // 视频上传
   TRAINING // 观看培训
-  PRACTICE // 练习操作
+  ONLINE_TEST // 在线测试
 }
 
 // 邀请状态枚举
@@ -62,12 +62,63 @@ enum TeachingStatus {
   TAUGHT // 已授课
 }
 
+// 运营人员
+model Operator {
+  id           String   @id @default(cuid())
+  name         String
+  phone        String   @unique
+  password     String   // bcrypt 加密
+  isEnabled    Boolean  @default(true)  // 启用状态，false 则无法登录
+  wechatQrCode String?  // 微信二维码图片 URL
+  remarks      String?  // 备注
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teamTeachers    TeacherTeam[]
+  teacherRemarks  TeacherRemark[]
+
+  @@index([phone])
+  @@map("operators")
+}
+
+// 老师归属关系（每个老师只能属于一个运营人员）
+model TeacherTeam {
+  id         String   @id @default(cuid())
+  teacherId  String   @unique
+  operatorId String
+  createdAt  DateTime @default(now())
+
+  teacher  Teacher  @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  operator Operator @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@index([operatorId])
+  @@map("teacher_teams")
+}
+
+// 老师备注日志
+model TeacherRemark {
+  id         String   @id @default(cuid())
+  teacherId  String
+  operatorId String?  // 可空，允许管理员也能写备注
+  remarkBy   String   // 备注人姓名
+  content    String
+  createdAt  DateTime @default(now())
+
+  teacher  Teacher   @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  operator Operator? @relation(fields: [operatorId], references: [id], onDelete: SetNull)
+
+  @@index([teacherId])
+  @@index([operatorId])
+  @@map("teacher_remarks")
+}
+
 // 老师信息
 model Teacher {
   id String @id @default(cuid())
 
   // 基础信息（必填）
-  name     String // 姓名（必填）
+  name     String //姓名（必填）
   phone    String @unique // 联系电话（唯一，必填，用于登录）
   password String // 密码（bcrypt加密，必填，用于登录）
 
@@ -113,6 +164,8 @@ model Teacher {
   referredReferrals Referral[]       @relation("ReferredReferrals")
   withdrawals       Withdrawal[]
   referralStats     ReferralStats?
+  teamAssignment    TeacherTeam?
+  remarks           TeacherRemark[]
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -168,6 +221,7 @@ model TaskConfig {
   estimatedMinutes Int
   isOptional       Boolean  @default(false)
   requirements     Json // 存储字符串数组
+  questions        Json? // 在线测试题目（ONLINE_TEST类型使用）
   isActive         Boolean  @default(true)
   sortOrder        Int      @default(0)
 

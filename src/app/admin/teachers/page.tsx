@@ -31,12 +31,12 @@ export default async function AdminTeachersPage({
     taskIndex?: string
     startDate?: string
     endDate?: string
-    teachingStatus?: string
+    teamStatus?: string
   }>
 }) {
   // 解析筛选参数
   const params = await searchParams
-  const { search, taskIndex, startDate, endDate, teachingStatus } = params
+  const { search, taskIndex, startDate, endDate, teamStatus } = params
   
   // 获取管理员角色
   const adminRole = await getAdminRole()
@@ -67,10 +67,14 @@ export default async function AdminTeachersPage({
     })
   }
   
-  // 授课状态
-  if (teachingStatus) {
+  // 团队状态
+  if (teamStatus === 'claimed') {
     whereConditions.push({
-      teachingStatus: teachingStatus === 'taught' ? 'TAUGHT' : 'NOT_TAUGHT'
+      teamAssignment: { isNot: null }
+    })
+  } else if (teamStatus === 'unclaimed') {
+    whereConditions.push({
+      teamAssignment: { is: null }
     })
   }
   
@@ -119,8 +123,10 @@ export default async function AdminTeachersPage({
       school: true,
       status: true,
       currentTaskIndex: true,
-      teachingStatus: true,
-      updatedAt: true
+      updatedAt: true,
+      teamAssignment: {
+        select: { id: true }
+      }
     }
   })
   
@@ -148,7 +154,7 @@ export default async function AdminTeachersPage({
       
       <TeachersManagementClient 
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate, teachingStatus }}
+        initialFilters={{ search, taskIndex, startDate, endDate, teamStatus }}
         pagination={pagination}
         adminRole={adminRole}
       />

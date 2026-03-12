@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import { resetTeacherPassword } from '@/app/actions/teacher'
 
@@ -13,8 +14,8 @@ type Teacher = {
   school: string | null
   status: string
   currentTaskIndex: number
-  teachingStatus: string
   updatedAt: Date
+  teamAssignment: { id: string } | null
 }
 
 export default function TeachersManagementClient({
@@ -29,7 +30,7 @@ export default function TeachersManagementClient({
     taskIndex?: string
     startDate?: string
     endDate?: string
-    teachingStatus?: string
+    teamStatus?: string
   }
   pagination?: {
     currentPage: number
@@ -46,26 +47,42 @@ export default function TeachersManagementClient({
   const [taskIndex, setTaskIndex] = useState(initialFilters.taskIndex || '')
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
-  const [teachingStatus, setTeachingStatus] = useState(initialFilters.teachingStatus || '')
-  const [resettingTeacherId, setResettingTeacherId] = useState<string | null>(null)
+  const [teamStatus, setTeamStatus] = useState(initialFilters.teamStatus || '')
+  const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
+  const [resetPassword, setResetPassword] = useState('123456')
+  const [resetLoading, setResetLoading] = useState(false)
+  const [resetMsg, setResetMsg] = useState('')
 
-  // 重置密码处理函数
-  const handleResetPassword = async (teacherId: string, teacherName: string | null) => {
-    const confirmMessage = `确定要将"${teacherName || '该老师'}"的密码重置为"123456"吗？\n\n此操作不可撤销。`
-    
-    if (!confirm(confirmMessage)) {
+  const openResetModal = (teacherId: string, teacherName: string | null) => {
+    setResetModal({ id: teacherId, name: teacherName })
+    setResetPassword('123456')
+    setResetMsg('')
+  }
+
+  const closeResetModal = () => {
+    setResetModal(null)
+    setResetPassword('123456')
+    setResetMsg('')
+  }
+
+  const handleResetPassword = async () => {
+    if (!resetModal) return
+    if (resetPassword.length < 6) {
+      setResetMsg('密码至少 6 位')
       return
     }
-
-    setResettingTeacherId(teacherId)
-    const result = await resetTeacherPassword(teacherId)
-    setResettingTeacherId(null)
-
+    setResetLoading(true)
+    setResetMsg('')
+    const result = await resetTeacherPassword(resetModal.id, resetPassword)
+    setResetLoading(false)
     if (result.success) {
-      alert(result.message || '密码重置成功')
-      router.refresh()
+      setResetMsg(`✅ ${result.message || '密码重置成功'}`)
+      setTimeout(() => {
+        closeResetModal()
+        router.refresh()
+      }, 1200)
     } else {
-      alert('操作失败：' + (result.error || '未知错误'))
+      setResetMsg(`❌ ${result.error || '操作失败'}`)
     }
   }
 
@@ -76,7 +93,7 @@ export default function TeachersManagementClient({
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
-    if (teachingStatus) params.set('teachingStatus', teachingStatus)
+    if (teamStatus) params.set('teamStatus', teamStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -87,7 +104,7 @@ export default function TeachersManagementClient({
     setTaskIndex('')
     setStartDate('')
     setEndDate('')
-    setTeachingStatus('')
+    setTeamStatus('')
     router.push('/admin/teachers')
   }
   
@@ -99,7 +116,7 @@ export default function TeachersManagementClient({
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
-    if (teachingStatus) params.set('teachingStatus', teachingStatus)
+    if (teamStatus) params.set('teamStatus', teamStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -127,22 +144,23 @@ export default function TeachersManagementClient({
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="">任务进度（全部）</option>
-              <option value="0">任务 0/6</option>
-              <option value="1">任务 1/6</option>
-              <option value="2">任务 2/6</option>
-              <option value="3">任务 3/6</option>
-              <option value="4">任务 4/6</option>
-              <option value="5">任务 5/6</option>
-              <option value="6">任务 6/6（已完成）</option>
+              <option value="0">任务 0/7</option>
+              <option value="1">任务 1/7</option>
+              <option value="2">任务 2/7</option>
+              <option value="3">任务 3/7</option>
+              <option value="4">任务 4/7</option>
+              <option value="5">任务 5/7</option>
+              <option value="6">任务 6/7</option>
+              <option value="7">任务 7/7（已完成）</option>
             </select>
             <select
-              value={teachingStatus}
-              onChange={(e) => setTeachingStatus(e.target.value)}
+              value={teamStatus}
+              onChange={(e) => setTeamStatus(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">授课状态（全部）</option>
-              <option value="not_taught">未授课</option>
-              <option value="taught">已授课</option>
+              <option value="">团队状态（全部）</option>
+              <option value="claimed">已认领</option>
+              <option value="unclaimed">暂未被认领</option>
             </select>
             <button
               onClick={handleReset}
@@ -227,7 +245,7 @@ export default function TeachersManagementClient({
                   当前任务
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  授课状态
+                  团队状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   更新时间
@@ -264,13 +282,13 @@ export default function TeachersManagementClient({
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.currentTaskIndex} / 6
+                    {teacher.currentTaskIndex} / {TOTAL_TASK_COUNT}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`badge ${
-                      teacher.teachingStatus === 'TAUGHT' ? 'badge-success' : 'badge-gray'
+                      teacher.teamAssignment ? 'badge-success' : 'badge-gray'
                     }`}>
-                      {teacher.teachingStatus === 'TAUGHT' ? '已授课' : '未授课'}
+                      {teacher.teamAssignment ? '已认领' : '暂未被认领'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
@@ -286,11 +304,10 @@ export default function TeachersManagementClient({
                       </Link>
                       {adminRole === 'super_admin' && (
                         <button
-                          onClick={() => handleResetPassword(teacher.id, teacher.name)}
-                          disabled={resettingTeacherId === teacher.id}
-                          className="text-red-600 hover:text-red-900 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          onClick={() => openResetModal(teacher.id, teacher.name)}
+                          className="text-red-600 hover:text-red-900 font-medium transition-colors"
                         >
-                          {resettingTeacherId === teacher.id ? '重置中...' : '重置密码'}
+                          重置密码
                         </button>
                       )}
                     </div>
@@ -342,6 +359,51 @@ export default function TeachersManagementClient({
               >
                 末页
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 重置密码弹窗 */}
+      {resetModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between p-5 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">重置密码</h3>
+              <button onClick={closeResetModal} className="text-gray-400 hover:text-gray-600">✕</button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-gray-600">
+                为 <span className="font-medium text-gray-900">「{resetModal.name || '该老师'}」</span> 设置新密码：
+              </p>
+              <input
+                type="text"
+                value={resetPassword}
+                onChange={(e) => { setResetPassword(e.target.value); setResetMsg('') }}
+                className="input w-full font-mono"
+                placeholder="请输入新密码（至少 6 位）"
+                autoFocus
+              />
+              {resetMsg && (
+                <p className={`text-sm ${resetMsg.startsWith('✅') ? 'text-green-600' : 'text-red-500'}`}>
+                  {resetMsg}
+                </p>
+              )}
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={closeResetModal}
+                  className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                >
+                  取消
+                </button>
+                <button
+                  onClick={handleResetPassword}
+                  disabled={resetLoading}
+                  className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm font-medium disabled:opacity-50"
+                >
+                  {resetLoading ? '重置中...' : '确认重置'}
+                </button>
+              </div>
             </div>
           </div>
         </div>

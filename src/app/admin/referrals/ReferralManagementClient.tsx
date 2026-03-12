@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { updateReferralStatus, markRewardSent, markTeachingCompleted } from '@/app/actions/referral'
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/utils'
+import { TOTAL_TASK_COUNT } from '@/lib/config'
 
 type Referral = {
   id: string
@@ -235,13 +236,14 @@ export default function ReferralManagementClient({
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="">任务进度（全部）</option>
-              <option value="0">任务 0/6</option>
-              <option value="1">任务 1/6</option>
-              <option value="2">任务 2/6</option>
-              <option value="3">任务 3/6</option>
-              <option value="4">任务 4/6</option>
-              <option value="5">任务 5/6</option>
-              <option value="6">任务 6/6</option>
+              <option value="0">任务 0/{TOTAL_TASK_COUNT}</option>
+              <option value="1">任务 1/{TOTAL_TASK_COUNT}</option>
+              <option value="2">任务 2/{TOTAL_TASK_COUNT}</option>
+              <option value="3">任务 3/{TOTAL_TASK_COUNT}</option>
+              <option value="4">任务 4/{TOTAL_TASK_COUNT}</option>
+              <option value="5">任务 5/{TOTAL_TASK_COUNT}</option>
+              <option value="6">任务 6/{TOTAL_TASK_COUNT}</option>
+              <option value="6">任务 7/{TOTAL_TASK_COUNT}</option>
             </select>
             <select
               value={rewardStatus}
@@ -326,7 +328,7 @@ export default function ReferralManagementClient({
                     <div className="text-xs text-gray-500">{referral.referred.phone || '-'}</div>
                   </td>
                   <td className="py-3 px-4 text-sm">
-                    第 {referral.referred.currentTaskIndex}/6 个任务
+                    第 {referral.referred.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务
                   </td>
                   <td className="py-3 px-4 text-sm">
                     {referral.referred.status === 'COMPLETED' || referral.referred.status === 'UNLOCKED' ? (

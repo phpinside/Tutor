@@ -3,10 +3,29 @@ import { getTaskConfigs, TASK_VIDEO_UPLOADS } from '@/lib/config'
 import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
+import { cookies } from 'next/headers'
 import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
+import { getTeacherRemarks } from '@/app/actions/operatorActions'
+import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 
 export const dynamic = 'force-dynamic'
+
+async function getViewerInfo() {
+  const cookieStore = await cookies()
+
+  const operatorSession = cookieStore.get('operator_session')
+  if (operatorSession) {
+    try {
+      const data = JSON.parse(operatorSession.value)
+      if (data.operatorId) {
+        return { id: data.operatorId as string, name: data.name as string }
+      }
+    } catch {}
+  }
+
+  return { id: null, name: '管理员' }
+}
 
 export default async function TeacherDetailPage({
   params
@@ -14,9 +33,12 @@ export default async function TeacherDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  
-  const TASKS_CONFIG = await getTaskConfigs()
-  
+
+  const [TASKS_CONFIG, viewerInfo] = await Promise.all([
+    getTaskConfigs(),
+    getViewerInfo(),
+  ])
+
   const teacher = await prisma.teacher.findUnique({
     where: { id },
     include: {
@@ -28,10 +50,12 @@ export default async function TeacherDetailPage({
       }
     }
   })
-  
+
   if (!teacher) {
     notFound()
   }
+
+  const remarks = await getTeacherRemarks(id)
   
   return (
     <div>
@@ -382,6 +406,14 @@ export default async function TeacherDetailPage({
           </div>
         )}
       </div>
+
+      {/* 备注日志 */}
+      <TeacherRemarkSection
+        teacherId={id}
+        viewerId={viewerInfo.id}
+        viewerName={viewerInfo.name}
+        initialRemarks={remarks}
+      />
     </div>
   )
 }

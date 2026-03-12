@@ -121,14 +121,11 @@ export async function submitTask(
       watchProgress: submission.watchProgress
     })
     
-    // 特殊处理：Task 5 需要系统评估，不自动完成
     // 获取任务总数
     const totalTasks = await prisma.taskConfig.count({ where: { isActive: true } })
     const isLastTask = taskIndex === (totalTasks - 1)
     
     if (isLastTask) {
-      // Task 5（最后一个任务）提交后，需要进行系统评估
-      // 更新 currentTaskIndex 但不更新状态
       const teacher = await prisma.teacher.findUnique({
         where: { id: teacherId }
       })
@@ -137,18 +134,17 @@ export async function submitTask(
         await prisma.teacher.update({
           where: { id: teacherId },
           data: {
-            currentTaskIndex: taskIndex + 1
-            // 注意：不更新 status，保持 IN_PROGRESS
+            currentTaskIndex: taskIndex + 1,
+            status: 'COMPLETED'
           }
         })
       }
       
       revalidatePath('/onboarding')
       revalidatePath(`/onboarding/task/${taskIndex}`)
-      revalidatePath('/onboarding/evaluation')
+      revalidatePath('/onboarding/complete')
       
-      // 返回特殊标记，通知前端需要进行评估
-      return { success: true, submission, needsEvaluation: true }
+      return { success: true, submission }
     }
     
     // 其他任务：如果任务自动完成（不需要审核），则推进到下一个任务

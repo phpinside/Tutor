@@ -1,30 +1,47 @@
 import { cookies } from 'next/headers'
 import AdminLayoutClient from './AdminLayoutClient'
+import OperatorLayoutClient from '@/app/operator/OperatorLayoutClient'
 
-// 获取当前管理员角色
-async function getAdminRole(): Promise<string> {
+async function getSessionInfo() {
   const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  
-  if (!session) {
-    return 'super_admin' // 默认返回超级管理员（理论上不会到这里，因为 middleware 会拦截）
+
+  // 优先检测 operator_session（运营人员访问 /admin/teachers）
+  const operatorSession = cookieStore.get('operator_session')
+  if (operatorSession) {
+    try {
+      const data = JSON.parse(operatorSession.value)
+      if (data.operatorId) {
+        return { type: 'operator' as const, name: data.name as string }
+      }
+    } catch {}
   }
-  
-  try {
-    const sessionData = JSON.parse(session.value)
-    return sessionData.role || 'super_admin'
-  } catch {
-    return 'super_admin'
+
+  // 否则读取管理员角色
+  const adminSession = cookieStore.get('admin_session')
+  if (adminSession) {
+    try {
+      const data = JSON.parse(adminSession.value)
+      return { type: 'admin' as const, role: (data.role as string) || 'super_admin' }
+    } catch {}
   }
+
+  return { type: 'admin' as const, role: 'super_admin' }
 }
 
 export default async function AdminLayout({
-  children
+  children,
 }: {
   children: React.ReactNode
 }) {
-  const role = await getAdminRole()
-  
-  return <AdminLayoutClient role={role}>{children}</AdminLayoutClient>
-}
+  const session = await getSessionInfo()
 
+  if (session.type === 'operator') {
+    return (
+      <OperatorLayoutClient operatorName={session.name}>
+        {children}
+      </OperatorLayoutClient>
+    )
+  }
+
+  return <AdminLayoutClient role={session.role}>{children}</AdminLayoutClient>
+}

@@ -4,7 +4,6 @@ import { cookies } from 'next/headers'
 // 管理员账号列表
 const ADMIN_ACCOUNTS = [
   { username: 'admin', password: 'admin123', role: 'super_admin' },
-  { username: 'teacher_manager', password: 'teacher2026', role: 'teacher_admin' }
 ]
 
 export async function POST(request: Request) {

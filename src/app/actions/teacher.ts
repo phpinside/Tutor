@@ -14,6 +14,17 @@ export async function getTeacher(teacherId: string) {
       include: {
         taskSubmissions: {
           orderBy: { taskIndex: 'asc' }
+        },
+        teamAssignment: {
+          include: {
+            operator: {
+              select: {
+                id: true,
+                name: true,
+                wechatQrCode: true
+              }
+            }
+          }
         }
       }
     })
@@ -1433,18 +1444,28 @@ export async function rejectWithdrawal(
 }
 
 // 重置老师密码（管理员功能）
-export async function resetTeacherPassword(teacherId: string) {
+export async function resetTeacherPassword(teacherId: string, newPassword: string = '123456') {
   try {
-    // 验证管理员权限
-    const cookieStore = await cookies()
-    const session = cookieStore.get('admin_session')
-    
-    if (!session) {
-      return { success: false, error: '无权限执行此操作' }
+    if (!newPassword || newPassword.length < 6) {
+      return { success: false, error: '密码至少 6 位' }
     }
-    
-    const sessionData = JSON.parse(session.value)
-    if (sessionData.role !== 'super_admin') {
+
+    // 验证权限：super_admin 或运营人员均可操作
+    const cookieStore = await cookies()
+    const adminSession = cookieStore.get('admin_session')
+    const operatorSession = cookieStore.get('operator_session')
+
+    let authorized = false
+    if (adminSession) {
+      const sessionData = JSON.parse(adminSession.value)
+      if (sessionData.role === 'super_admin') authorized = true
+    }
+    if (!authorized && operatorSession) {
+      const sessionData = JSON.parse(operatorSession.value)
+      if (sessionData.operatorId) authorized = true
+    }
+
+    if (!authorized) {
       return { success: false, error: '无权限执行此操作' }
     }
 
@@ -1458,13 +1479,8 @@ export async function resetTeacherPassword(teacherId: string) {
       return { success: false, error: '老师不存在' }
     }
 
-    // 固定密码
-    const DEFAULT_PASSWORD = '123456'
-    
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(DEFAULT_PASSWORD, 10)
+    const hashedPassword = await bcrypt.hash(newPassword, 10)
 
-    // 更新密码
     await prisma.teacher.update({
       where: { id: teacherId },
       data: { password: hashedPassword }
@@ -1474,7 +1490,7 @@ export async function resetTeacherPassword(teacherId: string) {
     
     return { 
       success: true, 
-      message: `密码已重置为 ${DEFAULT_PASSWORD}` 
+      message: `密码已重置为 ${newPassword}` 
     }
   } catch (error) {
     console.error('重置密码失败:', error)

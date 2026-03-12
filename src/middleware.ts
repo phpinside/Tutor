@@ -3,10 +3,11 @@ import type { NextRequest } from 'next/server'
 
 // 路由权限映射：定义每个路径需要的角色
 const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/admin/teachers': ['super_admin', 'teacher_admin'],
+  '/admin/teachers': ['super_admin'],
   '/admin/referrals': ['super_admin'],
   '/admin/withdrawals': ['super_admin'],
   '/admin/config': ['super_admin'],
+  '/admin/operators': ['super_admin'],
 }
 
 // 检查路径是否需要权限验证
@@ -21,7 +22,18 @@ function getRequiredRoles(pathname: string): string[] | null {
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
-  
+
+  // 运营人员可直接访问 /admin/teachers/* 路径
+  if (pathname.startsWith('/admin/teachers')) {
+    const operatorSession = request.cookies.get('operator_session')
+    if (operatorSession) {
+      try {
+        const data = JSON.parse(operatorSession.value)
+        if (data.operatorId) return NextResponse.next()
+      } catch {}
+    }
+  }
+
   // 检查管理后台路径
   if (
     pathname.startsWith('/admin') &&
@@ -45,12 +57,34 @@ export async function middleware(request: NextRequest) {
       const requiredRoles = getRequiredRoles(pathname)
       
       if (requiredRoles && !requiredRoles.includes(userRole)) {
-        // 没有权限，重定向到老师管理页面（所有管理员都能访问）
+        // 没有权限，重定向到老师管理页面
         return NextResponse.redirect(new URL('/admin/teachers', request.url))
       }
     } catch (error) {
       // session 数据解析失败，重定向到登录页
       return NextResponse.redirect(new URL('/admin/login', request.url))
+    }
+  }
+
+  // 检查运营人员后台路径
+  if (
+    pathname.startsWith('/operator') &&
+    !pathname.startsWith('/operator/login') &&
+    !pathname.startsWith('/api/operator/login')
+  ) {
+    const session = request.cookies.get('operator_session')
+    
+    if (!session) {
+      return NextResponse.redirect(new URL('/operator/login', request.url))
+    }
+
+    try {
+      const sessionData = JSON.parse(session.value)
+      if (!sessionData.operatorId) {
+        return NextResponse.redirect(new URL('/operator/login', request.url))
+      }
+    } catch {
+      return NextResponse.redirect(new URL('/operator/login', request.url))
     }
   }
 
@@ -86,7 +120,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*'],
+  matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*'],
 }
 
 
