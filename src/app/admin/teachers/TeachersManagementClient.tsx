@@ -33,6 +33,7 @@ export default function TeachersManagementClient({
     endDate?: string
     teamStatus?: string
     teacherStatus?: string
+    inviterSearch?: string
   }
   pagination?: {
     currentPage: number
@@ -51,6 +52,7 @@ export default function TeachersManagementClient({
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
   const [teamStatus, setTeamStatus] = useState(initialFilters.teamStatus || '')
   const [teacherStatus, setTeacherStatus] = useState(initialFilters.teacherStatus || '')
+  const [inviterSearch, setInviterSearch] = useState(initialFilters.inviterSearch || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
@@ -98,6 +100,7 @@ export default function TeachersManagementClient({
     if (endDate) params.set('endDate', endDate)
     if (teamStatus) params.set('teamStatus', teamStatus)
     if (teacherStatus) params.set('teacherStatus', teacherStatus)
+    if (inviterSearch) params.set('inviterSearch', inviterSearch)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -110,6 +113,7 @@ export default function TeachersManagementClient({
     setEndDate('')
     setTeamStatus('')
     setTeacherStatus('')
+    setInviterSearch('')
     router.push('/admin/teachers')
   }
   
@@ -123,6 +127,7 @@ export default function TeachersManagementClient({
     if (endDate) params.set('endDate', endDate)
     if (teamStatus) params.set('teamStatus', teamStatus)
     if (teacherStatus) params.set('teacherStatus', teacherStatus)
+    if (inviterSearch) params.set('inviterSearch', inviterSearch)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -185,8 +190,16 @@ export default function TeachersManagementClient({
             </button>
           </div>
 
-          {/* 第二行：日期区间、筛选按钮 */}
+          {/* 第二行：邀请人搜索、日期区间、筛选按钮 */}
           <div className="flex flex-col md:flex-row gap-4">
+            <input
+              type="text"
+              placeholder="邀请人姓名/手机号/ID..."
+              value={inviterSearch}
+              onChange={(e) => setInviterSearch(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+            />
             <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-2">
               <label className="text-sm text-gray-600 whitespace-nowrap">注册时间：</label>
               <div className="flex items-center gap-2 flex-1">

@@ -33,11 +33,12 @@ export default async function AdminTeachersPage({
     endDate?: string
     teamStatus?: string
     teacherStatus?: string
+    inviterSearch?: string
   }>
 }) {
   // 解析筛选参数
   const params = await searchParams
-  const { search, taskIndex, startDate, endDate, teamStatus, teacherStatus } = params
+  const { search, taskIndex, startDate, endDate, teamStatus, teacherStatus, inviterSearch } = params
   
   // 获取管理员角色
   const adminRole = await getAdminRole()
@@ -79,6 +80,19 @@ export default async function AdminTeachersPage({
     })
   }
   
+  // 邀请人检索（姓名/手机号/ID）
+  if (inviterSearch) {
+    whereConditions.push({
+      invitedBy: {
+        OR: [
+          { name: { contains: inviterSearch, mode: 'insensitive' } },
+          { phone: { contains: inviterSearch } },
+          { id: { contains: inviterSearch } }
+        ]
+      }
+    })
+  }
+
   // 任务状态
   if (teacherStatus === 'in_progress') {
     whereConditions.push({
@@ -169,7 +183,7 @@ export default async function AdminTeachersPage({
       
       <TeachersManagementClient 
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate, teamStatus, teacherStatus }}
+        initialFilters={{ search, taskIndex, startDate, endDate, teamStatus, teacherStatus, inviterSearch }}
         pagination={pagination}
         adminRole={adminRole}
       />
