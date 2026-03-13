@@ -16,6 +16,7 @@ type Teacher = {
   currentTaskIndex: number
   updatedAt: Date
   teamAssignment: { id: string } | null
+  invitedBy: { name: string | null } | null
 }
 
 export default function TeachersManagementClient({
@@ -245,6 +246,9 @@ export default function TeachersManagementClient({
                   当前任务
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  邀请人
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   团队状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -283,6 +287,12 @@ export default function TeachersManagementClient({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.currentTaskIndex} / {TOTAL_TASK_COUNT}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {teacher.invitedBy
+                      ? (teacher.invitedBy.name || <span className="text-gray-400">未填写</span>)
+                      : <span className="text-gray-400">-</span>
+                    }
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`badge ${

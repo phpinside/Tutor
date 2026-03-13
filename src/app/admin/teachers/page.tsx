@@ -126,6 +126,9 @@ export default async function AdminTeachersPage({
       updatedAt: true,
       teamAssignment: {
         select: { id: true }
+      },
+      invitedBy: {
+        select: { name: true }
       }
     }
   })
