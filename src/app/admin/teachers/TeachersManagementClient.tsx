@@ -32,6 +32,7 @@ export default function TeachersManagementClient({
     startDate?: string
     endDate?: string
     teamStatus?: string
+    teacherStatus?: string
   }
   pagination?: {
     currentPage: number
@@ -49,6 +50,7 @@ export default function TeachersManagementClient({
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
   const [teamStatus, setTeamStatus] = useState(initialFilters.teamStatus || '')
+  const [teacherStatus, setTeacherStatus] = useState(initialFilters.teacherStatus || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
@@ -95,6 +97,7 @@ export default function TeachersManagementClient({
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
     if (teamStatus) params.set('teamStatus', teamStatus)
+    if (teacherStatus) params.set('teacherStatus', teacherStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -106,6 +109,7 @@ export default function TeachersManagementClient({
     setStartDate('')
     setEndDate('')
     setTeamStatus('')
+    setTeacherStatus('')
     router.push('/admin/teachers')
   }
   
@@ -118,6 +122,7 @@ export default function TeachersManagementClient({
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
     if (teamStatus) params.set('teamStatus', teamStatus)
+    if (teacherStatus) params.set('teacherStatus', teacherStatus)
     
     router.push(`/admin/teachers?${params.toString()}`)
   }
@@ -153,6 +158,15 @@ export default function TeachersManagementClient({
               <option value="5">任务 5/7</option>
               <option value="6">任务 6/7</option>
               <option value="7">任务 7/7（已完成）</option>
+            </select>
+            <select
+              value={teacherStatus}
+              onChange={(e) => setTeacherStatus(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">任务状态（全部）</option>
+              <option value="in_progress">引导中</option>
+              <option value="completed">已完成</option>
             </select>
             <select
               value={teamStatus}
