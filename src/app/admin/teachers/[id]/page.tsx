@@ -19,12 +19,21 @@ async function getViewerInfo() {
     try {
       const data = JSON.parse(operatorSession.value)
       if (data.operatorId) {
-        return { id: data.operatorId as string, name: data.name as string }
+        return { id: data.operatorId as string, name: data.name as string, isSuperAdmin: false }
       }
     } catch {}
   }
 
-  return { id: null, name: '管理员' }
+  const adminSession = cookieStore.get('admin_session')
+  let role = 'super_admin'
+  if (adminSession) {
+    try {
+      const data = JSON.parse(adminSession.value)
+      role = data.role || 'super_admin'
+    } catch {}
+  }
+
+  return { id: null, name: '管理员', isSuperAdmin: role === 'super_admin' }
 }
 
 export default async function TeacherDetailPage({
@@ -82,10 +91,12 @@ export default async function TeacherDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-3">
-            <SetInviterModal
-              teacherId={teacher.id}
-              currentInviter={teacher.invitedBy}
-            />
+            {viewerInfo.isSuperAdmin && (
+              <SetInviterModal
+                teacherId={teacher.id}
+                currentInviter={teacher.invitedBy}
+              />
+            )}
             <span className={`badge text-base ${
               teacher.status === 'UNLOCKED' ? 'badge-success' :
               teacher.status === 'COMPLETED' ? 'badge-primary' :
