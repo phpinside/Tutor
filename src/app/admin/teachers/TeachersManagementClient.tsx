@@ -304,8 +304,15 @@ export default function TeachersManagementClient({
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {teacher.name || <span className="text-gray-400">未填写</span>}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.school || <span className="text-gray-400">-</span>}
+                  <td
+                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
+                    title={teacher.school || undefined}
+                  >
+                    {teacher.school
+                      ? (Array.from(teacher.school).length > 10
+                          ? `${Array.from(teacher.school).slice(0, 10).join('')}...`
+                          : teacher.school)
+                      : <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.mathScore !== null ? `${teacher.mathScore}分` : <span className="text-gray-400">-</span>}

@@ -30,6 +30,8 @@ type SearchResult = {
   teamAssignment: { operatorId: string; operator: { name: string } } | null
 }
 
+const MAX_SCHOOL_DISPLAY_LENGTH = 10
+
 export default function TeamManagementClient({
   operatorId,
   initialTeachers,
@@ -122,6 +124,15 @@ export default function TeamManagementClient({
     if (!confirm(`确定将「${teacherName || '该老师'}」从团队中移除？`)) return
     await removeTeacherFromTeam(operatorId, teacherId)
     startTransition(() => router.refresh())
+  }
+
+  const getSchoolDisplayName = (school: string | null) => {
+    if (!school) return '—'
+
+    const schoolChars = Array.from(school)
+    if (schoolChars.length <= MAX_SCHOOL_DISPLAY_LENGTH) return school
+
+    return `${schoolChars.slice(0, MAX_SCHOOL_DISPLAY_LENGTH).join('')}...`
   }
 
   return (
@@ -242,8 +253,11 @@ export default function TeamManagementClient({
                     </Link>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{teacher.phone}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.school || '—'}
+                  <td
+                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
+                    title={teacher.school || undefined}
+                  >
+                    {getSchoolDisplayName(teacher.school)}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span
