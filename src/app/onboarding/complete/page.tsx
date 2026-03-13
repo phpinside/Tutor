@@ -17,7 +17,9 @@ export default async function CompletePage() {
   // 从数据库获取任务总数
   const TASKS_CONFIG = await getTaskConfigs()
   const TOTAL_TASKS = TASKS_CONFIG.length
-  const allCompleted = teacher.currentTaskIndex >= TOTAL_TASKS
+  const isTerminalStatus =
+    teacher.status === 'COMPLETED' || teacher.status === 'UNLOCKED'
+  const allCompleted = isTerminalStatus || teacher.currentTaskIndex >= TOTAL_TASKS
   
   // 如果还没完成所有任务，重定向回引导页
   if (!allCompleted) {

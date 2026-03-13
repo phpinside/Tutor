@@ -12,6 +12,7 @@ type Teacher = {
   name: string | null
   phone: string
   school: string | null
+  mathScore: number | null
   status: string
   currentTaskIndex: number
   updatedAt: Date
@@ -267,6 +268,9 @@ export default function TeachersManagementClient({
                   学校
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  分数
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   状态
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -302,6 +306,9 @@ export default function TeachersManagementClient({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.school || <span className="text-gray-400">-</span>}
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {teacher.mathScore !== null ? `${teacher.mathScore}分` : <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className={`badge ${

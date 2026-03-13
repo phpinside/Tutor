@@ -147,6 +147,7 @@ export default async function AdminTeachersPage({
       name: true,
       phone: true,
       school: true,
+      mathScore: true,
       status: true,
       currentTaskIndex: true,
       updatedAt: true,
