@@ -67,6 +67,10 @@ function RegisterForm() {
       newErrors.confirmPassword = '两次密码输入不一致'
     }
 
+    if (!formData.referralCode.trim()) {
+      newErrors.referralCode = '请输入邀请码'
+    }
+
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -232,17 +236,22 @@ function RegisterForm() {
             {/* 邀请码 */}
             <div>
               <label htmlFor="referralCode" className="block text-sm font-medium text-gray-700 mb-2">
-                邀请码（可选）
+                邀请码 <span className="text-red-500">*</span>
               </label>
               <input
                 id="referralCode"
                 type="text"
                 value={formData.referralCode}
                 onChange={(e) => handleChange('referralCode', e.target.value.toUpperCase())}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-                placeholder="如有邀请码请填写"
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
+                  errors.referralCode ? 'border-red-300' : 'border-gray-300'
+                }`}
+                placeholder="请输入邀请码"
                 disabled={isSubmitting}
               />
+              {errors.referralCode && (
+                <p className="mt-1 text-sm text-red-600">{errors.referralCode}</p>
+              )}
               {initialRefCode && (
                 <p className="mt-1 text-xs text-green-600">
                   ✓ 已自动填充邀请码

@@ -87,7 +87,7 @@ export default function ReferralDashboard({
   const router = useRouter()
   const searchParams = useSearchParams()
   const { referrerName, inviteCode, stats, directReferrals, indirectReferrals } = data
-  const [copiedType, setCopiedType] = useState<'invite' | null>(null)
+  const [copiedType, setCopiedType] = useState<'invite' | 'code' | null>(null)
   const [showPosterGenerator, setShowPosterGenerator] = useState(false)
   const [activeTab, setActiveTab] = useState<'direct' | 'indirect'>('direct')
   
@@ -126,7 +126,8 @@ export default function ReferralDashboard({
     referralStatus: filters?.referralStatus || ''
   })
 
-  const handleCopy = (text: string, type: 'invite') => {
+  const handleCopy = (text: string, type: 'invite' | 'code') => {
+    if (!text) return
     navigator.clipboard.writeText(text)
     setCopiedType(type)
     setTimeout(() => setCopiedType(null), 2000)
@@ -267,6 +268,32 @@ export default function ReferralDashboard({
         {/* 邀请链接卡片 */}
         <div className="card mb-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">📤 分享邀请链接</h3>
+
+          {/* 我的邀请码 */}
+          <div className="mb-6 rounded-2xl border border-amber-200 bg-gradient-to-r from-amber-50 via-orange-50 to-yellow-50 p-4 shadow-sm">
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              <div>
+                <p className="text-sm font-medium text-amber-800">我的邀请码</p>
+                <div className="mt-2 inline-flex items-center rounded-xl bg-white/90 px-4 py-2 shadow-sm ring-1 ring-amber-200">
+                  <span className="text-2xl font-black tracking-[0.3em] text-amber-600">
+                    {inviteCode || '--'}
+                  </span>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => handleCopy(inviteCode || '', 'code')}
+                  disabled={!inviteCode}
+                  className="px-5 py-2 bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors font-medium whitespace-nowrap"
+                >
+                  {copiedType === 'code' ? '✓ 已复制' : '复制邀请码'}
+                </button>
+                {copiedType === 'code' && (
+                  <span className="text-sm text-green-600">复制成功</span>
+                )}
+              </div>
+            </div>
+          </div>
           
           {/* 邀请链接 */}
           <div className="mb-4">
