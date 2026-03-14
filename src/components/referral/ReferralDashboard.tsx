@@ -275,7 +275,7 @@ export default function ReferralDashboard({
               <div>
                 <p className="text-sm font-medium text-amber-800">我的邀请码</p>
                 <div className="mt-2 inline-flex items-center rounded-xl bg-white/90 px-4 py-2 shadow-sm ring-1 ring-amber-200">
-                  <span className="text-2xl font-black tracking-[0.3em] text-amber-600">
+                  <span className="text-2xl font-black text-amber-600">
                     {inviteCode || '--'}
                   </span>
                 </div>
