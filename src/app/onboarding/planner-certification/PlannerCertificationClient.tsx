@@ -8,12 +8,12 @@ import {
   resetLearningPlannerApplication,
 } from '@/app/actions/learningPlanner'
 import {
-  LEARNING_PLANNER_EXPECTED_PDF_NAME,
-  LEARNING_PLANNER_STUDENT_PROFILE,
   LEARNING_PLANNER_TEMPLATE_URL,
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
-  isValidLearningPlannerPdfName,
+  getRandomStudent,
+  studentToProfileItems,
+  getExpectedPdfName,
 } from '@/lib/learningPlanner'
 import { formatDateTime } from '@/lib/utils'
 
@@ -65,6 +65,10 @@ export default function PlannerCertificationClient({
     [application]
   )
 
+  const student = useMemo(() => getRandomStudent(), [])
+  const studentProfileItems = useMemo(() => studentToProfileItems(student), [student])
+  const expectedPdfName = useMemo(() => getExpectedPdfName(student.name), [student])
+
   const handlePdfUpload = async (file: File) => {
     setError('')
     if (!file) return
@@ -73,8 +77,8 @@ export default function PlannerCertificationClient({
       setError('学习规划书必须为 PDF 格式')
       return
     }
-    if (!isValidLearningPlannerPdfName(file.name)) {
-      setError(`文件名必须为 ${LEARNING_PLANNER_EXPECTED_PDF_NAME}`)
+    if (file.name.trim() !== expectedPdfName) {
+      setError(`文件名必须为 ${expectedPdfName}`)
       return
     }
 
@@ -333,7 +337,7 @@ export default function PlannerCertificationClient({
               <div>
                 <p className="font-medium text-blue-900 mb-1">说明</p>
                 <ul className="text-blue-800 space-y-1">
-                  <li>· 文件格式：PDF，文件名为 <span className="font-semibold">{LEARNING_PLANNER_EXPECTED_PDF_NAME}</span></li>
+                  <li>· 文件格式：PDF，文件名为 <span className="font-semibold">{expectedPdfName}</span></li>
                   <li>
                     · 参考模板：
                     <a
@@ -351,7 +355,7 @@ export default function PlannerCertificationClient({
               <div>
                 <p className="font-medium text-blue-900 mb-2">参考学生情况</p>
                 <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-blue-800">
-                  {LEARNING_PLANNER_STUDENT_PROFILE.map((item) => (
+                  {studentProfileItems.map((item) => (
                     <div key={item.label} className="flex gap-1">
                       <span className="text-blue-600 shrink-0">{item.label}：</span>
                       <span>{item.value}</span>

@@ -166,7 +166,7 @@ export async function submitLearningPlannerApplication(data: {
     }
 
     if (!isValidLearningPlannerPdfName(data.studyPlanPdfName || '')) {
-      return { success: false, error: '学习规划书文件名必须为 周晓红-数学学习规划建议书.pdf' }
+      return { success: false, error: '学习规划书文件名格式不正确，请使用 {学生姓名}-数学学习规划建议书.pdf' }
     }
 
     if (!data.trialLessonVideoUrl?.trim() || !isValidUrl(data.trialLessonVideoUrl.trim())) {

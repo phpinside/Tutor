@@ -1,21 +1,51 @@
+import studentProfiles from './studentProfile.json'
+
 export const LEARNING_PLANNER_TEMPLATE_URL =
   'https://fn73lnaiyt.feishu.cn/wiki/YNwowYJ3DiAL5ekBhNpcQYrznUd'
 
-export const LEARNING_PLANNER_STUDENT_NAME = '王小华'
-export const LEARNING_PLANNER_EXPECTED_PDF_NAME =
-  `${LEARNING_PLANNER_STUDENT_NAME}-数学学习规划建议书.pdf`
+type StudentProfileData = {
+  id: number
+  name: string
+  gender: string
+  grade: string
+  region: string
+  school: string
+  math_score: number
+  math_score_full: number
+  math_progress: string
+  other_subjects_avg: number
+  textbook_version: string
+}
 
-export const LEARNING_PLANNER_STUDENT_PROFILE = [
-  { label: '学生姓名', value: '王小华' },
-  { label: '性别', value: '女' },
-  { label: '年级', value: '初二' },
-  { label: '所在地区', value: '北京市海淀区' },
-  { label: '就读学校', value: '北京市第二中学' },
-  { label: '数学当前成绩', value: '72分（满分100）' },
-  { label: '学习进度', value: '初二数学知识点已学完' },
-  { label: '其他学科平均成绩', value: '78分' },
-  { label: '数学教材版本', value: '人教版' },
-] as const
+export function getRandomStudent(): StudentProfileData {
+  const idx = Math.floor(Math.random() * studentProfiles.length)
+  return studentProfiles[idx] as StudentProfileData
+}
+
+export function studentToProfileItems(student: StudentProfileData) {
+  return [
+    { label: '学生姓名', value: student.name },
+    { label: '性别', value: student.gender },
+    { label: '年级', value: student.grade },
+    { label: '所在地区', value: student.region },
+    { label: '就读学校', value: student.school },
+    { label: '数学当前成绩', value: `${student.math_score}分（满分${student.math_score_full}）` },
+    { label: '学习进度', value: student.math_progress },
+    { label: '其他学科平均成绩', value: `${student.other_subjects_avg}分` },
+    { label: '数学教材版本', value: student.textbook_version },
+  ]
+}
+
+export function getExpectedPdfName(studentName: string) {
+  return `${studentName}-数学学习规划建议书.pdf`
+}
+
+export function isValidLearningPlannerPdfName(fileName: string) {
+  const trimmed = fileName.trim()
+  return (studentProfiles as StudentProfileData[]).some(
+    (s) => trimmed === getExpectedPdfName(s.name)
+  )
+}
 
 export function isLearningPlannerEligible(
   teacherStatus: string,
@@ -47,8 +77,4 @@ export function getLearningPlannerStatusBadgeClass(status: string) {
   }
 
   return statusMap[status] || 'badge-gray'
-}
-
-export function isValidLearningPlannerPdfName(fileName: string) {
-  return fileName.trim() === LEARNING_PLANNER_EXPECTED_PDF_NAME
 }

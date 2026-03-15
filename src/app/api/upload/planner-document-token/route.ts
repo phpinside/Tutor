@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
 
     if (!isValidLearningPlannerPdfName(fileName)) {
       return NextResponse.json(
-        { error: '文件名必须为 周晓红-数学学习规划建议书.pdf' },
+        { error: '文件名格式不正确，请使用 {学生姓名}-数学学习规划建议书.pdf' },
         { status: 400 }
       )
     }
