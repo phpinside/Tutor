@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import {
@@ -9,13 +9,24 @@ import {
 } from '@/app/actions/learningPlanner'
 import {
   LEARNING_PLANNER_TEMPLATE_URL,
+  GradeLevel,
+  StudentProfileData,
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
-  getRandomStudent,
+  getStudentsByLevel,
+  getStudentById,
   studentToProfileItems,
   getExpectedPdfName,
 } from '@/lib/learningPlanner'
 import { formatDateTime } from '@/lib/utils'
+
+const STORAGE_KEY = 'planner_student_id'
+
+const LEVEL_LABELS: { value: GradeLevel; label: string }[] = [
+  { value: 'primary_school', label: '小学' },
+  { value: 'middle_school', label: '初中' },
+  { value: 'high_school', label: '高中' },
+]
 
 type ReviewItem = {
   id: string
@@ -60,19 +71,51 @@ export default function PlannerCertificationClient({
   const [error, setError] = useState('')
   const [resetting, setResetting] = useState(false)
 
+  const [confirmedStudent, setConfirmedStudent] = useState<StudentProfileData | null>(null)
+  const [pickerLevel, setPickerLevel] = useState<GradeLevel>('primary_school')
+
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (stored) {
+      const found = getStudentById(Number(stored))
+      if (found) setConfirmedStudent(found)
+    }
+  }, [])
+
+  const pickerStudents = useMemo(() => getStudentsByLevel(pickerLevel), [pickerLevel])
+
+  const studentProfileItems = useMemo(
+    () => (confirmedStudent ? studentToProfileItems(confirmedStudent) : []),
+    [confirmedStudent]
+  )
+  const expectedPdfName = useMemo(
+    () => (confirmedStudent ? getExpectedPdfName(confirmedStudent.name) : ''),
+    [confirmedStudent]
+  )
+
+  const handleSelectStudent = (s: StudentProfileData) => {
+    localStorage.setItem(STORAGE_KEY, String(s.id))
+    setConfirmedStudent(s)
+  }
+
+  const handleReselect = () => {
+    localStorage.removeItem(STORAGE_KEY)
+    setConfirmedStudent(null)
+  }
+
   const rejectReviews = useMemo(
     () => application?.reviews.filter((r) => r.decision === 'REJECTED') || [],
     [application]
   )
 
-  const student = useMemo(() => getRandomStudent(), [])
-  const studentProfileItems = useMemo(() => studentToProfileItems(student), [student])
-  const expectedPdfName = useMemo(() => getExpectedPdfName(student.name), [student])
-
   const handlePdfUpload = async (file: File) => {
     setError('')
     if (!file) return
 
+    if (!confirmedStudent) {
+      setError('请先在下方选择参考学生')
+      return
+    }
     if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
       setError('学习规划书必须为 PDF 格式')
       return
@@ -337,7 +380,12 @@ export default function PlannerCertificationClient({
               <div>
                 <p className="font-medium text-blue-900 mb-1">说明</p>
                 <ul className="text-blue-800 space-y-1">
-                  <li>· 文件格式：PDF，文件名为 <span className="font-semibold">{expectedPdfName}</span></li>
+                  <li>
+                    · 文件格式：PDF，文件名为{' '}
+                    <span className="font-semibold">
+                      {expectedPdfName || '{学生姓名}-数学学习规划建议书.pdf'}
+                    </span>
+                  </li>
                   <li>
                     · 参考模板：
                     <a
@@ -352,16 +400,66 @@ export default function PlannerCertificationClient({
                 </ul>
               </div>
 
+              {/* 参考学生选择 */}
               <div>
-                <p className="font-medium text-blue-900 mb-2">参考学生情况</p>
-                <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-blue-800">
-                  {studentProfileItems.map((item) => (
-                    <div key={item.label} className="flex gap-1">
-                      <span className="text-blue-600 shrink-0">{item.label}：</span>
-                      <span>{item.value}</span>
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-2">
+                  <p className="font-medium text-blue-900">参考学生情况</p>
+                  {confirmedStudent && (
+                    <button
+                      type="button"
+                      onClick={handleReselect}
+                      className="text-xs text-blue-600 hover:text-blue-800 underline"
+                    >
+                      重新选择
+                    </button>
+                  )}
                 </div>
+
+                {confirmedStudent ? (
+                  <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-blue-800">
+                    {studentProfileItems.map((item) => (
+                      <div key={item.label} className="flex gap-1">
+                        <span className="text-blue-600 shrink-0">{item.label}：</span>
+                        <span>{item.value}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {/* 学段 tabs */}
+                    <div className="flex gap-1">
+                      {LEVEL_LABELS.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => setPickerLevel(value)}
+                          className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                            pickerLevel === value
+                              ? 'bg-blue-600 text-white'
+                              : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* 学生列表 */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {pickerStudents.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => handleSelectStudent(s)}
+                          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-white hover:bg-blue-100 hover:border-blue-400 transition-colors text-left"
+                        >
+                          <span className="font-medium text-blue-900 text-xs">{s.name}</span>
+                          <span className="text-blue-500 text-xs truncate">{s.grade}</span>
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-blue-500">点击学生卡片即可选定</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

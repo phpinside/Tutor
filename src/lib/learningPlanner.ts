@@ -3,11 +3,15 @@ import studentProfiles from './studentProfile.json'
 export const LEARNING_PLANNER_TEMPLATE_URL =
   'https://fn73lnaiyt.feishu.cn/wiki/YNwowYJ3DiAL5ekBhNpcQYrznUd'
 
-type StudentProfileData = {
+export type GradeLevel = 'primary_school' | 'middle_school' | 'high_school'
+
+export type StudentProfileData = {
   id: number
   name: string
   gender: string
   grade: string
+  grade_level: GradeLevel
+  grade_number: number
   region: string
   school: string
   math_score: number
@@ -17,9 +21,14 @@ type StudentProfileData = {
   textbook_version: string
 }
 
-export function getRandomStudent(): StudentProfileData {
-  const idx = Math.floor(Math.random() * studentProfiles.length)
-  return studentProfiles[idx] as StudentProfileData
+const allStudents = studentProfiles as StudentProfileData[]
+
+export function getStudentsByLevel(level: GradeLevel): StudentProfileData[] {
+  return allStudents.filter((s) => s.grade_level === level)
+}
+
+export function getStudentById(id: number): StudentProfileData | undefined {
+  return allStudents.find((s) => s.id === id)
 }
 
 export function studentToProfileItems(student: StudentProfileData) {
@@ -42,9 +51,7 @@ export function getExpectedPdfName(studentName: string) {
 
 export function isValidLearningPlannerPdfName(fileName: string) {
   const trimmed = fileName.trim()
-  return (studentProfiles as StudentProfileData[]).some(
-    (s) => trimmed === getExpectedPdfName(s.name)
-  )
+  return allStudents.some((s) => trimmed === getExpectedPdfName(s.name))
 }
 
 export function isLearningPlannerEligible(
