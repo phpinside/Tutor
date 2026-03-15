@@ -9,7 +9,7 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// 老师状态枚举gi t
+// 老师状态枚举git
 enum TeacherStatus {
   NOT_STARTED // 未开始
   IN_PROGRESS // 引导中
@@ -56,6 +56,19 @@ enum WithdrawalStatus {
   REJECTED // 已驳回
 }
 
+// 学习规划师申请状态
+enum LearningPlannerApplicationStatus {
+  PENDING // 待审核
+  APPROVED // 审核通过
+  REJECTED // 审核不通过
+}
+
+// 学习规划师评审结论
+enum LearningPlannerReviewDecision {
+  APPROVED // 审核通过
+  REJECTED // 审核不通过
+}
+
 // 授课状态枚举
 enum TeachingStatus {
   NOT_TAUGHT // 未授课
@@ -77,6 +90,7 @@ model Operator {
 
   teamTeachers    TeacherTeam[]
   teacherRemarks  TeacherRemark[]
+  plannerReviews  LearningPlannerReview[]
 
   @@index([phone])
   @@map("operators")
@@ -166,6 +180,7 @@ model Teacher {
   referralStats     ReferralStats?
   teamAssignment    TeacherTeam?
   remarks           TeacherRemark[]
+  learningPlannerApplication LearningPlannerApplication?
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -323,6 +338,54 @@ model Withdrawal {
   @@index([status])
   @@index([createdAt])
   @@map("withdrawals")
+}
+
+// 学习规划师资格认证申请
+model LearningPlannerApplication {
+  id        String                           @id @default(cuid())
+  teacherId String                           @unique
+  status    LearningPlannerApplicationStatus @default(PENDING)
+
+  studyPlanPdfUrl   String
+  studyPlanPdfName  String
+  trialLessonVideoUrl String
+  statement         String
+
+  approveCount      Int      @default(0)
+  rejectCount       Int      @default(0)
+  finalDecisionNote String?
+
+  submittedAt     DateTime @default(now())
+  finalReviewedAt DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  reviews LearningPlannerReview[]
+
+  @@index([status])
+  @@index([submittedAt])
+  @@map("learning_planner_applications")
+}
+
+// 学习规划师资格认证评审记录
+model LearningPlannerReview {
+  id            String                        @id @default(cuid())
+  applicationId String
+  operatorId    String
+  decision      LearningPlannerReviewDecision
+  reason        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  application LearningPlannerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  operator    Operator                   @relation(fields: [operatorId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, operatorId])
+  @@index([applicationId])
+  @@index([operatorId])
+  @@index([decision])
+  @@map("learning_planner_reviews")
 }
 
 // 系统配置表

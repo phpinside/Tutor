@@ -51,6 +51,20 @@ export function generateVideoKey(
 }
 
 /**
+ * 生成学习规划书 PDF 的存储 key
+ * @param teacherId 教师 ID
+ * @param fileExt 文件扩展名
+ * @returns PDF 文件在七牛云上的 key
+ */
+export function generateLearningPlannerPdfKey(
+  teacherId: string,
+  fileExt: string = '.pdf'
+): string {
+  const timestamp = Date.now()
+  return `uploads/learning-planner/${teacherId}-${timestamp}${fileExt}`
+}
+
+/**
  * 生成七牛云上传凭证
  * @param key 文件在七牛云上的 key（路径）
  * @param expires 过期时间（秒），默认 1 小时
@@ -82,6 +96,20 @@ export function isValidVideoKey(key: string): boolean {
   if (!key) return false
   const videoExtensions = ['.mp4', '.mov', '.avi', '.wmv', '.flv', '.webm', '.m3u8']
   return videoExtensions.some(ext => key.toLowerCase().endsWith(ext))
+}
+
+/**
+ * 从七牛云 URL 中提取 key
+ * @param fileUrl 七牛云 URL 或已保存的 key
+ * @returns 文件 key
+ */
+export function extractQiniuKey(fileUrl: string): string {
+  try {
+    const url = new URL(fileUrl)
+    return decodeURIComponent(url.pathname.substring(1))
+  } catch {
+    return fileUrl
+  }
 }
 
 /**

@@ -1,13 +1,17 @@
 import { prisma } from '@/lib/prisma'
 import { getTaskConfigs, TASK_VIDEO_UPLOADS, TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
-import { generatePrivateUrl } from '@/lib/qiniu'
+import { generatePrivateUrl, extractQiniuKey } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
+import {
+  getLearningPlannerStatusBadgeClass,
+  getLearningPlannerStatusText,
+} from '@/lib/learningPlanner'
 
 export const dynamic = 'force-dynamic'
 
@@ -56,6 +60,23 @@ export default async function TeacherDetailPage({
       },
       invitedBy: {
         select: { id: true, name: true, phone: true }
+      },
+      learningPlannerApplication: {
+        include: {
+          reviews: {
+            include: {
+              operator: {
+                select: {
+                  id: true,
+                  name: true,
+                },
+              },
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+        },
       }
     }
   })
@@ -65,6 +86,9 @@ export default async function TeacherDetailPage({
   }
 
   const remarks = await getTeacherRemarks(id)
+  const learningPlannerPdfUrl = teacher.learningPlannerApplication
+    ? generatePrivateUrl(extractQiniuKey(teacher.learningPlannerApplication.studyPlanPdfUrl))
+    : null
   
   return (
     <div>
@@ -261,6 +285,128 @@ export default async function TeacherDetailPage({
           </div>
         </div>
       </div>
+
+      {teacher.learningPlannerApplication && (
+        <div className="card mb-8">
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between mb-6">
+            <div>
+              <h2 className="text-xl font-bold text-gray-900">学习规划师认证申请</h2>
+              <p className="text-sm text-gray-600 mt-1">
+                提交于 {formatDateTime(teacher.learningPlannerApplication.submittedAt)}
+              </p>
+            </div>
+            <span className={`badge text-sm ${getLearningPlannerStatusBadgeClass(teacher.learningPlannerApplication.status)}`}>
+              {getLearningPlannerStatusText(teacher.learningPlannerApplication.status)}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-6">
+            <div>
+              <p className="text-gray-500 mb-1">通过计数</p>
+              <p className="font-medium text-gray-900">
+                {teacher.learningPlannerApplication.approveCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">不通过计数</p>
+              <p className="font-medium text-gray-900">
+                {teacher.learningPlannerApplication.rejectCount}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">审核时间</p>
+              <p className="font-medium text-gray-900">
+                {teacher.learningPlannerApplication.finalReviewedAt
+                  ? formatDateTime(teacher.learningPlannerApplication.finalReviewedAt)
+                  : '待终审'}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-sm">
+            <div>
+              <p className="text-gray-500 mb-2">学习规划书</p>
+              {learningPlannerPdfUrl ? (
+                <a
+                  href={learningPlannerPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary-600 hover:text-primary-700 font-medium"
+                >
+                  {teacher.learningPlannerApplication.studyPlanPdfName}
+                </a>
+              ) : (
+                <p className="text-gray-400">暂无</p>
+              )}
+            </div>
+            <div>
+              <p className="text-gray-500 mb-2">试听课录像</p>
+              <a
+                href={teacher.learningPlannerApplication.trialLessonVideoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-primary-600 hover:text-primary-700 font-medium break-all"
+              >
+                查看录像链接
+              </a>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <p className="text-gray-500 mb-2 text-sm">申请陈述</p>
+            <div className="rounded-lg bg-gray-50 p-4 text-sm text-gray-700 whitespace-pre-wrap">
+              {teacher.learningPlannerApplication.statement}
+            </div>
+          </div>
+
+          {teacher.learningPlannerApplication.finalDecisionNote && (
+            <div className="mb-6">
+              <p className="text-gray-500 mb-2 text-sm">评委老师意见</p>
+              <div className="rounded-lg bg-red-50 border border-red-100 p-4 text-sm text-gray-700 whitespace-pre-wrap">
+                {teacher.learningPlannerApplication.finalDecisionNote}
+              </div>
+            </div>
+          )}
+
+          <div>
+            <p className="text-gray-500 mb-3 text-sm">审核记录</p>
+            {teacher.learningPlannerApplication.reviews.length === 0 ? (
+              <p className="text-sm text-gray-400">暂无审核记录</p>
+            ) : (
+              <div className="space-y-3">
+                {teacher.learningPlannerApplication.reviews.map((review) => (
+                  <div key={review.id} className="rounded-lg border border-gray-200 p-4">
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <div className="flex items-center gap-3">
+                        <span
+                          className={`badge text-xs ${
+                            review.decision === 'APPROVED'
+                              ? 'badge-success'
+                              : 'bg-red-100 text-red-700'
+                          }`}
+                        >
+                          {review.decision === 'APPROVED' ? '通过' : '不通过'}
+                        </span>
+                        <span className="text-sm font-medium text-gray-900">
+                          {review.operator.name}
+                        </span>
+                      </div>
+                      <span className="text-xs text-gray-500">
+                        {formatDateTime(review.createdAt)}
+                      </span>
+                    </div>
+                    {review.reason && (
+                      <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">
+                        {review.reason}
+                      </p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       
       {/* 任务提交记录 */}
       <div>

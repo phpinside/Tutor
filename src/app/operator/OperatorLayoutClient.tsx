@@ -10,6 +10,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/teachers', label: '老师管理' },
   { path: '/operator/team', label: '团队人员管理' },
+  { path: '/operator/planner-review', label: '规划师审核' },
   { path: '/operator/settings', label: '资料设置' },
 ]
 
