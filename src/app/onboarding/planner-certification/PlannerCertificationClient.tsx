@@ -137,6 +137,10 @@ export default function PlannerCertificationClient({
       setError('请填写腾讯会议录像链接')
       return
     }
+    if (!trialLessonVideoUrl.trim().startsWith('https://meeting.tencent.com')) {
+      setError('腾讯会议录像链接必须以 https://meeting.tencent.com 开头')
+      return
+    }
     if (!statement.trim()) {
       setError('请填写个人申请陈述和补充说明')
       return
@@ -368,9 +372,18 @@ export default function PlannerCertificationClient({
               value={trialLessonVideoUrl}
               onChange={(e) => setTrialLessonVideoUrl(e.target.value)}
               placeholder="请填写长期有效、无密码的腾讯会议录像链接"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
+              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm ${
+                trialLessonVideoUrl && !trialLessonVideoUrl.startsWith('https://meeting.tencent.com')
+                  ? 'border-red-400 bg-red-50'
+                  : 'border-gray-300'
+              }`}
               disabled={submitting}
             />
+            {trialLessonVideoUrl && !trialLessonVideoUrl.startsWith('https://meeting.tencent.com') && (
+              <p className="text-xs text-red-500">
+                链接必须以 https://meeting.tencent.com 开头
+              </p>
+            )}
             <p className="text-xs text-gray-500">
               请按试听课要求完成模拟上课，录像设置为长期有效且不设密码。
             </p>
