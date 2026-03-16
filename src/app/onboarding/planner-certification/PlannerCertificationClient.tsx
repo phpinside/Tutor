@@ -120,10 +120,11 @@ export default function PlannerCertificationClient({
       setError('学习规划书必须为 PDF 格式')
       return
     }
-    if (file.name.trim() !== expectedPdfName) {
-      setError(`文件名必须为 ${expectedPdfName}`)
-      return
-    }
+
+    // if (file.name.trim() !== expectedPdfName) {
+    //   setError(`文件名必须为 ${expectedPdfName}`)
+    //   return
+    // }
 
     setUploading(true)
     setUploadProgress(0)
