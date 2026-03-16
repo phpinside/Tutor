@@ -22,6 +22,15 @@ export default async function PlannerCertificationPage() {
         signedStudyPlanPdfUrl: generatePrivateUrl(
           extractQiniuKey(result.application.studyPlanPdfUrl)
         ),
+        reviews: result.application.reviews.map((review) => {
+          const imageUrls: string[] = (review as unknown as { imageUrls: string[] }).imageUrls ?? []
+          return {
+            ...review,
+            signedImageUrls: imageUrls.map((url) =>
+              generatePrivateUrl(extractQiniuKey(url))
+            ),
+          }
+        }),
       }
     : null
 

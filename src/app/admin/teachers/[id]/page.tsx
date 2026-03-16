@@ -400,6 +400,22 @@ export default async function TeacherDetailPage({
                         {review.reason}
                       </p>
                     )}
+                    {review.imageUrls.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {review.imageUrls.map((url, idx) => {
+                          const signedUrl = generatePrivateUrl(extractQiniuKey(url))
+                          return (
+                            <a key={idx} href={signedUrl} target="_blank" rel="noopener noreferrer">
+                              <img
+                                src={signedUrl}
+                                alt={`问题截图 ${idx + 1}`}
+                                className="w-full aspect-square object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                              />
+                            </a>
+                          )
+                        })}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

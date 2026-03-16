@@ -31,6 +31,7 @@ type ReviewItem = {
   id: string
   decision: 'APPROVED' | 'REJECTED'
   reason: string | null
+  signedImageUrls: string[]
   createdAt: string | Date
   operator: { id: string; name: string }
 }
@@ -258,7 +259,7 @@ export default function PlannerCertificationClient({
               <div className="rounded-xl bg-red-50 border border-red-200 p-6 space-y-4">
                 <div>
                   <h3 className="text-lg font-semibold text-red-900 mb-1">暂未通过，请继续努力。</h3>
-                  <p className="text-red-800 text-sm">评委老师意见如下：</p>
+                  <p className="text-red-800 text-sm">评委老师意见如下(详细看底部)：</p>
                 </div>
                 <div className="bg-white rounded-lg border border-red-100 p-4 text-sm text-gray-700 whitespace-pre-wrap">
                   {application.finalDecisionNote || '暂无详细意见'}
@@ -328,6 +329,19 @@ export default function PlannerCertificationClient({
                       <span className="text-gray-500">{formatDateTime(review.createdAt)}</span>
                     </div>
                     <p className="text-gray-700 whitespace-pre-wrap">{review.reason || '未填写具体意见'}</p>
+                    {review.signedImageUrls.length > 0 && (
+                      <div className="mt-3 grid grid-cols-3 gap-2">
+                        {review.signedImageUrls.map((url, idx) => (
+                          <a key={idx} href={url} target="_blank" rel="noopener noreferrer">
+                            <img
+                              src={url}
+                              alt={`问题截图 ${idx + 1}`}
+                              className="w-full aspect-square object-cover rounded-lg border border-gray-200 hover:opacity-80 transition-opacity"
+                            />
+                          </a>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

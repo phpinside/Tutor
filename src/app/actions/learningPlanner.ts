@@ -299,7 +299,8 @@ export async function getLearningPlannerApplications(filters?: LearningPlannerFi
 export async function reviewLearningPlannerApplication(
   applicationId: string,
   decision: 'APPROVED' | 'REJECTED',
-  reason?: string
+  reason?: string,
+  imageUrls?: string[]
 ) {
   try {
     const operatorSession = await getOperatorSession()
@@ -347,14 +348,14 @@ export async function reviewLearningPlannerApplication(
         throw new Error('你已经审核过该申请')
       }
 
-      await tx.learningPlannerReview.create({
-        data: {
-          applicationId,
-          operatorId: operatorSession.operatorId,
-          decision,
-          reason: decision === 'REJECTED' ? trimmedReason : null,
-        },
-      })
+      const reviewData = {
+        applicationId,
+        operatorId: operatorSession.operatorId,
+        decision,
+        reason: decision === 'REJECTED' ? trimmedReason : null,
+        imageUrls: decision === 'REJECTED' ? (imageUrls ?? []) : [],
+      }
+      await tx.learningPlannerReview.create({ data: reviewData as never })
 
       const [approveCount, rejectCount, rejectReviews] = await Promise.all([
         tx.learningPlannerReview.count({

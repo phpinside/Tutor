@@ -375,6 +375,7 @@ model LearningPlannerReview {
   operatorId    String
   decision      LearningPlannerReviewDecision
   reason        String?
+  imageUrls     String[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

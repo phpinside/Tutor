@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { reviewLearningPlannerApplication } from '@/app/actions/learningPlanner'
@@ -61,6 +61,9 @@ export default function PlannerReviewManagementClient({
   const [isLoading, setIsLoading] = useState(false)
   const [rejectModal, setRejectModal] = useState<{ id: string; teacherName: string | null } | null>(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [rejectImages, setRejectImages] = useState<{ url: string; signedUrl: string }[]>([])
+  const [isUploading, setIsUploading] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const handleApplyFilters = () => {
     const params = new URLSearchParams()
@@ -94,6 +97,31 @@ export default function PlannerReviewManagementClient({
     router.refresh()
   }
 
+  const handleImageFiles = async (files: FileList) => {
+    const remaining = 6 - rejectImages.length
+    const toUpload = Array.from(files).slice(0, remaining)
+    if (toUpload.length === 0) return
+
+    setIsUploading(true)
+    const results = await Promise.all(
+      toUpload.map(async (file) => {
+        const formData = new FormData()
+        formData.append('file', file)
+        const res = await fetch('/api/upload/review-image', { method: 'POST', body: formData })
+        if (!res.ok) return null
+        const data = await res.json()
+        return data.success ? { url: data.url as string, signedUrl: data.signedUrl as string } : null
+      })
+    )
+    setIsUploading(false)
+
+    const succeeded = results.filter(Boolean) as { url: string; signedUrl: string }[]
+    if (succeeded.length < toUpload.length) {
+      alert('部分图片上传失败，请重试')
+    }
+    setRejectImages((prev) => [...prev, ...succeeded])
+  }
+
   const handleReject = async () => {
     if (!rejectModal) return
 
@@ -106,7 +134,8 @@ export default function PlannerReviewManagementClient({
     const result = await reviewLearningPlannerApplication(
       rejectModal.id,
       'REJECTED',
-      rejectReason
+      rejectReason,
+      rejectImages.map((img) => img.url)
     )
     setIsLoading(false)
 
@@ -117,6 +146,7 @@ export default function PlannerReviewManagementClient({
 
     setRejectModal(null)
     setRejectReason('')
+    setRejectImages([])
     router.refresh()
   }
 
@@ -338,7 +368,7 @@ export default function PlannerReviewManagementClient({
       {rejectModal && (
         <div
           className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4"
-          onClick={() => setRejectModal(null)}
+          onClick={() => { setRejectModal(null); setRejectImages([]) }}
         >
           <div
             className="bg-white rounded-xl shadow-xl w-full max-w-lg p-6"
@@ -357,16 +387,83 @@ export default function PlannerReviewManagementClient({
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
               placeholder="请输入不通过的理由和建议..."
             />
+
+            {/* Image upload */}
+            <div className="mt-4">
+              <p className="text-sm font-medium text-gray-700 mb-2">
+                问题截图
+                <span className="ml-1 text-gray-400 font-normal">（可选，最多 6 张）</span>
+              </p>
+
+              {rejectImages.length > 0 && (
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  {rejectImages.map((img, idx) => (
+                    <div key={idx} className="relative group aspect-square rounded-lg overflow-hidden border border-gray-200 bg-gray-50">
+                      <img
+                        src={img.signedUrl}
+                        alt={`截图 ${idx + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setRejectImages((prev) => prev.filter((_, i) => i !== idx))}
+                        className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  if (e.target.files?.length) {
+                    handleImageFiles(e.target.files)
+                    e.target.value = ''
+                  }
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploading || rejectImages.length >= 6}
+                className="flex items-center gap-2 px-4 py-2 border border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-gray-400 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {isUploading ? (
+                  <>
+                    <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                    </svg>
+                    上传中...
+                  </>
+                ) : (
+                  <>
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                    </svg>
+                    添加截图
+                  </>
+                )}
+              </button>
+            </div>
+
             <div className="flex justify-end gap-3 mt-4">
               <button
-                onClick={() => setRejectModal(null)}
+                onClick={() => { setRejectModal(null); setRejectImages([]) }}
                 className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50"
               >
                 取消
               </button>
               <button
                 onClick={handleReject}
-                disabled={isLoading}
+                disabled={isLoading || isUploading}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300"
               >
                 {isLoading ? '提交中...' : '确认不通过'}
