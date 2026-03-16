@@ -16,7 +16,6 @@ import {
   getStudentsByLevel,
   getStudentById,
   studentToProfileItems,
-  getExpectedPdfName,
 } from '@/lib/learningPlanner'
 import { formatDateTime } from '@/lib/utils'
 
@@ -88,10 +87,7 @@ export default function PlannerCertificationClient({
     () => (confirmedStudent ? studentToProfileItems(confirmedStudent) : []),
     [confirmedStudent]
   )
-  const expectedPdfName = useMemo(
-    () => (confirmedStudent ? getExpectedPdfName(confirmedStudent.name) : ''),
-    [confirmedStudent]
-  )
+  
 
   const handleSelectStudent = (s: StudentProfileData) => {
     localStorage.setItem(STORAGE_KEY, String(s.id))
@@ -121,10 +117,6 @@ export default function PlannerCertificationClient({
       return
     }
 
-    // if (file.name.trim() !== expectedPdfName) {
-    //   setError(`文件名必须为 ${expectedPdfName}`)
-    //   return
-    // }
 
     setUploading(true)
     setUploadProgress(0)
@@ -384,7 +376,7 @@ export default function PlannerCertificationClient({
                   <li>
                     · 文件格式：PDF，文件名为{' '}
                     <span className="font-semibold">
-                      {expectedPdfName || '{学生姓名}-数学学习规划建议书.pdf'}
+                      {'{学生姓名}-数学学习规划建议书.pdf'}
                     </span>
                   </li>
                   <li>

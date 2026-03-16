@@ -45,14 +45,6 @@ export function studentToProfileItems(student: StudentProfileData) {
   ]
 }
 
-export function getExpectedPdfName(studentName: string) {
-  return `${studentName}-数学学习规划建议书.pdf`
-}
-
-export function isValidLearningPlannerPdfName(fileName: string) {
-  const trimmed = fileName.trim()
-  return allStudents.some((s) => trimmed === getExpectedPdfName(s.name))
-}
 
 export function isLearningPlannerEligible(
   teacherStatus: string,

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { generateLearningPlannerPdfKey, generateUploadToken } from '@/lib/qiniu'
 import { QINIU_CONFIG } from '@/lib/config'
-import { isValidLearningPlannerPdfName } from '@/lib/learningPlanner'
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,13 +19,6 @@ export async function POST(request: NextRequest) {
     const fileExt = fileName.substring(fileName.lastIndexOf('.')).toLowerCase()
     if (fileExt !== '.pdf') {
       return NextResponse.json({ error: '学习规划书必须为 PDF 格式' }, { status: 400 })
-    }
-
-    if (!isValidLearningPlannerPdfName(fileName)) {
-      return NextResponse.json(
-        { error: '文件名格式不正确，请使用 {学生姓名}-数学学习规划建议书.pdf' },
-        { status: 400 }
-      )
     }
 
     const key = generateLearningPlannerPdfKey(teacherId, fileExt)

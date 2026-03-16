@@ -4,10 +4,7 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
-import {
-  isLearningPlannerEligible,
-  isValidLearningPlannerPdfName,
-} from '@/lib/learningPlanner'
+import {isLearningPlannerEligible} from '@/lib/learningPlanner'
 
 type LearningPlannerFilters = {
   search?: string
@@ -165,10 +162,7 @@ export async function submitLearningPlannerApplication(data: {
       return { success: false, error: '请先上传学习规划书 PDF' }
     }
 
-    if (!isValidLearningPlannerPdfName(data.studyPlanPdfName || '')) {
-      return { success: false, error: '学习规划书文件名格式不正确，请使用 {学生姓名}-数学学习规划建议书.pdf' }
-    }
-
+  
     if (!data.trialLessonVideoUrl?.trim() || !isValidUrl(data.trialLessonVideoUrl.trim())) {
       return { success: false, error: '请填写有效的腾讯会议录像链接' }
     }
