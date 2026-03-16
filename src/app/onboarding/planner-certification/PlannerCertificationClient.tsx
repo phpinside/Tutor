@@ -467,7 +467,7 @@ export default function PlannerCertificationClient({
           {/* 2. 腾讯会议录像链接 */}
           <div className="space-y-2">
             <label className="block text-sm font-medium text-gray-700">
-              2. 腾讯会议录像链接
+              2. 试听课的腾讯会议录像链接
             </label>
             <input
               type="url"
