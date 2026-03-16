@@ -262,19 +262,10 @@ export default function TeachersManagementClient({
                   ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  姓名
+                  姓名 / 学校 / 分数
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  学校
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  分数
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  状态
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  当前任务
+                  状态 / 任务
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   邀请人
@@ -301,23 +292,22 @@ export default function TeachersManagementClient({
                       {teacher.id.substring(0, 8)}...
                     </Link>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {teacher.name || <span className="text-gray-400">未填写</span>}
+                  <td className="px-6 py-4 text-sm">
+                    <div className="font-medium text-gray-900">
+                      {teacher.name || <span className="text-gray-400">未填写</span>}
+                    </div>
+                    <div className="text-gray-500 text-xs mt-0.5" title={teacher.school || undefined}>
+                      {teacher.school
+                        ? (Array.from(teacher.school).length > 10
+                            ? `${Array.from(teacher.school).slice(0, 10).join('')}...`
+                            : teacher.school)
+                        : <span className="text-gray-400">-</span>}
+                    </div>
+                    <div className="text-gray-500 text-xs mt-0.5">
+                      {teacher.mathScore !== null ? `${teacher.mathScore}分` : <span className="text-gray-400">-</span>}
+                    </div>
                   </td>
-                  <td
-                    className="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
-                    title={teacher.school || undefined}
-                  >
-                    {teacher.school
-                      ? (Array.from(teacher.school).length > 10
-                          ? `${Array.from(teacher.school).slice(0, 10).join('')}...`
-                          : teacher.school)
-                      : <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.mathScore !== null ? `${teacher.mathScore}分` : <span className="text-gray-400">-</span>}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm">
                     <span className={`badge ${
                       teacher.status === 'UNLOCKED' ? 'badge-success' :
                       teacher.status === 'COMPLETED' ? 'badge-primary' :
@@ -325,9 +315,9 @@ export default function TeachersManagementClient({
                     }`}>
                       {getTeacherStatusText(teacher.status)}
                     </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    {teacher.currentTaskIndex} / {TOTAL_TASK_COUNT}
+                    <div className="text-gray-500 text-xs mt-1">
+                      {teacher.currentTaskIndex} / {TOTAL_TASK_COUNT}
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                     {teacher.invitedBy
