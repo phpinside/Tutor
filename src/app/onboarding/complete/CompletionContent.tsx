@@ -119,7 +119,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
                 className="card-hover text-left p-6 border-2 border-primary-500 cursor-pointer bg-white hover:bg-gray-50 transition-all"
               >
                 <div className="text-3xl mb-3">💬</div>
-                <h3 className="font-semibold text-gray-900 mb-2">1、联系宋老师，完成伴学师登记</h3>
+                <h3 className="font-semibold text-gray-900 mb-2">1、加宋老师微信，完成登记</h3>
                 <p className="text-sm text-gray-600">
                   发送自己的老师ID，完成伴学师登记
                 </p>
