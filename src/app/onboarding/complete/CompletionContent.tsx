@@ -226,7 +226,7 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
                   <div className="flex-1">
                     <p className="text-sm font-semibold text-amber-900 mb-1">温馨提示</p>
                     <p className="text-xs text-amber-800">
-                      添加宋老师微信后，请发送您的老师ID（{teacherId}）以开启接单
+                      添加宋老师微信后，请发送您的老师ID（{teacherId}）以完成伴学师登记
                     </p>
                   </div>
                 </div>
