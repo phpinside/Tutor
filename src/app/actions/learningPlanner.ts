@@ -251,11 +251,9 @@ export async function getLearningPlannerApplications(filters?: LearningPlannerFi
             },
           },
           reviews: {
-            where: {
-              operatorId: operatorSession.operatorId,
-            },
             select: {
               id: true,
+              operatorId: true,
               decision: true,
               reason: true,
               createdAt: true,
@@ -263,7 +261,6 @@ export async function getLearningPlannerApplications(filters?: LearningPlannerFi
                 select: { name: true },
               },
             },
-            take: 1,
             orderBy: {
               createdAt: 'desc',
             },
@@ -284,7 +281,9 @@ export async function getLearningPlannerApplications(filters?: LearningPlannerFi
       success: true,
       applications: applications.map((application) => ({
         ...application,
-        currentOperatorReview: application.reviews[0] || null,
+        allReviews: application.reviews,
+        currentOperatorReview:
+          application.reviews.find((r) => r.operatorId === operatorSession.operatorId) ?? null,
       })),
       stats: {
         total,

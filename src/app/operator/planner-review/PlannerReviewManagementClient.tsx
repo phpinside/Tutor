@@ -27,6 +27,13 @@ type Application = {
     school: string | null
     mathScore: number | null
   }
+  allReviews: {
+    id: string
+    decision: 'APPROVED' | 'REJECTED'
+    reason: string | null
+    createdAt: string | Date
+    operator: { name: string } | null
+  }[]
   currentOperatorReview: {
     id: string
     decision: 'APPROVED' | 'REJECTED'
@@ -321,17 +328,26 @@ export default function PlannerReviewManagementClient({
                           </span>
                         </div>
 
-                        {currentReview && (
-                          <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 space-y-0.5">
-                            <div>审核人：{currentReview.operator?.name ?? '未知'}</div>
-                            <div>
-                              结论：{currentReview.decision === 'APPROVED' ? '✅ 通过' : '❌ 不通过'}
-                            </div>
-                            <div className="text-gray-400">{formatDateTime(currentReview.createdAt)}</div>
+                        {application.allReviews.length > 0 && (
+                          <div className="space-y-1.5">
+                            {application.allReviews.map((review) => (
+                              <div
+                                key={review.id}
+                                className="rounded-lg bg-gray-50 p-2.5 text-xs text-gray-600 space-y-0.5"
+                              >
+                                <div className="font-medium text-gray-700">
+                                  {review.operator?.name ?? '未知'}
+                                </div>
+                                <div>
+                                  {review.decision === 'APPROVED' ? '✅ 通过' : '❌ 不通过'}
+                                </div>
+                                <div className="text-gray-400">{formatDateTime(review.createdAt)}</div>
+                              </div>
+                            ))}
                           </div>
                         )}
 
-                        {application.status !== 'PENDING' && !currentReview && (
+                        {application.status !== 'PENDING' && application.allReviews.length === 0 && (
                           <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
                             该申请已完成终审
                           </div>
