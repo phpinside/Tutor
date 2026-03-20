@@ -32,6 +32,7 @@ type Application = {
     decision: 'APPROVED' | 'REJECTED'
     reason: string | null
     createdAt: string | Date
+    operator: { name: string } | null
   } | null
 }
 
@@ -321,9 +322,12 @@ export default function PlannerReviewManagementClient({
                         </div>
 
                         {currentReview && (
-                          <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600">
-                            你已审核：
-                            {currentReview.decision === 'APPROVED' ? '通过' : '不通过'}
+                          <div className="rounded-lg bg-gray-50 p-3 text-xs text-gray-600 space-y-0.5">
+                            <div>审核人：{currentReview.operator?.name ?? '未知'}</div>
+                            <div>
+                              结论：{currentReview.decision === 'APPROVED' ? '✅ 通过' : '❌ 不通过'}
+                            </div>
+                            <div className="text-gray-400">{formatDateTime(currentReview.createdAt)}</div>
                           </div>
                         )}
 

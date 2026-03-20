@@ -259,6 +259,9 @@ export async function getLearningPlannerApplications(filters?: LearningPlannerFi
               decision: true,
               reason: true,
               createdAt: true,
+              operator: {
+                select: { name: true },
+              },
             },
             take: 1,
             orderBy: {
