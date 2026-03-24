@@ -3,6 +3,9 @@ import studentProfiles from './studentProfile.json'
 export const LEARNING_PLANNER_TEMPLATE_URL =
   'https://fn73lnaiyt.feishu.cn/wiki/YNwowYJ3DiAL5ekBhNpcQYrznUd'
 
+/** 学习规划师资格认证：累计通过票数达到该值则终审通过（与 server action 一致） */
+export const LEARNING_PLANNER_REQUIRED_APPROVALS = 2
+
 export type GradeLevel = 'primary_school' | 'middle_school' | 'high_school'
 
 export type StudentProfileData = {

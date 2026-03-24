@@ -4,7 +4,10 @@ import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
-import {isLearningPlannerEligible} from '@/lib/learningPlanner'
+import {
+  isLearningPlannerEligible,
+  LEARNING_PLANNER_REQUIRED_APPROVALS,
+} from '@/lib/learningPlanner'
 
 type LearningPlannerFilters = {
   search?: string
@@ -48,7 +51,7 @@ function isValidUrl(url: string) {
 
 function resolveApplicationStatus(approveCount: number, rejectCount: number) {
   if (rejectCount >= 1) return 'REJECTED'
-  if (approveCount >= 5 && rejectCount === 0) return 'APPROVED'
+  if (approveCount >= LEARNING_PLANNER_REQUIRED_APPROVALS) return 'APPROVED'
   return 'PENDING'
 }
 

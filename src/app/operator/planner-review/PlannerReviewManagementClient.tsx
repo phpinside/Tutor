@@ -7,6 +7,7 @@ import { reviewLearningPlannerApplication } from '@/app/actions/learningPlanner'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
+  LEARNING_PLANNER_REQUIRED_APPROVALS,
 } from '@/lib/learningPlanner'
 import { formatDateTime } from '@/lib/utils'
 
@@ -325,6 +326,9 @@ export default function PlannerReviewManagementClient({
                           </span>
                           <span className="text-xs text-gray-500">
                             通过 {application.approveCount} / 不通过 {application.rejectCount}
+                            <span className="text-gray-400">
+                              （需 {LEARNING_PLANNER_REQUIRED_APPROVALS} 人通过）
+                            </span>
                           </span>
                         </div>
 
