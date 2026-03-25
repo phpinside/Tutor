@@ -1,5 +1,6 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { updateReferralStats } from './teacher'
@@ -23,6 +24,116 @@ export type BatchAction =
   | { type: 'mark_valid' }
   | { type: 'mark_invalid'; note: string }
   | { type: 'mark_reward_sent' }
+
+export type RejectedDirectReferralInfo = {
+  id: string
+  adminNote: string | null
+  reviewedAt: Date | null
+}
+
+/** 被邀请人：是否存在「直接邀请已被驳回」记录（用于引导返工流程） */
+export async function getRejectedDirectReferralForReferred(
+  teacherId: string
+): Promise<RejectedDirectReferralInfo | null> {
+  try {
+    return await prisma.referral.findFirst({
+      where: {
+        referredId: teacherId,
+        type: 'DIRECT',
+        status: 'INVALID'
+      },
+      orderBy: { reviewedAt: 'desc' },
+      select: {
+        id: true,
+        adminNote: true,
+        reviewedAt: true
+      }
+    })
+  } catch (error) {
+    console.error('查询驳回邀请失败:', error)
+    return null
+  }
+}
+
+/** 被邀请人：修改任务后重新将直接邀请置为待审核（并同步间接邀请） */
+export async function resubmitDirectReferralAfterRejection(): Promise<
+  { success: true } | { success: false; error: string }
+> {
+  try {
+    const cookieStore = await cookies()
+    const teacherId = cookieStore.get('teacherId')?.value
+    if (!teacherId) {
+      return { success: false, error: '未登录' }
+    }
+
+    const referral = await prisma.referral.findFirst({
+      where: {
+        referredId: teacherId,
+        type: 'DIRECT',
+        status: 'INVALID'
+      },
+      orderBy: { reviewedAt: 'desc' },
+      select: {
+        id: true,
+        type: true,
+        referrerId: true,
+        referredId: true
+      }
+    })
+
+    if (!referral) {
+      return { success: false, error: '没有需要重新提交的审核记录' }
+    }
+
+    await prisma.referral.update({
+      where: { id: referral.id },
+      data: {
+        status: 'PENDING',
+        adminNote: null,
+        reviewedBy: null,
+        reviewedAt: null
+      }
+    })
+
+    await updateReferralStats(referral.referrerId)
+
+    if (referral.type === 'DIRECT') {
+      await prisma.referral.updateMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        data: {
+          status: 'PENDING',
+          reviewedBy: null,
+          reviewedAt: null
+        }
+      })
+
+      const indirectReferrals = await prisma.referral.findMany({
+        where: {
+          referredId: referral.referredId,
+          type: 'INDIRECT'
+        },
+        select: { referrerId: true }
+      })
+
+      for (const ir of indirectReferrals) {
+        await updateReferralStats(ir.referrerId)
+      }
+    }
+
+    revalidatePath('/onboarding')
+    revalidatePath('/onboarding/complete')
+    revalidatePath('/admin/referrals')
+    revalidatePath('/referral/dashboard')
+
+    return { success: true }
+  } catch (error) {
+    console.error('重新提交邀请审核失败:', error)
+    return { success: false, error: '提交失败，请重试' }
+  }
+}
 
 // 管理员：获取所有邀请记录
 export async function getAllReferrals(filters?: ReferralFilters, page: number = 1, pageSize: number = 50) {

@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { getRejectedDirectReferralForReferred } from '@/app/actions/referral'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
@@ -23,6 +24,11 @@ export default async function CompletePage() {
   
   // 如果还没完成所有任务，重定向回引导页
   if (!allCompleted) {
+    redirect('/onboarding')
+  }
+
+  const rejectedReferral = await getRejectedDirectReferralForReferred(teacherId)
+  if (rejectedReferral) {
     redirect('/onboarding')
   }
   
