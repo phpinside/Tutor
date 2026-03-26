@@ -23,7 +23,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     name: teacher.name || '',
     phone: teacher.phone || '',
     gender: teacher.gender || '',
-    age: teacher.age || '',
+    age: teacher.age != null ? String(teacher.age) : '',
     school: teacher.school || '',
     graduationYear: teacher.graduationYear || '',
     identity: teacher.identity || '',
@@ -74,6 +74,12 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       alert('请填写高考数学成绩并至少选择一个可辅导学段')
       return
     }
+
+    const ageNum = parseInt(String(formData.age).trim(), 10)
+    if (!Number.isFinite(ageNum) || ageNum < 18 || ageNum > 60) {
+      alert('年龄需在 18–60 之间')
+      return
+    }
     
     setIsSubmitting(true)
     
@@ -81,13 +87,14 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       // 将数组转为逗号分隔的字符串
       const teacherData = {
         ...formData,
+        age: ageNum,
         gradePreference: (formData.gradePreference as string[]).join(','),
         teachingStrengths: (formData.teachingStrengths as string[]).join(','),
         studentTypes: (formData.studentTypes as string[]).join(',')
       }
       
       // 更新老师信息
-      const updateResult = await updateTeacherInfo(teacherId, teacherData as any)
+      const updateResult = await updateTeacherInfo(teacherId, teacherData)
       
       if (!updateResult.success) {
         alert(updateResult.error || '更新个人信息失败，请重试')

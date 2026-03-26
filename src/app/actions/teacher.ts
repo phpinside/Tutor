@@ -54,7 +54,7 @@ export async function registerAndCreateTeacher(formData: {
   // 基础信息
   name: string
   gender: string
-  age: string
+  age: number
   school: string
   graduationYear?: string
   identity: string
@@ -119,6 +119,14 @@ export async function registerAndCreateTeacher(formData: {
       if (referrer) {
         invitedById = referrer.id
       }
+    }
+
+    if (
+      !Number.isInteger(teacherInfo.age) ||
+      teacherInfo.age < 18 ||
+      teacherInfo.age > 60
+    ) {
+      return { success: false, error: '年龄需在 18–60 之间的整数' }
     }
 
     // 加密密码
@@ -187,7 +195,7 @@ export async function updateTeacherInfo(teacherId: string, data: {
   name?: string
   phone?: string
   gender?: string
-  age?: string
+  age?: number
   school?: string
   graduationYear?: string
   identity?: string

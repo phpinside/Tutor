@@ -138,7 +138,7 @@ model Teacher {
 
   // 基础信息（可选）
   gender         String? // 性别：男/女
-  age            String? // 年龄
+  age            Int? // 年龄
   school         String? // 学历/学校（包含专业）
   graduationYear String? // 毕业年份
   identity       String? // 身份：在读学生/毕业生/其他

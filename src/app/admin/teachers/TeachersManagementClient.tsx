@@ -35,6 +35,10 @@ export default function TeachersManagementClient({
     teamStatus?: string
     teacherStatus?: string
     inviterSearch?: string
+    ageMin?: string
+    ageMax?: string
+    mathScoreMin?: string
+    mathScoreMax?: string
   }
   pagination?: {
     currentPage: number
@@ -54,6 +58,10 @@ export default function TeachersManagementClient({
   const [teamStatus, setTeamStatus] = useState(initialFilters.teamStatus || '')
   const [teacherStatus, setTeacherStatus] = useState(initialFilters.teacherStatus || '')
   const [inviterSearch, setInviterSearch] = useState(initialFilters.inviterSearch || '')
+  const [ageMin, setAgeMin] = useState(initialFilters.ageMin || '')
+  const [ageMax, setAgeMax] = useState(initialFilters.ageMax || '')
+  const [mathScoreMin, setMathScoreMin] = useState(initialFilters.mathScoreMin || '')
+  const [mathScoreMax, setMathScoreMax] = useState(initialFilters.mathScoreMax || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
@@ -92,9 +100,7 @@ export default function TeachersManagementClient({
     }
   }
 
-  // 应用筛选
-  const handleApplyFilters = () => {
-    const params = new URLSearchParams()
+  const appendListFilterParams = (params: URLSearchParams) => {
     if (searchTerm) params.set('search', searchTerm)
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
@@ -102,7 +108,16 @@ export default function TeachersManagementClient({
     if (teamStatus) params.set('teamStatus', teamStatus)
     if (teacherStatus) params.set('teacherStatus', teacherStatus)
     if (inviterSearch) params.set('inviterSearch', inviterSearch)
-    
+    if (ageMin.trim()) params.set('ageMin', ageMin.trim())
+    if (ageMax.trim()) params.set('ageMax', ageMax.trim())
+    if (mathScoreMin.trim()) params.set('mathScoreMin', mathScoreMin.trim())
+    if (mathScoreMax.trim()) params.set('mathScoreMax', mathScoreMax.trim())
+  }
+
+  // 应用筛选
+  const handleApplyFilters = () => {
+    const params = new URLSearchParams()
+    appendListFilterParams(params)
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
@@ -115,6 +130,10 @@ export default function TeachersManagementClient({
     setTeamStatus('')
     setTeacherStatus('')
     setInviterSearch('')
+    setAgeMin('')
+    setAgeMax('')
+    setMathScoreMin('')
+    setMathScoreMax('')
     router.push('/admin/teachers')
   }
   
@@ -122,14 +141,7 @@ export default function TeachersManagementClient({
   const goToPage = (page: number) => {
     const params = new URLSearchParams()
     params.set('page', page.toString())
-    if (searchTerm) params.set('search', searchTerm)
-    if (taskIndex) params.set('taskIndex', taskIndex)
-    if (startDate) params.set('startDate', startDate)
-    if (endDate) params.set('endDate', endDate)
-    if (teamStatus) params.set('teamStatus', teamStatus)
-    if (teacherStatus) params.set('teacherStatus', teacherStatus)
-    if (inviterSearch) params.set('inviterSearch', inviterSearch)
-    
+    appendListFilterParams(params)
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
@@ -226,13 +238,76 @@ export default function TeachersManagementClient({
               筛选
             </button>
           </div>
+
+          {/* 第三行：年龄、高考数学分数区间 */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+              <span className="text-sm text-gray-600 whitespace-nowrap">年龄：</span>
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={120}
+                  placeholder="最低"
+                  value={ageMin}
+                  onChange={(e) => setAgeMin(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                <span className="text-gray-500 shrink-0">-</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={120}
+                  placeholder="最高"
+                  value={ageMax}
+                  onChange={(e) => setAgeMax(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+              <span className="text-sm text-gray-600 whitespace-nowrap">高考数学分：</span>
+              <div className="flex items-center gap-2 flex-1">
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={150}
+                  placeholder="最低"
+                  value={mathScoreMin}
+                  onChange={(e) => setMathScoreMin(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+                <span className="text-gray-500 shrink-0">-</span>
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={150}
+                  placeholder="最高"
+                  value={mathScoreMax}
+                  onChange={(e) => setMathScoreMax(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+                />
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* 结果统计 */}
       <div className="mb-4">
         <p className="text-gray-600">
-          共 {initialTeachers.length} 位老师
+          共 {pagination?.totalCount ?? initialTeachers.length} 位老师
+          {pagination && pagination.totalPages > 1
+            ? `（本页 ${initialTeachers.length} 条）`
+            : null}
         </p>
       </div>
 

@@ -145,7 +145,7 @@ export default async function TeacherDetailPage({
             </div>
             <div>
               <p className="text-gray-500 mb-1">年龄</p>
-              <p className="font-medium text-gray-900">{teacher.age || '未填写'}</p>
+              <p className="font-medium text-gray-900">{teacher.age != null ? teacher.age : '未填写'}</p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">学历/学校</p>

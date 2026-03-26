@@ -5,6 +5,12 @@ import TeachersManagementClient from './TeachersManagementClient'
 
 export const dynamic = 'force-dynamic'
 
+function parseQueryInt(value: string | undefined): number | null {
+  if (value == null || value === '') return null
+  const n = parseInt(value, 10)
+  return Number.isFinite(n) ? n : null
+}
+
 // 获取当前管理员角色
 async function getAdminRole(): Promise<string> {
   const cookieStore = await cookies()
@@ -34,11 +40,27 @@ export default async function AdminTeachersPage({
     teamStatus?: string
     teacherStatus?: string
     inviterSearch?: string
+    ageMin?: string
+    ageMax?: string
+    mathScoreMin?: string
+    mathScoreMax?: string
   }>
 }) {
   // 解析筛选参数
   const params = await searchParams
-  const { search, taskIndex, startDate, endDate, teamStatus, teacherStatus, inviterSearch } = params
+  const {
+    search,
+    taskIndex,
+    startDate,
+    endDate,
+    teamStatus,
+    teacherStatus,
+    inviterSearch,
+    ageMin,
+    ageMax,
+    mathScoreMin,
+    mathScoreMax
+  } = params
   
   // 获取管理员角色
   const adminRole = await getAdminRole()
@@ -120,6 +142,44 @@ export default async function AdminTeachersPage({
       createdAt: dateFilter
     })
   }
+
+  // 年龄区间（Int?，null 不匹配带边界的条件）
+  const ageLo = parseQueryInt(ageMin)
+  const ageHi = parseQueryInt(ageMax)
+  if (ageLo != null || ageHi != null) {
+    let gte = ageLo ?? undefined
+    let lte = ageHi ?? undefined
+    if (gte != null && lte != null && gte > lte) {
+      const t = gte
+      gte = lte
+      lte = t
+    }
+    const ageFilter: { gte?: number; lte?: number } = {}
+    if (gte != null) ageFilter.gte = gte
+    if (lte != null) ageFilter.lte = lte
+    if (Object.keys(ageFilter).length > 0) {
+      whereConditions.push({ age: ageFilter })
+    }
+  }
+
+  // 高考数学分数区间
+  const scoreLo = parseQueryInt(mathScoreMin)
+  const scoreHi = parseQueryInt(mathScoreMax)
+  if (scoreLo != null || scoreHi != null) {
+    let gte = scoreLo ?? undefined
+    let lte = scoreHi ?? undefined
+    if (gte != null && lte != null && gte > lte) {
+      const t = gte
+      gte = lte
+      lte = t
+    }
+    const scoreFilter: { gte?: number; lte?: number } = {}
+    if (gte != null) scoreFilter.gte = gte
+    if (lte != null) scoreFilter.lte = lte
+    if (Object.keys(scoreFilter).length > 0) {
+      whereConditions.push({ mathScore: scoreFilter })
+    }
+  }
   
   // 构建查询条件
   const whereClause = {
@@ -184,7 +244,19 @@ export default async function AdminTeachersPage({
       
       <TeachersManagementClient 
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate, teamStatus, teacherStatus, inviterSearch }}
+        initialFilters={{
+          search,
+          taskIndex,
+          startDate,
+          endDate,
+          teamStatus,
+          teacherStatus,
+          inviterSearch,
+          ageMin,
+          ageMax,
+          mathScoreMin,
+          mathScoreMax
+        }}
         pagination={pagination}
         adminRole={adminRole}
       />
