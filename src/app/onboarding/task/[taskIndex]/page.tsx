@@ -59,7 +59,7 @@ export default async function TaskPage({
         return <TaskForm task={task} teacherId={teacherId} teacher={teacher} submission={submission} />
       
       case 'VIDEO_UPLOAD':
-        return <TaskVideoUpload task={task} teacherId={teacherId} submission={submission} />
+        return <TaskVideoUpload task={task} teacherId={teacherId} submission={submission} teacher={teacher} />
       
       case 'TRAINING':
         return <TaskTraining task={task} teacherId={teacherId} submission={submission} />

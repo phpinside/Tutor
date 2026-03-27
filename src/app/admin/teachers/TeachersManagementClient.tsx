@@ -7,12 +7,22 @@ import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import { resetTeacherPassword } from '@/app/actions/teacher'
 
+const SUBJECT_LABELS: Record<string, string> = {
+  MATH: '数学',
+  PHYSICS: '物理',
+  CHEMISTRY: '化学',
+}
+
 type Teacher = {
   id: string
   name: string | null
   phone: string
   school: string | null
   mathScore: number | null
+  physicsScore: number | null
+  chemistryScore: number | null
+  subjects: string[]
+  primarySubject: string | null
   status: string
   currentTaskIndex: number
   updatedAt: Date
@@ -39,6 +49,7 @@ export default function TeachersManagementClient({
     ageMax?: string
     mathScoreMin?: string
     mathScoreMax?: string
+    subject?: string
   }
   pagination?: {
     currentPage: number
@@ -62,6 +73,7 @@ export default function TeachersManagementClient({
   const [ageMax, setAgeMax] = useState(initialFilters.ageMax || '')
   const [mathScoreMin, setMathScoreMin] = useState(initialFilters.mathScoreMin || '')
   const [mathScoreMax, setMathScoreMax] = useState(initialFilters.mathScoreMax || '')
+  const [subject, setSubject] = useState(initialFilters.subject || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
@@ -112,6 +124,7 @@ export default function TeachersManagementClient({
     if (ageMax.trim()) params.set('ageMax', ageMax.trim())
     if (mathScoreMin.trim()) params.set('mathScoreMin', mathScoreMin.trim())
     if (mathScoreMax.trim()) params.set('mathScoreMax', mathScoreMax.trim())
+    if (subject) params.set('subject', subject)
   }
 
   // 应用筛选
@@ -134,6 +147,7 @@ export default function TeachersManagementClient({
     setAgeMax('')
     setMathScoreMin('')
     setMathScoreMax('')
+    setSubject('')
     router.push('/admin/teachers')
   }
   
@@ -143,6 +157,12 @@ export default function TeachersManagementClient({
     params.set('page', page.toString())
     appendListFilterParams(params)
     router.push(`/admin/teachers?${params.toString()}`)
+  }
+
+  const getTeacherScore = (teacher: Teacher): number | null => {
+    if (teacher.primarySubject === 'PHYSICS') return teacher.physicsScore
+    if (teacher.primarySubject === 'CHEMISTRY') return teacher.chemistryScore
+    return teacher.mathScore
   }
 
   return (
@@ -176,6 +196,16 @@ export default function TeachersManagementClient({
               <option value="5">任务 5/7</option>
               <option value="6">任务 6/7</option>
               <option value="7">任务 7/7（已完成）</option>
+            </select>
+            <select
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">学科（全部）</option>
+              <option value="MATH">数学</option>
+              <option value="PHYSICS">物理</option>
+              <option value="CHEMISTRY">化学</option>
             </select>
             <select
               value={teacherStatus}
@@ -270,7 +300,11 @@ export default function TeachersManagementClient({
               </div>
             </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-              <span className="text-sm text-gray-600 whitespace-nowrap">高考数学分：</span>
+              <span className="text-sm text-gray-600 whitespace-nowrap">
+                {subject === 'PHYSICS' ? '高考物理分：' :
+                 subject === 'CHEMISTRY' ? '高考化学分：' :
+                 '高考数学分：'}
+              </span>
               <div className="flex items-center gap-2 flex-1">
                 <input
                   type="number"
@@ -378,8 +412,15 @@ export default function TeachersManagementClient({
                             : teacher.school)
                         : <span className="text-gray-400">-</span>}
                     </div>
-                    <div className="text-gray-500 text-xs mt-0.5">
-                      {teacher.mathScore !== null ? `${teacher.mathScore}分` : <span className="text-gray-400">-</span>}
+                    <div className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
+                      {getTeacherScore(teacher) !== null
+                        ? <span>{getTeacherScore(teacher)}分</span>
+                        : <span className="text-gray-400">-</span>}
+                      {teacher.primarySubject && (
+                        <span className="text-gray-400">
+                          ({SUBJECT_LABELS[teacher.primarySubject] ?? teacher.primarySubject})
+                        </span>
+                      )}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-sm">

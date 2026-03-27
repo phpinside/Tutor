@@ -200,10 +200,86 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
         '校区账号：18701557327， 密码：123qwe',
         '用自己手机号从试课学员入口注册体验',
 
-        '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
+        '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
         '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
 
       ]
     }
   ]
+}
+
+// 学科标签映射
+const SUBJECT_LABELS: Record<string, string> = {
+  MATH: '数学',
+  PHYSICS: '物理',
+  CHEMISTRY: '化学',
+}
+
+/**
+ * 返回按最擅长学科定制后的视频上传配置。
+ * 若 primarySubject 为空则回退通用文案（兼容老数据）。
+ */
+export function getTaskVideoUploadConfigs(
+  taskIndex: number,
+  primarySubject?: string | null
+): VideoUploadConfig[] {
+  const base = TASK_VIDEO_UPLOADS[taskIndex]
+  if (!base) return []
+
+  const subjectLabel = primarySubject ? (SUBJECT_LABELS[primarySubject] ?? '') : ''
+
+  if (taskIndex === 2 && subjectLabel) {
+    return base.map(config => {
+      if (config.key === 'intro') {
+        return {
+          ...config,
+          tips: [
+            '真人出镜，介绍自己的基本情况（姓名、学校、专业）',
+            `分享你的${subjectLabel}教学经验和优势`,
+            '时长约3分钟,自然清晰就好',
+            '不看颜值,不背稿,看真实表达'
+          ]
+        }
+      }
+      if (config.key === 'lecture') {
+        return {
+          ...config,
+          title: `讲题体验（${subjectLabel}）`,
+          tips: [
+            `选一道你熟悉的${subjectLabel}题进行讲解，可不出镜`,
+            '展示你的思路清晰和引导式教学能力',
+            '时长约10分钟左右，确保声音清晰'
+          ]
+        }
+      }
+      return config
+    })
+  }
+
+  if (taskIndex === 4 && subjectLabel) {
+    return base.map(config => {
+      if (config.key === 'practice') {
+        return {
+          ...config,
+          title: `上传${subjectLabel}试讲视频`,
+          tips: [
+            `试讲内容为${subjectLabel}学科，请选取你最擅长的知识点进行演示`,
+            '请登录【鼎伴学】系统，将各个功能完整体验一遍，做到非常熟悉，这会直接影响后续接课与教学质量',
+            '参考课程回放：https://meeting.tencent.com/crm/N1ERoG1L55',
+            '参考上述上课流程，用腾讯会议录制一段试讲视频，可不出镜：',
+            '时长：约 20 分钟',
+            '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
+            '要求：流程完整、表达清晰、符合伴学课堂节奏',
+            '校区账号：18701557327， 密码：123qwe',
+            '用自己手机号从试课学员入口注册体验',
+            '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
+            '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
+          ]
+        }
+      }
+      return config
+    })
+  }
+
+  return base
 }

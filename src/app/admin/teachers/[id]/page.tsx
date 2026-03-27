@@ -166,13 +166,48 @@ export default async function TeacherDetailPage({
         <div className="mb-6">
           <h3 className="text-sm font-semibold text-gray-700 mb-3">教学能力 & 资质</h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            {/* 学科信息 */}
+            <div>
+              <p className="text-gray-500 mb-1">可教学科</p>
+              <div className="font-medium text-gray-900">
+                {teacher.subjects && teacher.subjects.length > 0 ? (
+                  <div className="flex gap-1 flex-wrap">
+                    {teacher.subjects.map((s: string) => {
+                      const label = s === 'MATH' ? '数学' : s === 'PHYSICS' ? '物理' : s === 'CHEMISTRY' ? '化学' : s
+                      return (
+                        <span key={s} className="badge-primary text-xs">{label}</span>
+                      )
+                    })}
+                  </div>
+                ) : '未填写'}
+              </div>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">最擅长学科</p>
+              <p className="font-medium text-gray-900">
+                {teacher.primarySubject
+                  ? (teacher.primarySubject === 'MATH' ? '数学' :
+                     teacher.primarySubject === 'PHYSICS' ? '物理' :
+                     teacher.primarySubject === 'CHEMISTRY' ? '化学' :
+                     teacher.primarySubject)
+                  : '未填写'}
+              </p>
+            </div>
             <div>
               <p className="text-gray-500 mb-1">高考数学成绩</p>
               <p className="font-medium text-gray-900">{teacher.mathScore ? `${teacher.mathScore}分` : '未填写'}</p>
             </div>
             <div>
-              <p className="text-gray-500 mb-1">数学竞赛经历</p>
-              <p className="font-medium text-gray-900">{teacher.mathCompetition || '未填写'}</p>
+              <p className="text-gray-500 mb-1">高考物理成绩</p>
+              <p className="font-medium text-gray-900">{teacher.physicsScore ? `${teacher.physicsScore}分` : '未填写'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">高考化学成绩</p>
+              <p className="font-medium text-gray-900">{teacher.chemistryScore ? `${teacher.chemistryScore}分` : '未填写'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">数理化竞赛经历</p>
+              <p className="font-medium text-gray-900">{teacher.scienceCompetition || teacher.mathCompetition || '未填写'}</p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">教学风格</p>

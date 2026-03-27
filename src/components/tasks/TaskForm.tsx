@@ -17,6 +17,16 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   
+  const SUBJECT_OPTIONS = [
+    { value: 'MATH', label: '数学' },
+    { value: 'PHYSICS', label: '物理' },
+    { value: 'CHEMISTRY', label: '化学' },
+  ]
+
+  const SUBJECT_LABELS: Record<string, string> = {
+    MATH: '数学', PHYSICS: '物理', CHEMISTRY: '化学'
+  }
+
   // 表单数据
   const [formData, setFormData] = useState({
     // 基础信息
@@ -27,10 +37,16 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     school: teacher.school || '',
     graduationYear: teacher.graduationYear || '',
     identity: teacher.identity || '',
+
+    // 学科信息
+    subjects: (teacher.subjects as string[]) ?? [] as string[],
+    primarySubject: (teacher.primarySubject as string) ?? '',
     
     // 教学能力 & 资质
     mathScore: teacher.mathScore ?? 0,
-    mathCompetition: teacher.mathCompetition || '',
+    physicsScore: teacher.physicsScore ?? 0,
+    chemistryScore: teacher.chemistryScore ?? 0,
+    scienceCompetition: teacher.scienceCompetition || teacher.mathCompetition || '',
     teachingExperience: teacher.teachingExperience || '',
     gradePreference: teacher.gradePreference ? teacher.gradePreference.split(',') : [],
     teachingStrengths: teacher.teachingStrengths ? teacher.teachingStrengths.split(',') : [],
@@ -45,6 +61,18 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
   
   const handleChange = (field: string, value: string | number) => {
     setFormData(prev => ({ ...prev, [field]: value }))
+  }
+
+  // 处理学科多选
+  const handleSubjectToggle = (value: string) => {
+    setFormData(prev => {
+      const newSubjects = prev.subjects.includes(value)
+        ? prev.subjects.filter(s => s !== value)
+        : [...prev.subjects, value]
+      // 若最擅长学科已不在已选列表中，清空
+      const newPrimary = newSubjects.includes(prev.primarySubject) ? prev.primarySubject : ''
+      return { ...prev, subjects: newSubjects, primarySubject: newPrimary }
+    })
   }
   
   // 处理多选框变化
@@ -69,9 +97,19 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       alert('请填写所有基础信息的必填项')
       return
     }
+
+    if (formData.subjects.length === 0) {
+      alert('请至少选择一个可教学科')
+      return
+    }
+
+    if (!formData.primarySubject) {
+      alert('请选择最擅长学科')
+      return
+    }
     
-    if (!formData.mathScore || grades.length === 0) {
-      alert('请填写高考数学成绩并至少选择一个可辅导学段')
+    if (!formData.mathScore || !formData.physicsScore || !formData.chemistryScore || grades.length === 0) {
+      alert('请填写高考数学、物理、化学成绩并至少选择一个可辅导学段')
       return
     }
 
@@ -88,9 +126,14 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       const teacherData = {
         ...formData,
         age: ageNum,
+        subjects: formData.subjects,
+        primarySubject: formData.primarySubject,
         gradePreference: (formData.gradePreference as string[]).join(','),
         teachingStrengths: (formData.teachingStrengths as string[]).join(','),
-        studentTypes: (formData.studentTypes as string[]).join(',')
+        studentTypes: (formData.studentTypes as string[]).join(','),
+        physicsScore: formData.physicsScore,
+        chemistryScore: formData.chemistryScore,
+        scienceCompetition: formData.scienceCompetition
       }
       
       // 更新老师信息
@@ -296,6 +339,52 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
         </h2>
         
         <div className="space-y-4">
+          {/* 可教学科（多选） */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              可教学科 <span className="text-red-500">*</span>
+            </label>
+            <div className="flex gap-6">
+              {SUBJECT_OPTIONS.map(opt => (
+                <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={formData.subjects.includes(opt.value)}
+                    onChange={() => handleSubjectToggle(opt.value)}
+                    className="w-4 h-4 text-primary-600 border-gray-300 rounded focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">可多选，至少选择一个</p>
+          </div>
+
+          {/* 最擅长学科（单选，从已勾选学科中动态生成） */}
+          {formData.subjects.length > 0 && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                最擅长学科 <span className="text-red-500">*</span>
+              </label>
+              <div className="flex gap-6">
+                {SUBJECT_OPTIONS.filter(opt => formData.subjects.includes(opt.value)).map(opt => (
+                  <label key={opt.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="primarySubject"
+                      value={opt.value}
+                      checked={formData.primarySubject === opt.value}
+                      onChange={(e) => handleChange('primarySubject', e.target.value)}
+                      className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                    />
+                    <span className="text-sm text-gray-700">{opt.label}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">讲题视频和试讲视频将按最擅长学科定制</p>
+            </div>
+          )}
+
           {/* 高考数学成绩 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -311,25 +400,67 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
                 const num = val === '' ? 0 : Math.min(150, parseInt(val));
                 handleChange('mathScore', num);
               }}
-              placeholder="如: 103"
+              placeholder="如: 130"
               className="input"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">
-              请填写分数，满分150分
-            </p>
+            <p className="text-xs text-gray-500 mt-1">请填写分数，满分150分</p>
           </div>
-          
-          {/* 数学竞赛经历 */}
+
+          {/* 高考物理成绩 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              数学竞赛经历
+              高考物理成绩 <span className="text-red-500">*</span>
             </label>
             <input
               type="text"
-              value={formData.mathCompetition}
-              onChange={(e) => handleChange('mathCompetition', e.target.value)}
-              placeholder="如: 县三等奖 / 市一等奖"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formData.physicsScore === 0 ? '' : formData.physicsScore}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                const num = val === '' ? 0 : Math.min(110, parseInt(val));
+                handleChange('physicsScore', num);
+              }}
+              placeholder="如: 95"
+              className="input"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">请填写分数，新高考满分110分</p>
+          </div>
+
+          {/* 高考化学成绩 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              高考化学成绩 <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              value={formData.chemistryScore === 0 ? '' : formData.chemistryScore}
+              onChange={(e) => {
+                const val = e.target.value.replace(/[^0-9]/g, '');
+                const num = val === '' ? 0 : Math.min(110, parseInt(val));
+                handleChange('chemistryScore', num);
+              }}
+              placeholder="如: 88"
+              className="input"
+              required
+            />
+            <p className="text-xs text-gray-500 mt-1">请填写分数，新高考满分110分</p>
+          </div>
+          
+          {/* 数理化竞赛经历 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              数理化竞赛经历
+            </label>
+            <input
+              type="text"
+              value={formData.scienceCompetition}
+              onChange={(e) => handleChange('scienceCompetition', e.target.value)}
+              placeholder="如: 数学联赛省二等奖 / 物理竞赛市一等奖"
               className="input"
             />
           </div>

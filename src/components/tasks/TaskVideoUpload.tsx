@@ -5,12 +5,13 @@ import { useRouter } from 'next/navigation'
 import { submitTask } from '@/app/actions/task'
 import { useQiniuUpload } from '@/lib/hooks/useQiniuUpload'
 import type { TaskConfig } from '@/lib/config'
-import { TASK_VIDEO_UPLOADS, type VideoUploadConfig } from '@/lib/config'
+import { getTaskVideoUploadConfigs, type VideoUploadConfig } from '@/lib/config'
 
 interface TaskVideoUploadProps {
   task: TaskConfig
   teacherId: string
   submission: any
+  teacher?: { primarySubject?: string | null }
 }
 
 interface VideoState {
@@ -43,12 +44,12 @@ const renderTextWithLinks = (text: string) => {
   })
 }
 
-export default function TaskVideoUpload({ task, teacherId, submission }: TaskVideoUploadProps) {
+export default function TaskVideoUpload({ task, teacherId, submission, teacher }: TaskVideoUploadProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   
-  // Load video configurations for this task
-  const videoConfigs = TASK_VIDEO_UPLOADS[task.index] || []
+  // Load video configurations for this task, customized by primary subject
+  const videoConfigs = getTaskVideoUploadConfigs(task.index, teacher?.primarySubject)
   const isMultiVideo = videoConfigs.length > 1
   
   // Initialize video states from submission data or empty

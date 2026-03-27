@@ -33,13 +33,13 @@ const TRAINING_CONTENT = {
       {
         title: '1.伴学软件下载',
         points: [
-          '百度网盘链接: https://pan.baidu.com/s/1PIkrnWXPS-T-mI5iiIV6Fw?pwd=jvh9 提取码: jvh9',
+          '百度网盘链接: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
         ]
       },
       {
         title: '2.伴学师手册（持续更新）',
         points: [
-          'https://fn73lnaiyt.feishu.cn/wiki/CgXJwwewZin7oDkevbfc2HsinVW',
+          'https://fn73lnaiyt.feishu.cn/wiki/LqlAwVa9ti37SgkZKI5cxr6knkf?fromScene=spaceOverview',
         ]
       }
     ]

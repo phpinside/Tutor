@@ -44,6 +44,7 @@ export default async function AdminTeachersPage({
     ageMax?: string
     mathScoreMin?: string
     mathScoreMax?: string
+    subject?: string
   }>
 }) {
   // 解析筛选参数
@@ -59,7 +60,8 @@ export default async function AdminTeachersPage({
     ageMin,
     ageMax,
     mathScoreMin,
-    mathScoreMax
+    mathScoreMax,
+    subject
   } = params
   
   // 获取管理员角色
@@ -162,7 +164,14 @@ export default async function AdminTeachersPage({
     }
   }
 
-  // 高考数学分数区间
+  // 学科筛选（subjects 数组包含该学科）
+  if (subject) {
+    whereConditions.push({
+      subjects: { has: subject }
+    })
+  }
+
+  // 高考成绩区间（按所选学科映射字段）
   const scoreLo = parseQueryInt(mathScoreMin)
   const scoreHi = parseQueryInt(mathScoreMax)
   if (scoreLo != null || scoreHi != null) {
@@ -177,7 +186,11 @@ export default async function AdminTeachersPage({
     if (gte != null) scoreFilter.gte = gte
     if (lte != null) scoreFilter.lte = lte
     if (Object.keys(scoreFilter).length > 0) {
-      whereConditions.push({ mathScore: scoreFilter })
+      const scoreField =
+        subject === 'PHYSICS' ? 'physicsScore' :
+        subject === 'CHEMISTRY' ? 'chemistryScore' :
+        'mathScore'
+      whereConditions.push({ [scoreField]: scoreFilter })
     }
   }
   
@@ -208,6 +221,10 @@ export default async function AdminTeachersPage({
       phone: true,
       school: true,
       mathScore: true,
+      physicsScore: true,
+      chemistryScore: true,
+      subjects: true,
+      primarySubject: true,
       status: true,
       currentTaskIndex: true,
       updatedAt: true,
@@ -255,7 +272,8 @@ export default async function AdminTeachersPage({
           ageMin,
           ageMax,
           mathScoreMin,
-          mathScoreMax
+          mathScoreMax,
+          subject
         }}
         pagination={pagination}
         adminRole={adminRole}

@@ -16,10 +16,12 @@ export async function registerReferrer(formData: {
   phone: string
   password: string
   confirmPassword: string
-  referralCode?: string  // 新增：可选的邀请码
+  referralCode?: string
+  subjects?: string[]
+  primarySubject?: string
 }) {
   try {
-    const { name, phone, password, confirmPassword, referralCode } = formData
+    const { name, phone, password, confirmPassword, referralCode, subjects, primarySubject } = formData
 
     // 验证必填字段
     if (!name?.trim()) {
@@ -123,7 +125,9 @@ export async function registerReferrer(formData: {
         phone: phone.trim(),
         password: hashedPassword,
         status: 'NOT_STARTED',
-        invitedById
+        invitedById,
+        subjects: subjects ?? [],
+        primarySubject: primarySubject ?? null
       }
     })
 

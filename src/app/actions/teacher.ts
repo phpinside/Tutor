@@ -199,16 +199,23 @@ export async function updateTeacherInfo(teacherId: string, data: {
   school?: string
   graduationYear?: string
   identity?: string
-  
+
+  // 学科信息
+  subjects?: string[]
+  primarySubject?: string
+
   // 教学能力 & 资质
   mathScore?: number
+  physicsScore?: number
+  chemistryScore?: number
   mathCompetition?: string
+  scienceCompetition?: string
   teachingExperience?: string
   gradePreference?: string
   teachingStrengths?: string
   teachingStyle?: string
   studentTypes?: string
-  
+
   // 可辅导时间
   weekdayTime?: string
   weekendTime?: string

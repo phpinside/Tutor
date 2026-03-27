@@ -134,8 +134,8 @@ function RegisterForm() {
             用户注册
           </h1>
           <p className="text-gray-600">
-            注册账号，开启数学伴学之旅
-          </p>
+              注册账号，开启伴学之旅
+            </p>
         </div>
 
         {/* 注册表单 */}

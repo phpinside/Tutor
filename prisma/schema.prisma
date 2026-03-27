@@ -143,9 +143,16 @@ model Teacher {
   graduationYear String? // 毕业年份
   identity       String? // 身份：在读学生/毕业生/其他
 
+  // 学科信息
+  subjects       String[] // 可教学科列表，如 ["MATH","PHYSICS"]
+  primarySubject String?  // 最擅长学科，如 "PHYSICS"
+
   // 教学能力 & 资质
   mathScore          Int? // 高考数学成绩
-  mathCompetition    String? // 数学竞赛经历
+  physicsScore       Int? // 高考物理成绩
+  chemistryScore     Int? // 高考化学成绩
+  mathCompetition    String? // 数学竞赛经历（旧字段，保留向下兼容）
+  scienceCompetition String? // 数理化竞赛经历
   teachingExperience String? // 教学经验
   gradePreference    String? // 可辅导学段（多选，逗号分隔）
   teachingStrengths  String? // 擅长方向（多选，逗号分隔）
