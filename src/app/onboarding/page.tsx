@@ -124,7 +124,7 @@ export default async function OnboardingPage({
         <p className="text-gray-600">
           {rejectedReferral && allTasksDone
             ? '点击下方任务步骤进入对应页面，修改并保存即可。'
-            : '完成新手任务,开启你的数学伴学之旅'}
+            : '完成新手任务,开启你的数理化伴学之旅'}
         </p>
       </div>
       

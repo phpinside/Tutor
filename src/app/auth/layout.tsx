@@ -15,7 +15,7 @@ export default function AuthLayout({
             伴学教练平台
           </h1>
           <p className="text-gray-600">
-            数学伴学，从这里开始
+            数理化伴学，从这里开始
           </p>
         </div>
         
