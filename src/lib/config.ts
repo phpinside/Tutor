@@ -197,7 +197,7 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
         '时长：约 20 分钟',
         '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
         '要求：流程完整、表达清晰、符合伴学课堂节奏',
-        '校区账号：18701557327， 密码：123qwe',
+        '校区账号：15099942178， 密码：123qwe',
         '用自己手机号从试课学员入口注册体验',
 
         '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
@@ -270,7 +270,7 @@ export function getTaskVideoUploadConfigs(
             '时长：约 20 分钟',
             '内容：覆盖关键教学流程（如开场、讲解、互动、总结等）',
             '要求：流程完整、表达清晰、符合伴学课堂节奏',
-            '校区账号：18701557327， 密码：123qwe',
+            '校区账号：15099942178， 密码：123qwe',
             '用自己手机号从试课学员入口注册体验',
             '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
             '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
