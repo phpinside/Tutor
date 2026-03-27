@@ -47,6 +47,7 @@ const renderTextWithLinks = (text: string) => {
 export default function TaskVideoUpload({ task, teacherId, submission, teacher }: TaskVideoUploadProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   
   // Load video configurations for this task, customized by primary subject
   const videoConfigs = getTaskVideoUploadConfigs(task.index, teacher?.primarySubject)
@@ -166,31 +167,17 @@ export default function TaskVideoUpload({ task, teacherId, submission, teacher }
   // Check if any video is currently uploading
   const isAnyUploading = videoConfigs.some(config => uploadHooks[config.key]?.isUploading)
   
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    
-    // Validation: all videos must be uploaded
-    if (!allVideosUploaded) {
-      const count = videoConfigs.length
-      alert(count > 1 ? `请上传所有${count}个视频后再提交` : '请上传视频后再提交')
-      return
-    }
-    
+  const doSubmit = async () => {
     setIsSubmitting(true)
-    
     try {
-      // Build formData with all video URLs
       const formData: Record<string, string> = {}
       videoConfigs.forEach(config => {
         formData[`${config.key}VideoUrl`] = videos[config.key].uploadedUrl
       })
-      
-      // Submit task with formData
       const result = await submitTask(teacherId, task.index, {
         taskType: task.type,
         formData
       })
-      
       if (result.success) {
         router.push('/onboarding')
         router.refresh()
@@ -203,6 +190,23 @@ export default function TaskVideoUpload({ task, teacherId, submission, teacher }
     } finally {
       setIsSubmitting(false)
     }
+  }
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!allVideosUploaded) {
+      const count = videoConfigs.length
+      alert(count > 1 ? `请上传所有${count}个视频后再提交` : '请上传视频后再提交')
+      return
+    }
+
+    if (task.index === 4) {
+      setShowConfirm(true)
+      return
+    }
+
+    await doSubmit()
   }
   
   // Helper function to render video upload section
@@ -371,6 +375,38 @@ export default function TaskVideoUpload({ task, teacherId, submission, teacher }
       <p className="text-sm text-gray-500 text-center">
         提交后我们会尽快查看,并给你反馈 ~
       </p>
+
+      {/* Task 4 提交确认弹窗 */}
+      {showConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl max-w-md w-full p-6 space-y-4">
+            <div className="flex items-center gap-3">
+              <span className="text-3xl">⚠️</span>
+              <h3 className="text-lg font-bold text-gray-900">提交前请确认</h3>
+            </div>
+            <p className="text-gray-700 leading-relaxed text-base">
+              请务必确保视频试讲使用了<strong className="text-red-600">鼎伴学软件</strong>，否则审核将不予通过。
+            </p>
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirm(false)}
+                className="flex-1 btn-secondary"
+              >
+                返回检查
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowConfirm(false); doSubmit() }}
+                disabled={isSubmitting}
+                className="flex-1 btn-primary"
+              >
+                确认无误，提交
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   )
 }

@@ -426,7 +426,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               className="input"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">请填写分数，新高考满分110分</p>
+            <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
 
           {/* 高考化学成绩 */}
@@ -448,7 +448,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               className="input"
               required
             />
-            <p className="text-xs text-gray-500 mt-1">请填写分数，新高考满分110分</p>
+            <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
           
           {/* 数理化竞赛经历 */}

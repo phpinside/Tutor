@@ -6,6 +6,7 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
+import TeacherInfoEditModal from './TeacherInfoEditModal'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import {
@@ -115,6 +116,7 @@ export default async function TeacherDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-3">
+            <TeacherInfoEditModal teacherId={teacher.id} teacher={teacher} />
             {viewerInfo.isSuperAdmin && (
               <SetInviterModal
                 teacherId={teacher.id}
