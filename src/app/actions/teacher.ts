@@ -25,6 +25,9 @@ export async function getTeacher(teacherId: string) {
               }
             }
           }
+        },
+        invitedBy: {
+          select: { name: true }
         }
       }
     })

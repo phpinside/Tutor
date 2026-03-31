@@ -37,6 +37,9 @@ export default async function CompletePage() {
       teacherName={teacher.name} 
       teacherId={teacherId} 
       totalTasks={TOTAL_TASKS}
+      primarySubject={teacher.primarySubject ?? null}
+      inviterName={teacher.invitedBy?.name ?? null}
+      teamLeaderName={teacher.teamAssignment?.operator.name ?? null}
     />
   )
 }

@@ -1,27 +1,65 @@
 'use client'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
+
+const SUBJECT_LABELS: Record<string, string> = {
+  MATH: '数学',
+  PHYSICS: '物理',
+  CHEMISTRY: '化学',
+}
 
 interface CompletionContentProps {
   teacherName: string | null
   teacherId: string
   totalTasks: number
+  primarySubject: string | null
+  inviterName: string | null
+  teamLeaderName: string | null
 }
 
-export default function CompletionContent({ teacherName, teacherId, totalTasks }: CompletionContentProps) {
-  const [showTeacherWechat, setShowTeacherWechat] = useState(false)
+export default function CompletionContent({
+  teacherName,
+  teacherId,
+  totalTasks,
+  primarySubject,
+  inviterName,
+  teamLeaderName,
+}: CompletionContentProps) {
   const [copied, setCopied] = useState(false)
-  
+  const [groupQrUrl, setGroupQrUrl] = useState<string | null>(null)
+  const [introCopied, setIntroCopied] = useState(false)
+
+  const subjectLabel = primarySubject ? (SUBJECT_LABELS[primarySubject] ?? primarySubject) : '数学'
+
+  const buildIntroText = () =>
+    `大家好，我是刚完成伴学引导任务的伴学教练${teacherName ?? ''}。\n最擅长学科：${subjectLabel}\n伴学教练ID：${teacherId}\n邀请人：${inviterName ?? '无'}\n团队认领人：${teamLeaderName ?? '无'}\n\n很高兴加入伴学团队，后续请大家多多指导与支持！`
+
+  const [introText, setIntroText] = useState(buildIntroText)
+
+  useEffect(() => {
+    fetch('/api/qrcode/url')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.url) setGroupQrUrl(data.url)
+      })
+      .catch(() => {})
+  }, [])
+
   const handleCopyId = () => {
     navigator.clipboard.writeText(teacherId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
 
+  const handleCopyIntro = () => {
+    navigator.clipboard.writeText(introText)
+    setIntroCopied(true)
+    setTimeout(() => setIntroCopied(false), 2000)
+  }
+
   return (
     <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="max-w-2xl w-full animate-fade-in">
+      <div className="max-w-4xl w-full animate-fade-in">
         {/* 恭喜文案 */}
         <div className="card">
           <div className="flex items-center justify-center gap-6 mb-8">
@@ -67,19 +105,19 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
             </div>
           </div>
           
-          {/* 老师ID高亮提醒 */}
+          {/* 伴学教练ID高亮提醒 */}
           <div className="bg-amber-50 border-2 border-amber-400 rounded-xl p-6 mb-8 shadow-md">
             <div className="flex items-start gap-3 mb-4">
               <div className="text-2xl">⚠️</div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-amber-900 mb-1">请务必保存好您的老师ID</h3>
+                <h3 className="text-lg font-bold text-amber-900 mb-1">请务必保存好您的伴学教练ID</h3>
                 <p className="text-sm text-amber-800">此ID是您的唯一标识，请妥善保管，用于后续接单和身份验证</p>
               </div>
             </div>
             <div className="bg-white rounded-lg p-4 border-2 border-amber-300">
               <div className="flex items-center justify-between">
                 <div className="flex-1">
-                  <p className="text-xs text-gray-600 mb-1">您的老师ID</p>
+                  <p className="text-xs text-gray-600 mb-1">您的伴学教练ID</p>
                   <p className="text-2xl font-bold text-gray-900 font-mono tracking-wider">{teacherId}</p>
                 </div>
                 <button
@@ -111,59 +149,56 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
             <h2 className="text-xl font-semibold text-gray-900">
               接下来你可以:
             </h2>
-            
-            <div className="grid gap-4 md:grid-cols-3">
-              {/* 添加宋老师微信 */}
-              <button
-                onClick={() => setShowTeacherWechat(true)}
-                className="card-hover text-left p-6 border-2 border-primary-500 cursor-pointer bg-white hover:bg-gray-50 transition-all"
-              >
-                <div className="text-3xl mb-3">💬</div>
-                <h3 className="font-semibold text-gray-900 mb-2">1、加宋老师微信，完成登记</h3>
-                <p className="text-sm text-gray-600">
-                  发送自己的老师ID，完成伴学师登记
-                </p>
-                <div className="mt-3 text-primary-600 text-sm font-medium">
-                  点击查看微信号 →
-                </div>
-              </button>
-              
-             
-              
-              {/* 观看经验总结文档 */}
-              <a
-                href="https://fn73lnaiyt.feishu.cn/wiki/LqlAwVa9ti37SgkZKI5cxr6knkf?fromScene=spaceOverview"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="card-hover text-left p-6 border-2 border-gray-200 hover:border-primary-300 block bg-white transition-all"
-              >
-                <div className="text-3xl mb-3">📖</div>
-                <h3 className="font-semibold text-gray-900 mb-2">2、观看伴学经验总结</h3>
-                <p className="text-sm text-gray-600">
-                  数学在线伴学经验总结在线文档
-                </p>
-                <div className="mt-3 text-primary-600 text-sm font-medium flex items-center gap-1">
-                  立即查看
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
-                </div>
-              </a>
 
-              <Link
-                href="/onboarding/planner-certification"
-                className="card-hover text-left p-6 border-2 border-gray-200 hover:border-primary-300 block bg-white transition-all"
-              >
-                <div className="text-3xl mb-3">📝</div>
-                <h3 className="font-semibold text-gray-900 mb-2">3、申请学习规划师资格认证</h3>
-                <p className="text-sm text-gray-600">
-                  提交学习规划书、试听课录像和申请陈述，进入资格认证审核流程
-                </p>
-                <div className="mt-3 text-primary-600 text-sm font-medium">
-                  立即前往 →
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* 左：微信群二维码 */}
+              <div className="flex flex-col items-center justify-center border-2 border-primary-400 rounded-xl p-6 bg-green-50">
+                <div className="text-base font-semibold text-gray-800 mb-4">
+                  扫码加入新手群，开启接单 👇
                 </div>
-              </Link>
+                <div className="w-52 h-52 bg-white rounded-xl shadow flex items-center justify-center border border-gray-200 overflow-hidden">
+                  {groupQrUrl ? (
+                    <img src={groupQrUrl} alt="微信群二维码" className="w-full h-full object-contain" />
+                  ) : (
+                    <div className="text-gray-400 text-sm text-center px-4">二维码加载中…</div>
+                  )}
+                </div>
+                <p className="mt-3 text-xs text-gray-500">微信扫一扫加入伴学新手群</p>
+              </div>
 
+              {/* 右：自我介绍文本框 */}
+              <div className="flex flex-col">
+                <div className="flex items-center justify-between mb-2">
+                  <p className="text-sm font-semibold text-gray-700">进群后发送以下自我介绍（可编辑）</p>
+                  <button
+                    onClick={handleCopyIntro}
+                    className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-500 hover:bg-primary-600 text-white transition-colors"
+                  >
+                    {introCopied ? (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        已复制
+                      </>
+                    ) : (
+                      <>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                        复制文本
+                      </>
+                    )}
+                  </button>
+                </div>
+                <textarea
+                  value={introText}
+                  onChange={(e) => setIntroText(e.target.value)}
+                  rows={10}
+                  className="flex-1 w-full rounded-xl border-2 border-gray-200 focus:border-primary-400 focus:outline-none p-4 text-sm text-gray-800 leading-relaxed resize-none bg-white"
+                />
+                <p className="mt-2 text-xs text-gray-400">内容已根据你的信息自动填写，可直接修改后复制发送</p>
+              </div>
             </div>
           </div>
         </div>
@@ -178,63 +213,6 @@ export default function CompletionContent({ teacherName, teacherId, totalTasks }
           </p>
         </div>
       </div>
-      
-      {/* 宋老师微信弹窗 */}
-      {showTeacherWechat && (
-        <div 
-          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-          onClick={() => setShowTeacherWechat(false)}
-        >
-          <div 
-            className="bg-white rounded-xl p-6 max-w-md w-full animate-fade-in"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">联系宋老师</h3>
-              <button
-                onClick={() => setShowTeacherWechat(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <div className="text-center">
-              {/* 二维码区域 */}
-              <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-6 mb-4">
-                <div className="w-64 h-64 mx-auto bg-white rounded-lg shadow-lg flex items-center justify-center border-2 border-green-200 mb-4">
-                  <img src="/qrcode-wechat.jpg" alt="宋老师微信二维码" className="w-full h-full object-cover rounded-lg" />
-                </div>
-                
-                {/* 微信号显示 */}
-                <div className="bg-white rounded-lg shadow-md p-4 border-2 border-green-200">
-                  <div className="flex items-center justify-center gap-2 mb-2">
-                    <div className="text-2xl">💬</div>
-                    <p className="text-gray-700 font-medium">微信号</p>
-                  </div>
-                  <p className="text-xl font-bold text-gray-900 mb-2">zyx853211</p>
-                  <p className="text-xs text-gray-600">可扫描上方二维码或复制微信号添加</p>
-                </div>
-              </div>
-              
-              {/* 提醒发送老师ID */}
-              <div className="bg-amber-50 border border-amber-300 rounded-lg p-4 text-left">
-                <div className="flex items-start gap-2">
-                  <div className="text-xl">💡</div>
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold text-amber-900 mb-1">温馨提示</p>
-                    <p className="text-xs text-amber-800">
-                      添加宋老师微信后，请发送您的老师ID（{teacherId}）以完成伴学师登记
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
