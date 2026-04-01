@@ -188,3 +188,38 @@ export async function getOperatorProfile(operatorId: string) {
     },
   })
 }
+
+// ——— 被邀请人默认跟进人 ———
+
+export async function searchOperators(query: string) {
+  if (!query.trim()) return { success: true as const, operators: [] }
+
+  const operators = await prisma.operator.findMany({
+    where: {
+      isEnabled: true,
+      OR: [
+        { name: { contains: query, mode: 'insensitive' } },
+        { phone: { contains: query } },
+      ],
+    },
+    select: { id: true, name: true, phone: true },
+    take: 10,
+    orderBy: { name: 'asc' },
+  })
+
+  return { success: true as const, operators }
+}
+
+export async function setInviterDefaultFollowUpPerson(
+  inviterId: string,
+  operatorId: string | null
+) {
+  await prisma.teacher.update({
+    where: { id: inviterId },
+    data: { defaultInviteeFollowUpId: operatorId },
+  })
+
+  revalidatePath(`/admin/teachers/${inviterId}`)
+
+  return { success: true as const }
+}

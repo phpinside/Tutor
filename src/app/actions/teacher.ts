@@ -114,13 +114,15 @@ export async function registerAndCreateTeacher(formData: {
 
     // 查找邀请人
     let invitedById: string | null = null
+    let inviterDefaultFollowUpId: string | null = null
     if (referralCode) {
       const referrer = await prisma.teacher.findUnique({
         where: { inviteCode: referralCode },
-        select: { id: true }
+        select: { id: true, defaultInviteeFollowUpId: true }
       })
       if (referrer) {
         invitedById = referrer.id
+        inviterDefaultFollowUpId = referrer.defaultInviteeFollowUpId
       }
     }
 
@@ -150,9 +152,15 @@ export async function registerAndCreateTeacher(formData: {
     // 生成邀请码和查看码
     await ensureInviteCodes(teacher.id)
 
-    // 如果有邀请人，创建邀请记录
+    // 如果有邀请人，创建邀请记录并自动归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
+      if (inviterDefaultFollowUpId) {
+        await prisma.teacherTeam.createMany({
+          data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
+          skipDuplicates: true,
+        })
+      }
     }
 
     // 提交任务1（标记为已完成）

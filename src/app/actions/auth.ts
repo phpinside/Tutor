@@ -54,10 +54,11 @@ export async function registerReferrer(formData: {
 
     // 查找邀请人（如果提供了邀请码）
     let invitedById: string | null = null
+    let inviterDefaultFollowUpId: string | null = null
     if (referralCode?.trim()) {
       const referrer = await prisma.teacher.findUnique({
         where: { inviteCode: referralCode.trim().toUpperCase() },
-        select: { id: true }
+        select: { id: true, defaultInviteeFollowUpId: true }
       })
       
       if (!referrer) {
@@ -65,6 +66,7 @@ export async function registerReferrer(formData: {
       }
       
       invitedById = referrer.id
+      inviterDefaultFollowUpId = referrer.defaultInviteeFollowUpId
     }
 
     // 检查手机号是否已注册
@@ -94,9 +96,15 @@ export async function registerReferrer(formData: {
       // 生成邀请码
       await ensureInviteCodes(teacher.id)
       
-      // 如果建立了新的邀请关系，创建邀请记录
+      // 如果建立了新的邀请关系，创建邀请记录并自动归属跟进人
       if (invitedById && !existingTeacher.invitedById) {
         await createReferralRecord(invitedById, teacher.id)
+        if (inviterDefaultFollowUpId) {
+          await prisma.teacherTeam.createMany({
+            data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
+            skipDuplicates: true,
+          })
+        }
       }
       
       // 设置认证 cookie（统一使用 teacherId）
@@ -134,9 +142,15 @@ export async function registerReferrer(formData: {
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
     
-    // 如果有邀请人，创建邀请记录
+    // 如果有邀请人，创建邀请记录并自动归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
+      if (inviterDefaultFollowUpId) {
+        await prisma.teacherTeam.createMany({
+          data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
+          skipDuplicates: true,
+        })
+      }
     }
 
     // 设置认证 cookie（统一使用 teacherId）
@@ -319,10 +333,11 @@ export async function registerTeacher(formData: {
 
     // 查找邀请人（如果提供了邀请码）
     let invitedById: string | null = null
+    let inviterDefaultFollowUpId: string | null = null
     if (referralCode?.trim()) {
       const referrer = await prisma.teacher.findUnique({
         where: { inviteCode: referralCode.trim().toUpperCase() },
-        select: { id: true }
+        select: { id: true, defaultInviteeFollowUpId: true }
       })
       
       if (!referrer) {
@@ -330,6 +345,7 @@ export async function registerTeacher(formData: {
       }
       
       invitedById = referrer.id
+      inviterDefaultFollowUpId = referrer.defaultInviteeFollowUpId
     }
 
     // 检查手机号是否已注册
@@ -359,9 +375,15 @@ export async function registerTeacher(formData: {
       // 生成邀请码
       await ensureInviteCodes(teacher.id)
       
-      // 如果建立了新的邀请关系，创建邀请记录
+      // 如果建立了新的邀请关系，创建邀请记录并自动归属跟进人
       if (invitedById && !existingTeacher.invitedById) {
         await createReferralRecord(invitedById, teacher.id)
+        if (inviterDefaultFollowUpId) {
+          await prisma.teacherTeam.createMany({
+            data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
+            skipDuplicates: true,
+          })
+        }
       }
       
       // 设置认证 cookie
@@ -397,9 +419,15 @@ export async function registerTeacher(formData: {
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
     
-    // 如果有邀请人，创建邀请记录
+    // 如果有邀请人，创建邀请记录并自动归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
+      if (inviterDefaultFollowUpId) {
+        await prisma.teacherTeam.createMany({
+          data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
+          skipDuplicates: true,
+        })
+      }
     }
 
     // 设置认证 cookie
