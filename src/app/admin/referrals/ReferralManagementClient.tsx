@@ -320,12 +320,22 @@ export default function ReferralManagementClient({
               {initialReferrals.map((referral) => (
                 <tr key={referral.id} className="border-b border-gray-100 hover:bg-gray-50">
                   <td className="py-3 px-4 text-sm">
-                    <div className="font-medium mb-1">{referral.referrer.name || '未填写'}</div>
-                    <div className="text-xs text-gray-500">{referral.referrer.phone || '-'}</div>
+                    <Link
+                      href={`/admin/teachers/${referral.referrer.id}`}
+                      className="group block rounded-md -mx-1 px-1 py-0.5 hover:bg-gray-100 hover:text-primary-700 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                    >
+                      <div className="font-medium mb-1">{referral.referrer.name || '未填写'}</div>
+                      <div className="text-xs text-gray-500 group-hover:text-primary-600">{referral.referrer.phone || '-'}</div>
+                    </Link>
                   </td>
                   <td className="py-3 px-4 text-sm">
-                    <div className="font-medium">{referral.referred.name || '未填写'}</div>
-                    <div className="text-xs text-gray-500">{referral.referred.phone || '-'}</div>
+                    <Link
+                      href={`/admin/teachers/${referral.referred.id}`}
+                      className="group block rounded-md -mx-1 px-1 py-0.5 hover:bg-gray-100 hover:text-primary-700 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-1"
+                    >
+                      <div className="font-medium">{referral.referred.name || '未填写'}</div>
+                      <div className="text-xs text-gray-500 group-hover:text-primary-600">{referral.referred.phone || '-'}</div>
+                    </Link>
                   </td>
                   <td className="py-3 px-4 text-sm">
                     第 {referral.referred.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务
