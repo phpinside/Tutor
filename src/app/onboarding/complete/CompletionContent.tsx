@@ -115,14 +115,16 @@ export default function CompletionContent({
               </div>
             </div>
             <div className="bg-white rounded-lg p-4 border-2 border-amber-300">
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <div className="min-w-0 flex-1">
                   <p className="text-xs text-gray-600 mb-1">您的伴学教练ID</p>
-                  <p className="text-2xl font-bold text-gray-900 font-mono tracking-wider">{teacherId}</p>
+                  <p className="text-lg sm:text-2xl font-bold text-gray-900 font-mono tracking-wide sm:tracking-wider break-all">
+                    {teacherId}
+                  </p>
                 </div>
                 <button
                   onClick={handleCopyId}
-                  className="ml-4 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
+                  className="shrink-0 self-start sm:self-center px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-lg transition-colors flex items-center gap-2 font-medium"
                 >
                   {copied ? (
                     <>
