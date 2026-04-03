@@ -26,7 +26,7 @@ type Teacher = {
   status: string
   currentTaskIndex: number
   updatedAt: Date
-  teamAssignment: { id: string } | null
+  teamAssignment: { id: string; operator: { name: string } } | null
   invitedBy: { name: string | null } | null
 }
 
@@ -441,12 +441,19 @@ export default function TeachersManagementClient({
                       : <span className="text-gray-400">-</span>
                     }
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4 text-sm">
                     <span className={`badge ${
                       teacher.teamAssignment ? 'badge-success' : 'badge-gray'
                     }`}>
                       {teacher.teamAssignment ? '已认领' : '暂未被认领'}
                     </span>
+                    {teacher.teamAssignment && (
+                      <div className="text-gray-600 text-xs mt-1">
+                        认领人：{teacher.teamAssignment.operator.name || (
+                          <span className="text-gray-400">未填写</span>
+                        )}
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {formatDateTime(teacher.updatedAt)}

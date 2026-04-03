@@ -229,7 +229,10 @@ export default async function AdminTeachersPage({
       currentTaskIndex: true,
       updatedAt: true,
       teamAssignment: {
-        select: { id: true }
+        select: {
+          id: true,
+          operator: { select: { name: true } },
+        },
       },
       invitedBy: {
         select: { name: true }
