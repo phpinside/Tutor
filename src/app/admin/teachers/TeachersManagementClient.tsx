@@ -34,7 +34,7 @@ export default function TeachersManagementClient({
   initialTeachers,
   initialFilters,
   pagination,
-  adminRole
+  canResetTeacherPassword,
 }: {
   initialTeachers: Teacher[]
   initialFilters: {
@@ -59,7 +59,7 @@ export default function TeachersManagementClient({
     hasNextPage: boolean
     hasPrevPage: boolean
   }
-  adminRole: string
+  canResetTeacherPassword: boolean
 }) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState(initialFilters.search || '')
@@ -466,7 +466,7 @@ export default function TeachersManagementClient({
                       >
                         查看详情
                       </Link>
-                      {adminRole === 'super_admin' && (
+                      {canResetTeacherPassword && (
                         <button
                           onClick={() => openResetModal(teacher.id, teacher.name)}
                           className="text-red-600 hover:text-red-900 font-medium transition-colors"

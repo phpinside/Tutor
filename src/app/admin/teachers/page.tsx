@@ -11,21 +11,28 @@ function parseQueryInt(value: string | undefined): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-// 获取当前管理员角色
-async function getAdminRole(): Promise<string> {
+/** 与 resetTeacherPassword 一致：超级管理员或已登录运营 */
+async function getCanResetTeacherPassword(): Promise<boolean> {
   const cookieStore = await cookies()
-  const session = cookieStore.get('admin_session')
-  
-  if (!session) {
-    return 'super_admin'
+  const adminSession = cookieStore.get('admin_session')
+  const operatorSession = cookieStore.get('operator_session')
+  if (adminSession) {
+    try {
+      const data = JSON.parse(adminSession.value)
+      if (data.role === 'super_admin') return true
+    } catch {
+      /* ignore */
+    }
   }
-  
-  try {
-    const sessionData = JSON.parse(session.value)
-    return sessionData.role || 'super_admin'
-  } catch {
-    return 'super_admin'
+  if (operatorSession) {
+    try {
+      const data = JSON.parse(operatorSession.value)
+      if (data.operatorId) return true
+    } catch {
+      /* ignore */
+    }
   }
+  return false
 }
 
 export default async function AdminTeachersPage({
@@ -64,8 +71,7 @@ export default async function AdminTeachersPage({
     subject
   } = params
   
-  // 获取管理员角色
-  const adminRole = await getAdminRole()
+  const canResetTeacherPassword = await getCanResetTeacherPassword()
   
   // 分页参数
   const currentPage = params.page ? parseInt(params.page) : 1
@@ -279,7 +285,7 @@ export default async function AdminTeachersPage({
           subject
         }}
         pagination={pagination}
-        adminRole={adminRole}
+        canResetTeacherPassword={canResetTeacherPassword}
       />
     </div>
   )

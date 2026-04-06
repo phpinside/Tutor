@@ -8,6 +8,7 @@ import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
 import SetInviteeDefaultFollowerModal from './SetInviteeDefaultFollowerModal'
 import TeacherInfoEditModal from './TeacherInfoEditModal'
+import ResetTeacherPasswordModal from './ResetTeacherPasswordModal'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import {
@@ -119,8 +120,11 @@ export default async function TeacherDetailPage({
               ID: {teacher.id}
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <TeacherInfoEditModal teacherId={teacher.id} teacher={teacher} />
+            {(viewerInfo.isSuperAdmin || viewerInfo.id) && (
+              <ResetTeacherPasswordModal teacherId={teacher.id} teacherName={teacher.name} />
+            )}
             {viewerInfo.isSuperAdmin && (
               <SetInviterModal
                 teacherId={teacher.id}
