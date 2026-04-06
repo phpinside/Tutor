@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 import { getTaskConfigs, TASK_VIDEO_UPLOADS, TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
-import { generatePrivateUrl, extractQiniuKey } from '@/lib/qiniu'
+import { generatePrivateUrl, generateVideoPrivateUrl, extractQiniuKey } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
@@ -514,7 +514,7 @@ export default async function TeacherDetailPage({
                 videoConfigs.forEach(config => {
                   const urlKey = `${config.key}VideoUrl`
                   if (formData[urlKey]) {
-                    signedVideoUrls[config.key] = generatePrivateUrl(extractKey(formData[urlKey]))
+                    signedVideoUrls[config.key] = generateVideoPrivateUrl(extractKey(formData[urlKey]))
                   }
                 })
               }

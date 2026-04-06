@@ -34,6 +34,24 @@ export function generatePrivateUrl(key: string, deadline?: number): string {
 }
 
 /**
+ * 生成私有视频下载 URL，并强制覆盖响应 Content-Type 为 video/mp4。
+ * 适用于 .mov 等浏览器默认不内联播放的格式（需将 response-content-type 纳入签名范围）。
+ */
+export function generateVideoPrivateUrl(key: string, deadline?: number): string {
+  const expireTime = deadline || Math.floor(Date.now() / 1000) + 3600
+
+  // 对 key 中每段路径分别 encodeURIComponent，保留 '/'
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/')
+  // response-content-type 必须在签名前加入 URL
+  const baseUrl = `${QINIU_CONFIG.domain}/${encodedKey}?response-content-type=video%2Fmp4&e=${expireTime}`
+
+  const signature = (qiniu.util as any).hmacSha1(baseUrl, QINIU_CONFIG.secretKey)
+  const encodedSign = (qiniu.util as any).base64ToUrlSafe(signature)
+  const downloadToken = `${QINIU_CONFIG.accessKey}:${encodedSign}`
+  return `${baseUrl}&token=${downloadToken}`
+}
+
+/**
  * 生成视频文件的存储key
  * @param teacherId 教师ID
  * @param taskIndex 任务索引
