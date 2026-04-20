@@ -191,6 +191,7 @@ model Teacher {
   remarks                  TeacherRemark[]
   learningPlannerApplication LearningPlannerApplication?
   defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
+  plannerCheckRecords      PlannerCheckRecord[]
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -397,6 +398,34 @@ model LearningPlannerReview {
   @@index([operatorId])
   @@index([decision])
   @@map("learning_planner_reviews")
+}
+
+// 规划书自查状态枚举
+enum PlannerCheckStatus {
+  PENDING     // 待处理
+  PROCESSING  // 分析中
+  COMPLETED   // 已完成
+  FAILED      // 失败
+}
+
+// 规划书自查记录
+model PlannerCheckRecord {
+  id            String             @id @default(cuid())
+  teacherId     String
+  fileName      String
+  extractedText String             @db.Text
+  status        PlannerCheckStatus @default(PENDING)
+  result        String?            @db.Text  // JSON: { issues, suggestions }
+  errorMsg      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId])
+  @@index([status])
+  @@map("planner_check_records")
 }
 
 // 系统配置表

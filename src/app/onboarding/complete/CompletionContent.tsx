@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useState, useEffect } from 'react'
 
 const SUBJECT_LABELS: Record<string, string> = {
@@ -201,6 +202,21 @@ export default function CompletionContent({
                 />
                 <p className="mt-2 text-xs text-gray-400">内容已根据你的信息自动填写，可直接修改后复制发送</p>
               </div>
+            </div>
+
+            <div className="rounded-xl border-2 border-primary-200 bg-primary-50/80 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">伴学规划师认证</h3>
+                <p className="text-sm text-gray-600 mt-1">
+                  若你符合申请条件，可继续提交规划师认证，拓展伴学规划类服务
+                </p>
+              </div>
+              <Link
+                href="/onboarding/planner-certification"
+                className="shrink-0 inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
+              >
+                前往规划师申请
+              </Link>
             </div>
           </div>
         </div>

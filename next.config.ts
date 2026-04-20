@@ -14,7 +14,7 @@ const nextConfig: NextConfig = {
       }
     ]
   },
-  serverExternalPackages: ['qiniu', 'graceful-fs', 'mz']
+  serverExternalPackages: ['qiniu', 'graceful-fs', 'mz', 'pdf-parse']
 }
 
 export default nextConfig
