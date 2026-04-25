@@ -9,6 +9,7 @@ import SetInviterModal from './SetInviterModal'
 import SetInviteeDefaultFollowerModal from './SetInviteeDefaultFollowerModal'
 import TeacherInfoEditModal from './TeacherInfoEditModal'
 import ResetTeacherPasswordModal from './ResetTeacherPasswordModal'
+import TeacherPhoneRevealControl from './TeacherPhoneRevealControl'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import {
@@ -95,6 +96,9 @@ export default async function TeacherDetailPage({
   const learningPlannerPdfUrl = teacher.learningPlannerApplication
     ? generatePrivateUrl(extractQiniuKey(teacher.learningPlannerApplication.studyPlanPdfUrl))
     : null
+
+  const phoneViewerKind: 'operator' | 'admin' = viewerInfo.id ? 'operator' : 'admin'
+  const canRevealPhone = Boolean(viewerInfo.id || viewerInfo.isSuperAdmin)
   
   return (
     <div>
@@ -153,7 +157,12 @@ export default async function TeacherDetailPage({
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
             <div>
               <p className="text-gray-500 mb-1">联系电话</p>
-              <p className="font-medium text-gray-900">{teacher.phone || '未填写'}</p>
+              <TeacherPhoneRevealControl
+                teacherId={teacher.id}
+                phone={teacher.phone}
+                viewerKind={phoneViewerKind}
+                canReveal={canRevealPhone}
+              />
             </div>
             <div>
               <p className="text-gray-500 mb-1">性别</p>

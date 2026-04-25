@@ -3,7 +3,7 @@
 import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
+import { getTeacherStatusText, formatDateTime, formatPhone } from '@/lib/utils'
 import {
   addTeacherToTeam,
   removeTeacherFromTeam,
@@ -252,7 +252,7 @@ export default function TeamManagementClient({
                       {teacher.name || <span className="text-gray-400">未填写</span>}
                     </Link>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{teacher.phone}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{formatPhone(teacher.phone)}</td>
                   <td
                     className="px-6 py-4 whitespace-nowrap text-sm text-gray-600"
                     title={teacher.school || undefined}
@@ -367,7 +367,7 @@ export default function TeamManagementClient({
                           <p className="text-sm font-medium text-gray-900">
                             {teacher.name || '未命名'}
                           </p>
-                          <p className="text-xs text-gray-500">{teacher.phone}</p>
+                          <p className="text-xs text-gray-500">{formatPhone(teacher.phone)}</p>
                           {hasTeam && (
                             <p className="text-xs text-orange-500 mt-0.5">
                               已被「{teacher.teamAssignment!.operator.name}」跟进

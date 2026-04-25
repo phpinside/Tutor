@@ -1,19 +1,12 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-
-// 管理员账号列表
-const ADMIN_ACCOUNTS = [
-  { username: 'admin', password: 'admin123', role: 'super_admin' },
-]
+import { verifyAdminCredentials } from '@/lib/adminAuth'
 
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    // 查找匹配的账号
-    const account = ADMIN_ACCOUNTS.find(
-      acc => acc.username === username && acc.password === password
-    )
+    const account = verifyAdminCredentials(username, password)
 
     if (account) {
       // 设置 cookie 标记已登录，包含角色信息

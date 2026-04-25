@@ -56,10 +56,19 @@ export function formatName(name: string | null): string {
   return name.charAt(0) + 'xx'
 }
 
-// 格式化手机号为"前3位****后4位"格式
+// 格式化手机号为脱敏展示：11 位国内号前 3 + **** + 后 4；其他长度对数字部分做保守掩码
 export function formatPhone(phone: string | null): string {
-  if (!phone || phone.length !== 11) return phone || ''
-  return phone.substring(0, 3) + '****' + phone.substring(7)
+  if (!phone) return ''
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length === 11) {
+    return digits.substring(0, 3) + '****' + digits.substring(7)
+  }
+  if (digits.length === 0) return ''
+  if (digits.length < 4) return '****'
+  if (digits.length <= 6) {
+    return digits[0] + '****' + digits[digits.length - 1]
+  }
+  return digits.substring(0, 2) + '****' + digits.substring(digits.length - 2)
 }
 
 // 格式化日期时间为中国时区，格式：2026/1/8 22点28分
