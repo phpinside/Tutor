@@ -41,6 +41,8 @@ function RegisterForm() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [apiError, setApiError] = useState('')
+  const [agreedToTerms, setAgreedToTerms] = useState(false)
+  const [showAgreement, setShowAgreement] = useState(false)
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
@@ -69,6 +71,10 @@ function RegisterForm() {
 
     if (!formData.referralCode.trim()) {
       newErrors.referralCode = '请输入邀请码'
+    }
+
+    if (!agreedToTerms) {
+      newErrors.terms = '请阅读并同意《伴学教练服务授权协议》'
     }
 
     setErrors(newErrors)
@@ -259,6 +265,42 @@ function RegisterForm() {
               )}
             </div>
 
+            {/* 服务授权协议勾选 */}
+            <div>
+              <div className="flex items-start gap-2">
+                <input
+                  id="agreeTerms"
+                  type="checkbox"
+                  checked={agreedToTerms}
+                  onChange={(e) => {
+                    setAgreedToTerms(e.target.checked)
+                    if (e.target.checked && errors.terms) {
+                      setErrors(prev => {
+                        const newErrors = { ...prev }
+                        delete newErrors.terms
+                        return newErrors
+                      })
+                    }
+                  }}
+                  className="mt-0.5 h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                  disabled={isSubmitting}
+                />
+                <label htmlFor="agreeTerms" className="text-sm text-gray-600 leading-snug cursor-pointer select-none">
+                  我已阅读并同意{' '}
+                  <button
+                    type="button"
+                    onClick={() => setShowAgreement(true)}
+                    className="text-primary-600 hover:text-primary-700 underline font-medium"
+                  >
+                    《伴学教练服务授权协议》
+                  </button>
+                </label>
+              </div>
+              {errors.terms && (
+                <p className="mt-1 text-sm text-red-600">{errors.terms}</p>
+              )}
+            </div>
+
             {/* 提交按钮 */}
             <button
               type="submit"
@@ -283,6 +325,86 @@ function RegisterForm() {
           </div>
         </div>
       </div>
+
+      {/* 服务授权协议弹窗 */}
+      {showAgreement && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAgreement(false) }}
+        >
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+            {/* 弹窗标题 */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+              <h2 className="text-lg font-bold text-gray-900">伴学教练服务授权协议</h2>
+              <button
+                type="button"
+                onClick={() => setShowAgreement(false)}
+                className="text-gray-400 hover:text-gray-600 text-xl leading-none"
+                aria-label="关闭"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* 协议正文 */}
+            <div className="overflow-y-auto px-6 py-4 text-sm text-gray-700 space-y-4 leading-relaxed flex-1">
+              <p>本协议由伴学教练（以下简称"乙方"）与交付中心（以下简称"甲方"）共同签署，乙方在注册账号时点击同意即视为已充分阅读并接受本协议全部条款。</p>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">一、知识产权授权</h3>
+                <p>乙方在服务期间创作的全部教学内容、课程资料、辅导文字、教案及相关衍生内容，其著作权及其他知识产权归甲方所有。乙方不得未经甲方书面许可将上述内容对外发布、转让、许可或以任何方式进行商业利用。</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">二、肖像、姓名及声音永久授权</h3>
+                <p>乙方授权甲方<strong>永久、全球范围内、免费、不可撤销</strong>地使用乙方的真实姓名、笔名、肖像、声音及相关全部影像、录音、图片资料（包括但不限于授课视频、直播录像、宣传照片等），用于甲方平台展示、品牌推广、课程销售及其他合法商业用途，无需另行取得乙方同意，亦无需向乙方支付任何额外费用。</p>
+                <p>上述授权在乙方与甲方终止合作后仍然有效，甲方有权继续使用乙方服务期间产生的全部上述资料。</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">三、保密义务</h3>
+                <p>乙方应对在服务过程中接触到的学员信息、商业数据及甲方内部信息予以保密，不得泄露给任何第三方。</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">四、平台规则</h3>
+                <p>乙方应遵守甲方制定并不定期更新的服务规范与操作标准，配合甲方开展各项工作。乙方违反相关规定的，甲方有权依规处理，情节严重者可解除合作。</p>
+              </div>
+
+              <div>
+                <h3 className="font-semibold text-gray-900 mb-1">五、协议效力</h3>
+                <p>乙方点击"我已阅读，同意协议"即视为对本协议全部条款的确认与接受，本协议自乙方注册成功之日起生效，永久有效。</p>
+              </div>
+            </div>
+
+            {/* 底部按钮 */}
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-200">
+              <button
+                type="button"
+                onClick={() => setShowAgreement(false)}
+                className="flex-1 py-2.5 px-4 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                关闭
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAgreedToTerms(true)
+                  setShowAgreement(false)
+                  setErrors(prev => {
+                    const newErrors = { ...prev }
+                    delete newErrors.terms
+                    return newErrors
+                  })
+                }}
+                className="flex-1 py-2.5 px-4 bg-primary-600 hover:bg-primary-700 text-white rounded-lg transition-colors text-sm font-medium"
+              >
+                我已阅读，同意协议
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
