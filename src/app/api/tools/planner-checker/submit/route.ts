@@ -47,6 +47,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    //处理和过滤extractedText中特殊字符
+    extractedText = extractedText.replace(/\u0000/g, '')   
+    extractedText = extractedText.replace(/\uFFFD/g, '')  
+    extractedText = extractedText.trim()
+
     // Create record
     const record = await prisma.plannerCheckRecord.create({
       data: {
