@@ -9,6 +9,13 @@ const SUBJECT_LABELS: Record<string, string> = {
   CHEMISTRY: '化学',
 }
 
+export interface TaskSummaryForCompletion {
+  index: number
+  title: string
+  emoji: string
+  submissionStatus: string | null
+}
+
 interface CompletionContentProps {
   teacherName: string | null
   teacherId: string
@@ -16,6 +23,7 @@ interface CompletionContentProps {
   primarySubject: string | null
   inviterName: string | null
   teamLeaderName: string | null
+  taskSummaries: TaskSummaryForCompletion[]
 }
 
 export default function CompletionContent({
@@ -25,6 +33,7 @@ export default function CompletionContent({
   primarySubject,
   inviterName,
   teamLeaderName,
+  taskSummaries,
 }: CompletionContentProps) {
   const [copied, setCopied] = useState(false)
   const [groupQrUrl, setGroupQrUrl] = useState<string | null>(null)
@@ -146,7 +155,33 @@ export default function CompletionContent({
               </div>
             </div>
           </div>
-          
+
+          {/* 回顾新手任务 */}
+          <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50/80 p-5">
+            <h2 className="text-lg font-semibold text-gray-900 mb-1">回顾新手任务</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              可随时点击进入对应步骤查看或修改内容（与引导首页一致，支持修改后重新提交）
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {taskSummaries.map((task) => (
+                <Link
+                  key={task.index}
+                  href={`/onboarding/task/${task.index}`}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-success-50 border border-success-200 text-success-700 rounded-lg text-sm hover:bg-success-100 transition-colors"
+                >
+                  <span>{task.emoji}</span>
+                  <span className="font-medium">{task.title}</span>
+                  {task.submissionStatus === 'COMPLETED' && (
+                    <span className="text-success-600">✓</span>
+                  )}
+                  {task.submissionStatus === 'PENDING_FEEDBACK' && (
+                    <span className="text-warning-600">⏳</span>
+                  )}
+                </Link>
+              ))}
+            </div>
+          </div>
+
           {/* 下一步 */}
           <div className="space-y-4">
             <h2 className="text-xl font-semibold text-gray-900">

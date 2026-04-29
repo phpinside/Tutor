@@ -31,15 +31,26 @@ export default async function CompletePage() {
   if (rejectedReferral) {
     redirect('/onboarding')
   }
-  
+
+  const taskSummaries = TASKS_CONFIG.map((task) => {
+    const submission = teacher.taskSubmissions.find((s) => s.taskIndex === task.index)
+    return {
+      index: task.index,
+      title: task.title,
+      emoji: task.emoji,
+      submissionStatus: submission?.status ?? null,
+    }
+  })
+
   return (
-    <CompletionContent 
-      teacherName={teacher.name} 
-      teacherId={teacherId} 
+    <CompletionContent
+      teacherName={teacher.name}
+      teacherId={teacherId}
       totalTasks={TOTAL_TASKS}
       primarySubject={teacher.primarySubject ?? null}
       inviterName={teacher.invitedBy?.name ?? null}
       teamLeaderName={teacher.teamAssignment?.operator.name ?? null}
+      taskSummaries={taskSummaries}
     />
   )
 }
