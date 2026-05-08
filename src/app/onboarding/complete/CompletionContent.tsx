@@ -123,7 +123,7 @@ export default function CompletionContent({
                     rel="noopener noreferrer"
                     className="text-primary-600 font-medium hover:underline underline-offset-2 break-all"
                   >
-                    {FEISHU_RULES_WIKI_URL}
+                    伴学师手册V2.0版本
                   </a>
                 </li>
               </ul>
