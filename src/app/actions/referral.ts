@@ -55,6 +55,24 @@ export async function getRejectedDirectReferralForReferred(
   }
 }
 
+/** 被邀请人：直接邀请记录的审核状态（无记录返回 null） */
+export async function getDirectReferralStatusForReferred(
+  teacherId: string
+): Promise<{ status: 'PENDING' | 'VALID' | 'INVALID' } | null> {
+  try {
+    return await prisma.referral.findFirst({
+      where: {
+        referredId: teacherId,
+        type: 'DIRECT',
+      },
+      select: { status: true },
+    })
+  } catch (error) {
+    console.error('查询直接邀请状态失败:', error)
+    return null
+  }
+}
+
 /** 被邀请人：修改任务后重新将直接邀请置为待审核（并同步间接邀请） */
 export async function resubmitDirectReferralAfterRejection(): Promise<
   { success: true } | { success: false; error: string }

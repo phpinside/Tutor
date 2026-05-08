@@ -1,6 +1,9 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { getRejectedDirectReferralForReferred } from '@/app/actions/referral'
+import {
+  getDirectReferralStatusForReferred,
+  getRejectedDirectReferralForReferred,
+} from '@/app/actions/referral'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
@@ -42,6 +45,10 @@ export default async function CompletePage() {
     }
   })
 
+  const directReferral = await getDirectReferralStatusForReferred(teacherId)
+  const inviteApproved = directReferral?.status === 'VALID'
+  const profileTaskHref = `/onboarding/task/1}`
+
   return (
     <CompletionContent
       teacherName={teacher.name}
@@ -51,6 +58,8 @@ export default async function CompletePage() {
       inviterName={teacher.invitedBy?.name ?? null}
       teamLeaderName={teacher.teamAssignment?.operator.name ?? null}
       taskSummaries={taskSummaries}
+      inviteApproved={inviteApproved}
+      profileTaskHref={profileTaskHref}
     />
   )
 }
