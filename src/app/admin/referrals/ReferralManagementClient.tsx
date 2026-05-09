@@ -6,6 +6,7 @@ import { updateReferralStatus, markRewardSent, markTeachingCompleted } from '@/a
 import Link from 'next/link'
 import { formatDateTime } from '@/lib/utils'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
+import ReferralRejectReasonModal from '@/components/admin/ReferralRejectReasonModal'
 
 type Referral = {
   id: string
@@ -69,23 +70,7 @@ export default function ReferralManagementClient({
   const [rewardStatus, setRewardStatus] = useState(initialFilters?.rewardStatus || '')
   const [teachingStatus, setTeachingStatus] = useState(initialFilters?.teachingStatus || '')
   const [isLoading, setIsLoading] = useState(false)
-  
-  // 处理标记无效
-  const handleMarkInvalid = async (referralId: string) => {
-    const reason = prompt('请输入标记为无效的理由：')
-    if (!reason) return
-    
-    setIsLoading(true)
-    const result = await updateReferralStatus(referralId, 'INVALID', reason)
-    setIsLoading(false)
-    
-    if (result.success) {
-      alert('已标记为无效邀请')
-      router.refresh()
-    } else {
-      alert('操作失败：' + result.error)
-    }
-  }
+  const [rejectReferralId, setRejectReferralId] = useState<string | null>(null)
   
   // 处理恢复有效
   const handleMarkValid = async (referralId: string) => {
@@ -96,7 +81,6 @@ export default function ReferralManagementClient({
     setIsLoading(false)
     
     if (result.success) {
-      alert('已恢复为有效邀请')
       router.refresh()
     } else {
       alert('操作失败：' + result.error)
@@ -187,6 +171,23 @@ export default function ReferralManagementClient({
   
   return (
     <div className="bg-white rounded-lg shadow">
+      <ReferralRejectReasonModal
+        open={rejectReferralId !== null}
+        onClose={() => setRejectReferralId(null)}
+        onConfirm={async (reason) => {
+          const id = rejectReferralId
+          if (!id) return false
+          setIsLoading(true)
+          const result = await updateReferralStatus(id, 'INVALID', reason)
+          setIsLoading(false)
+          if (result.success) {
+            router.refresh()
+            return true
+          }
+          alert('操作失败：' + result.error)
+          return false
+        }}
+      />
       {/* 筛选和搜索 */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex flex-col gap-4">
@@ -366,7 +367,7 @@ export default function ReferralManagementClient({
                           ❌ 无效
                         </span>
                         {referral.adminNote && (
-                          <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                          <div className="hidden group-hover:block absolute z-10 w-72 max-h-64 overflow-y-auto p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2 whitespace-pre-wrap">
                             {referral.adminNote}
                           </div>
                         )}
@@ -417,7 +418,7 @@ export default function ReferralManagementClient({
                             审核通过
                           </button>
                           <button
-                            onClick={() => handleMarkInvalid(referral.id)}
+                            onClick={() => setRejectReferralId(referral.id)}
                             disabled={isLoading}
                             className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
                           >
@@ -426,7 +427,7 @@ export default function ReferralManagementClient({
                         </>
                       ) : referral.status === 'VALID' ? (
                         <button
-                          onClick={() => handleMarkInvalid(referral.id)}
+                          onClick={() => setRejectReferralId(referral.id)}
                           disabled={isLoading}
                           className="text-xs px-2 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50"
                         >

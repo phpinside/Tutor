@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { updateReferralStatus } from '@/app/actions/referral'
+import ReferralRejectReasonModal from '@/components/admin/ReferralRejectReasonModal'
 
 export type DirectReferralAuditSnapshot = {
   id: string
@@ -21,22 +22,7 @@ export default function TeacherDirectReferralReview({
 }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
-
-  const handleMarkInvalid = async (referralId: string) => {
-    const reason = prompt('请输入标记为无效的理由：')
-    if (!reason) return
-
-    setIsLoading(true)
-    const result = await updateReferralStatus(referralId, 'INVALID', reason)
-    setIsLoading(false)
-
-    if (result.success) {
-      alert('已标记为无效邀请')
-      router.refresh()
-    } else {
-      alert('操作失败：' + result.error)
-    }
-  }
+  const [rejectReferralId, setRejectReferralId] = useState<string | null>(null)
 
   const handleMarkValid = async (referralId: string) => {
     if (!confirm('确定要恢复为有效邀请吗？')) return
@@ -46,7 +32,6 @@ export default function TeacherDirectReferralReview({
     setIsLoading(false)
 
     if (result.success) {
-      alert('已恢复为有效邀请')
       router.refresh()
     } else {
       alert('操作失败：' + result.error)
@@ -55,6 +40,23 @@ export default function TeacherDirectReferralReview({
 
   return (
     <div className="card mb-8">
+      <ReferralRejectReasonModal
+        open={rejectReferralId !== null}
+        onClose={() => setRejectReferralId(null)}
+        onConfirm={async (reason) => {
+          const id = rejectReferralId
+          if (!id) return false
+          setIsLoading(true)
+          const result = await updateReferralStatus(id, 'INVALID', reason)
+          setIsLoading(false)
+          if (result.success) {
+            router.refresh()
+            return true
+          }
+          alert('操作失败：' + result.error)
+          return false
+        }}
+      />
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-900">邀请审核</h2>
         {!directReferral ? (
@@ -134,7 +136,7 @@ export default function TeacherDirectReferralReview({
                 <div className="flex-1 min-w-0">
                   <button
                     type="button"
-                    onClick={() => handleMarkInvalid(directReferral.id)}
+                    onClick={() => setRejectReferralId(directReferral.id)}
                     disabled={isLoading}
                     className="w-full sm:w-auto px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors"
                   >
@@ -157,7 +159,7 @@ export default function TeacherDirectReferralReview({
               {directReferral.status === 'VALID' && (
                 <button
                   type="button"
-                  onClick={() => handleMarkInvalid(directReferral.id)}
+                  onClick={() => setRejectReferralId(directReferral.id)}
                   disabled={isLoading}
                   className="text-sm px-3 py-1.5 rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors"
                 >

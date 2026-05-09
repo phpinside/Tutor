@@ -568,7 +568,7 @@ export default function ReferralDashboard({
                                 ❌ 无效
                               </span>
                               {referral.adminNote && (
-                                <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                                <div className="hidden group-hover:block absolute z-10 w-72 max-h-64 overflow-y-auto p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2 whitespace-pre-wrap">
                                   原因：{referral.adminNote}
                                 </div>
                               )}
@@ -629,8 +629,9 @@ export default function ReferralDashboard({
                         注册：{formatDateTime(referral.createdAt)}
                       </div>
                       {referral.adminNote && referral.referralStatus === 'INVALID' && (
-                        <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs">
-                          <strong>无效原因：</strong>{referral.adminNote}
+                        <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs whitespace-pre-wrap">
+                          <strong>无效原因：</strong>
+                          {referral.adminNote}
                         </div>
                       )}
                       </div>
@@ -765,7 +766,7 @@ export default function ReferralDashboard({
                                     ❌ 无效
                                   </span>
                                   {referral.adminNote && (
-                                    <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                                    <div className="hidden group-hover:block absolute z-10 w-72 max-h-64 overflow-y-auto p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2 whitespace-pre-wrap">
                                       原因：{referral.adminNote}
                                     </div>
                                   )}
@@ -834,8 +835,9 @@ export default function ReferralDashboard({
                             注册：{formatDateTime(referral.createdAt)}
                           </div>
                           {referral.adminNote && referral.referralStatus === 'INVALID' && (
-                            <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs">
-                              <strong>无效原因：</strong>{referral.adminNote}
+                            <div className="mt-2 p-2 bg-warning-50 border border-warning-200 rounded text-xs whitespace-pre-wrap">
+                              <strong>无效原因：</strong>
+                              {referral.adminNote}
                             </div>
                           )}
                         </div>

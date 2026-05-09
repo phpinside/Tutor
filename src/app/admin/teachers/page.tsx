@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { TeacherStatus } from '@prisma/client'
+import { ReferralStatus, ReferralType, TeacherStatus } from '@prisma/client'
 import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
 
@@ -45,7 +45,7 @@ export default async function AdminTeachersPage({
     startDate?: string
     endDate?: string
     teamStatus?: string
-    teacherStatus?: string
+    inviteAudit?: string
     inviterSearch?: string
     ageMin?: string
     ageMax?: string
@@ -62,7 +62,7 @@ export default async function AdminTeachersPage({
     startDate,
     endDate,
     teamStatus,
-    teacherStatus,
+    inviteAudit,
     inviterSearch,
     ageMin,
     ageMax,
@@ -123,14 +123,30 @@ export default async function AdminTeachersPage({
     })
   }
 
-  // 任务状态
-  if (teacherStatus === 'in_progress') {
+  // 审核状态（作为被邀请人的直接邀请记录）
+  if (inviteAudit === 'pending') {
     whereConditions.push({
-      status: { in: [TeacherStatus.IN_PROGRESS, TeacherStatus.PENDING_REVIEW] }
+      referredReferrals: {
+        some: { type: ReferralType.DIRECT, status: ReferralStatus.PENDING },
+      },
     })
-  } else if (teacherStatus === 'completed') {
+  } else if (inviteAudit === 'valid') {
     whereConditions.push({
-      status: { in: [TeacherStatus.COMPLETED, TeacherStatus.UNLOCKED] }
+      referredReferrals: {
+        some: { type: ReferralType.DIRECT, status: ReferralStatus.VALID },
+      },
+    })
+  } else if (inviteAudit === 'invalid') {
+    whereConditions.push({
+      referredReferrals: {
+        some: { type: ReferralType.DIRECT, status: ReferralStatus.INVALID },
+      },
+    })
+  } else if (inviteAudit === 'none') {
+    whereConditions.push({
+      referredReferrals: {
+        none: { type: ReferralType.DIRECT },
+      },
     })
   }
 
@@ -276,7 +292,7 @@ export default async function AdminTeachersPage({
           startDate,
           endDate,
           teamStatus,
-          teacherStatus,
+          inviteAudit,
           inviterSearch,
           ageMin,
           ageMax,

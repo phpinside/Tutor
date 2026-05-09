@@ -242,7 +242,7 @@ export default async function ReferralDetailPage({
         {referral.adminNote && (
           <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
             <div className="text-sm font-medium text-amber-900 mb-1">管理员备注</div>
-            <div className="text-sm text-amber-800">{referral.adminNote}</div>
+            <div className="text-sm text-amber-800 whitespace-pre-wrap">{referral.adminNote}</div>
             {referral.reviewedBy && (
               <div className="text-xs text-amber-700 mt-2">
                 审核人：{referral.reviewedBy} | 审核时间：{referral.reviewedAt ? formatDateTime(referral.reviewedAt) : '-'}

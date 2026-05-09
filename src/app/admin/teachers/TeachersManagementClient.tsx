@@ -43,7 +43,7 @@ export default function TeachersManagementClient({
     startDate?: string
     endDate?: string
     teamStatus?: string
-    teacherStatus?: string
+    inviteAudit?: string
     inviterSearch?: string
     ageMin?: string
     ageMax?: string
@@ -67,7 +67,7 @@ export default function TeachersManagementClient({
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
   const [teamStatus, setTeamStatus] = useState(initialFilters.teamStatus || '')
-  const [teacherStatus, setTeacherStatus] = useState(initialFilters.teacherStatus || '')
+  const [inviteAudit, setInviteAudit] = useState(initialFilters.inviteAudit || '')
   const [inviterSearch, setInviterSearch] = useState(initialFilters.inviterSearch || '')
   const [ageMin, setAgeMin] = useState(initialFilters.ageMin || '')
   const [ageMax, setAgeMax] = useState(initialFilters.ageMax || '')
@@ -118,7 +118,7 @@ export default function TeachersManagementClient({
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
     if (teamStatus) params.set('teamStatus', teamStatus)
-    if (teacherStatus) params.set('teacherStatus', teacherStatus)
+    if (inviteAudit) params.set('inviteAudit', inviteAudit)
     if (inviterSearch) params.set('inviterSearch', inviterSearch)
     if (ageMin.trim()) params.set('ageMin', ageMin.trim())
     if (ageMax.trim()) params.set('ageMax', ageMax.trim())
@@ -141,7 +141,7 @@ export default function TeachersManagementClient({
     setStartDate('')
     setEndDate('')
     setTeamStatus('')
-    setTeacherStatus('')
+    setInviteAudit('')
     setInviterSearch('')
     setAgeMin('')
     setAgeMax('')
@@ -208,13 +208,14 @@ export default function TeachersManagementClient({
               <option value="CHEMISTRY">化学</option>
             </select>
             <select
-              value={teacherStatus}
-              onChange={(e) => setTeacherStatus(e.target.value)}
+              value={inviteAudit}
+              onChange={(e) => setInviteAudit(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
-              <option value="">任务状态（全部）</option>
-              <option value="in_progress">引导中</option>
-              <option value="completed">已完成</option>
+              <option value="">审核状态（全部）</option>
+              <option value="pending">待审核</option>
+              <option value="valid">有效邀请</option>
+              <option value="invalid">审核不通过</option>
             </select>
             <select
               value={teamStatus}

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
 import { formatDateTime } from '@/lib/utils'
+import ReferralRejectReasonModal from '@/components/admin/ReferralRejectReasonModal'
 
 type Referral = {
   id: string
@@ -31,24 +32,8 @@ type ReferralListProps = {
 export default function ReferralList({ referrals, teacherName }: ReferralListProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
+  const [rejectReferralId, setRejectReferralId] = useState<string | null>(null)
 
-  // 处理标记无效
-  const handleMarkInvalid = async (referralId: string) => {
-    const reason = prompt('请输入标记为无效的理由：')
-    if (!reason) return
-    
-    setIsLoading(true)
-    const result = await updateReferralStatus(referralId, 'INVALID', reason)
-    setIsLoading(false)
-    
-    if (result.success) {
-      alert('已标记为无效邀请')
-      router.refresh()
-    } else {
-      alert('操作失败：' + result.error)
-    }
-  }
-  
   // 处理恢复有效
   const handleMarkValid = async (referralId: string) => {
     if (!confirm('确定要恢复为有效邀请吗？')) return
@@ -58,7 +43,6 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
     setIsLoading(false)
     
     if (result.success) {
-      alert('已恢复为有效邀请')
       router.refresh()
     } else {
       alert('操作失败：' + result.error)
@@ -94,6 +78,23 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
 
   return (
     <div className="bg-gray-50 rounded-lg p-4">
+      <ReferralRejectReasonModal
+        open={rejectReferralId !== null}
+        onClose={() => setRejectReferralId(null)}
+        onConfirm={async (reason) => {
+          const id = rejectReferralId
+          if (!id) return false
+          setIsLoading(true)
+          const result = await updateReferralStatus(id, 'INVALID', reason)
+          setIsLoading(false)
+          if (result.success) {
+            router.refresh()
+            return true
+          }
+          alert('操作失败：' + result.error)
+          return false
+        }}
+      />
       <h4 className="text-sm font-semibold text-gray-700 mb-3">
         📋 TA 的邀请记录（共 {referrals.length} 条）
       </h4>
@@ -143,7 +144,8 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
                 </div>
                 {referral.adminNote && (
                   <div className="ml-7 mt-2 p-2 bg-amber-50 border border-amber-200 rounded text-xs text-amber-800">
-                    备注: {referral.adminNote}
+                    <span className="font-medium">备注: </span>
+                    <span className="whitespace-pre-wrap">{referral.adminNote}</span>
                   </div>
                 )}
               </div>
@@ -160,7 +162,7 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
                     审核通过
                   </button>
                   <button
-                    onClick={() => handleMarkInvalid(referral.id)}
+                    onClick={() => setRejectReferralId(referral.id)}
                     disabled={isLoading}
                     className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
                   >
@@ -169,7 +171,7 @@ export default function ReferralList({ referrals, teacherName }: ReferralListPro
                 </>
               ) : referral.status === 'VALID' ? (
                 <button
-                  onClick={() => handleMarkInvalid(referral.id)}
+                  onClick={() => setRejectReferralId(referral.id)}
                   disabled={isLoading}
                   className="text-xs px-3 py-1 bg-red-100 text-red-700 rounded hover:bg-red-200 disabled:opacity-50 transition-colors"
                 >

@@ -3,12 +3,16 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateReferralStatus, markRewardSent } from '@/app/actions/referral'
+import { DEFAULT_REFERRAL_REJECT_REASON } from '@/lib/referralAudit'
 
 export default function ReferralDetailClient({ referral }: { referral: any }) {
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [showNoteInput, setShowNoteInput] = useState(false)
-  const [note, setNote] = useState(referral.adminNote || '')
+  const [note, setNote] = useState(
+    referral.adminNote ||
+      (referral.status === 'PENDING' ? DEFAULT_REFERRAL_REJECT_REASON : '')
+  )
   
   // 处理标记无效
   const handleMarkInvalid = async () => {
@@ -24,7 +28,6 @@ export default function ReferralDetailClient({ referral }: { referral: any }) {
     setIsLoading(false)
     
     if (result.success) {
-      alert('已标记为无效邀请')
       setShowNoteInput(false)
       router.refresh()
     } else {
@@ -41,7 +44,6 @@ export default function ReferralDetailClient({ referral }: { referral: any }) {
     setIsLoading(false)
     
     if (result.success) {
-      alert('已恢复为有效邀请')
       router.refresh()
     } else {
       alert('操作失败：' + result.error)
@@ -97,8 +99,8 @@ export default function ReferralDetailClient({ referral }: { referral: any }) {
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            rows={3}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            rows={10}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
             placeholder="输入备注内容..."
           />
           <div className="flex gap-2 mt-2">
