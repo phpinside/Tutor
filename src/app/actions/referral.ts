@@ -430,6 +430,7 @@ export async function updateReferralStatus(
     // 刷新相关页面
     revalidatePath('/admin/referrals')
     revalidatePath('/referral/dashboard')
+    revalidatePath(`/admin/teachers/${referral.referredId}`)
     
     return { success: true, referral }
   } catch (error) {

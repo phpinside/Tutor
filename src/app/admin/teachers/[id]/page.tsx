@@ -12,6 +12,7 @@ import ResetTeacherPasswordModal from './ResetTeacherPasswordModal'
 import TeacherPhoneRevealControl from './TeacherPhoneRevealControl'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
+import TeacherDirectReferralReview from './TeacherDirectReferralReview'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
@@ -92,13 +93,47 @@ export default async function TeacherDetailPage({
     notFound()
   }
 
-  const remarks = await getTeacherRemarks(id)
+  const [remarks, directReferralSnapshot] = await Promise.all([
+    getTeacherRemarks(id),
+    viewerInfo.id
+      ? Promise.resolve(null)
+      : prisma.referral.findFirst({
+          where: {
+            referredId: id,
+            type: 'DIRECT',
+          },
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            adminNote: true,
+            reviewedAt: true,
+            rewardSent: true,
+            createdAt: true,
+          },
+        }),
+  ])
+
+  const directReferralForReview = directReferralSnapshot
+    ? {
+        id: directReferralSnapshot.id,
+        status: directReferralSnapshot.status,
+        adminNote: directReferralSnapshot.adminNote,
+        rewardSent: directReferralSnapshot.rewardSent,
+        createdAtLabel: formatDateTime(directReferralSnapshot.createdAt),
+        reviewedAtLabel: directReferralSnapshot.reviewedAt
+          ? formatDateTime(directReferralSnapshot.reviewedAt)
+          : null,
+      }
+    : null
   const learningPlannerPdfUrl = teacher.learningPlannerApplication
     ? generatePrivateUrl(extractQiniuKey(teacher.learningPlannerApplication.studyPlanPdfUrl))
     : null
 
   const phoneViewerKind: 'operator' | 'admin' = viewerInfo.id ? 'operator' : 'admin'
   const canRevealPhone = Boolean(viewerInfo.id || viewerInfo.isSuperAdmin)
+  /** 运营账号有 operatorId；仅 admin_session 登录的管理员可看邀请审核 */
+  const canViewInviteAudit = viewerInfo.id == null
   
   return (
     <div>
@@ -668,6 +703,10 @@ export default async function TeacherDetailPage({
           </div>
         )}
       </div>
+
+      {canViewInviteAudit && (
+        <TeacherDirectReferralReview directReferral={directReferralForReview} />
+      )}
 
       {/* 备注日志 */}
       <TeacherRemarkSection
