@@ -3,10 +3,11 @@ import { prisma } from '@/lib/prisma'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const teacherId = params.id.trim()
+    const { id } = await params
+    const teacherId = id.trim()
 
     // 查询教师信息
     const teacher = await prisma.teacher.findUnique({
