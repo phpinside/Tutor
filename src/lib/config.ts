@@ -120,36 +120,126 @@ export interface VideoConfig {
 }
 
 export const TASK_VIDEOS: Record<number, VideoConfig[]> = {
-  0: [ // 了解伴学兼职 - 单视频
+  0: [ // 了解伴学兼职
     {
       key: 'training-videos/task-0-intro.mp4',
       title: '伴学兼职介绍',
       duration: 16
     }
   ],
-  3: [ // 伴学系统 - 多视频
+  3: [ // 伴学教练必修（上）
     {
-      key: 'training-videos/task-3-demo.mp4',
-      title: '伴学系统操作演示',
-      duration: 48
+      key: 'training-videos/01-goals-and-values.mp4',
+      title: '1. 伴学目标和价值观',
+      duration: 13
     },
     {
-      key: 'training-videos/task-3-install.mp4',
-      title: '安装伴学软件并体验',
-      duration: 15
+      key: 'training-videos/02-01-lesson-prep.mp4',
+      title: '2.1 如何充分的备课',
+      duration: 12
     },
     {
-      key: 'training-videos/task-3-sop.mp4',
-      title: '试听课SOP和正式课SOP',
-      duration: 28
-    }
-  ],
-  5: [ // 1v1群消息培训 - 多视频
+      key: 'training-videos/02-02-guided-tutoring.mp4',
+      title: '2.2 如何有效开展引导式伴学',
+      duration: 26
+    },
     {
-      key: 'training-videos/task-5-group.mp4',
-      title: '1v1 家长群使用规范',
+      key: 'training-videos/02-03-trial-lesson-structure.mp4',
+      title: '2.3 试听课的标准结构',
+      duration: 20
+    },
+    {
+      key: 'training-videos/02-04-formal-lesson-structure.mp4',
+      title: '2.4 正式课的标准结构',
+      duration: 16
+    },
+    {
+      key: 'training-videos/02-05-post-lesson-feedback.mp4',
+      title: '2.5 如何撰写课后反馈',
+      duration: 6
+    },
+    {
+      key: 'training-videos/02-06-07-homework.mp4',
+      title: '2.6&2.7 布置和批改课后作业',
+      duration: 16
+    },
+    {
+      key: 'training-videos/02-08-learning-plan.mp4',
+      title: '2.8 如何撰写学习规划书',
       duration: 10
-    }
+    },
+    {
+      key: 'training-videos/02-09-getting-students.mp4',
+      title: '2.9 如何获得源源不断的学生',
+      duration: 12
+    },
+    {
+      key: 'training-videos/03-01-teaching-conduct.mp4',
+      title: '3.1 教学基本行为规范',
+      duration: 5
+    },
+    {
+      key: 'training-videos/03-02-software-guide.mp4',
+      title: '3.2 教学系统与软件使用规范',
+      duration: 35
+    },
+  ],
+  5: [ // 伴学教练必修（下）
+    {
+      key: 'training-videos/03-03-parent-communication.mp4',
+      title: '3.3 家长沟通与群管理规范',
+      duration: 9
+    },
+    {
+      key: 'training-videos/03-04-scheduling.mp4',
+      title: '3.4 课时与排课制度',
+      duration: 6
+    },
+    {
+      key: 'training-videos/03-05-leave-reschedule.mp4',
+      title: '3.5 请假与调课流程',
+      duration: 5
+    },
+    {
+      key: 'training-videos/03-06-student-handover.mp4',
+      title: '3.6 学生交接流程',
+      duration: 6
+    },
+    {
+      key: 'training-videos/03-07-credit-system.mp4',
+      title: '3.7 信用分制度',
+      duration: 6
+    },
+    {
+      key: 'training-videos/03-08-hourly-rate.mp4',
+      title: '3.8 伴学教练课时费',
+      duration: 4
+    },
+    {
+      key: 'training-videos/03-09-incident-rules.mp4',
+      title: '3.9 课程异常费用处理规则',
+      duration: 2
+    },
+    {
+      key: 'training-videos/04-learning-assessment.mp4',
+      title: '4. 学习效果评估',
+      duration: 5
+    },
+    {
+      key: 'training-videos/05-team-structure.mp4',
+      title: '5. 伴学团队体系',
+      duration: 18
+    },
+    {
+      key: 'training-videos/06-eduflow-guide.mp4',
+      title: '6. Eduflow系统使用',
+      duration: 12
+    },
+    {
+      key: 'training-videos/07-task-checklist.mp4',
+      title: '7. 最后的最后-任务清单',
+      duration: 6
+    },
   ]
 }
 
