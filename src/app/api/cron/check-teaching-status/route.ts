@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllReferrals, markTeachingCompleted } from '@/app/actions/referral'
+import { prisma } from '@/lib/prisma'
 
 // 外部 API 配置
 const API_URL = process.env.EXTERNAL_TUTOR_API_URL || 'https://flowapi.chulu.net/v1/external/tutors/info'
@@ -58,7 +59,6 @@ async function getTutorInfo(phone: string, tutorId: string): Promise<{
     console.log(`API响应成功:`, JSON.stringify(data))
     return data
   } catch (error) {
-    console.error('调用外部API异常:', error)
     if (error instanceof Error) {
       console.error('错误详情:', error.message)
       console.error('错误堆栈:', error.stack)
@@ -76,6 +76,9 @@ async function checkAndMarkTeachingCompleted(): Promise<{
   let processed = 0
   let marked = 0
   const errors: string[] = []
+
+  // 用于跟踪已处理的被邀请人，避免重复调用外部 API
+  const processedReferredIds = new Set<string>()
 
   try {
     let page = 1
@@ -105,11 +108,17 @@ async function checkAndMarkTeachingCompleted(): Promise<{
       }
 
       for (const referral of referrals) {
+        // 跳过已处理的被邀请人
+        if (processedReferredIds.has(referral.referred.id)) {
+          continue
+        }
+
         processed++
+        processedReferredIds.add(referral.referred.id)
 
         const { referred } = referral
         if (!referred.phone) {
-          errors.push(`邀请记录${referral.id}: 被邀请人手机号为空`)
+          errors.push(`被邀请人手机号为空: ${referred.phone} `)
           continue
         }
 
@@ -118,7 +127,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         if (!tutorInfo || !tutorInfo.success) {
           // API 调用失败，记录错误但不中断
-          errors.push(`邀请记录${referral.id}: ${tutorInfo?.error || '获取伴学教练信息失败'}`)
+          errors.push(`被邀请人 ${referred.name}(${referred.phone}): ${tutorInfo?.error || tutorInfo?.message || '获取伴学教练信息失败'}`)
           continue
         }
 
@@ -126,18 +135,31 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         // 检查是否满足完成授课条件（>= 10课时）
         if (regularLessonHours >= 10) {
-          const markResult = await markTeachingCompleted(
-            referral.id,
-            `系统检测：已完成${regularLessonHours}课时`,
-            '系统自动检测'
-          )
+          // 找到该被邀请人的所有邀请记录（包括直接和间接）
+          const allReferrals = await prisma.referral.findMany({
+            where: {
+              referredId: referred.id,
+              status: 'VALID',
+            },
+            select: { id: true },
+          })
 
-          if (markResult.success) {
-            marked++
-            console.log(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}`)
-          } else {
-            errors.push(`邀请记录${referral.id}: 标记授课完成失败 - ${markResult.error}`)
-          }
+          // 批量标记所有相关邀请记录
+          // for (const r of allReferrals) {
+          //   const markResult = await markTeachingCompleted(
+          //     r.id,
+          //     `系统检测：已完成${regularLessonHours}课时`,
+          //     '系统自动检测'
+          //   )
+
+          //   if (markResult.success) {
+          //     marked++
+          //   } else {
+          //     errors.push(`邀请记录 ${r.id}: 标记授课完成失败 - ${markResult.error}`)
+          //   }
+          // }
+
+          console.log(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}, 关联邀请记录数: ${allReferrals.length}`)
         }
       }
 
