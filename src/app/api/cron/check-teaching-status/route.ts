@@ -144,7 +144,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
             select: { id: true },
           })
 
-          // 批量标记所有相关邀请记录 123
+          // 批量标记所有相关邀请记录
           // for (const r of allReferrals) {
           //   const markResult = await markTeachingCompleted(
           //     r.id,
