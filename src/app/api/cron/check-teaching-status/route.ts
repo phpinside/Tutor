@@ -150,13 +150,12 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
          // 批量标记所有相关邀请记录
           for (const r of allReferrals) {
-            const markResult = { success: true , error: null }
-            // const markResult = await markTeachingCompleted(
-            //   r.id,
-            //   `系统检测：已完成${regularLessonHours}课时`,
-            //   '系统自动检测'
-            // )
-
+            
+            const markResult = await markTeachingCompleted(
+              r.id,
+              `系统检测：已完成${regularLessonHours}课时`,
+              '系统自动检测'
+            )
 
             if (markResult.success) {
 
