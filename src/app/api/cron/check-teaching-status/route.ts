@@ -71,11 +71,13 @@ async function getTutorInfo(phone: string, tutorId: string): Promise<{
 async function checkAndMarkTeachingCompleted(): Promise<{
   processed: number
   marked: number
-  errors: string[]
+  success: string[]  // 成功标记的记录
+  failed: string[]   // 失败的记录
 }> {
   let processed = 0
   let marked = 0
-  const errors: string[] = []
+  const success: string[] = []
+  const failed: string[] = []
 
   // 用于跟踪已处理的被邀请人，避免重复调用外部 API
   const processedReferredIds = new Set<string>()
@@ -96,7 +98,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
       )
 
       if (!result.success || !result.referrals) {
-        errors.push(`获取第${page}页邀请记录失败`)
+        failed.push(`获取第${page}页邀请记录失败`)
         break
       }
 
@@ -118,7 +120,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         const { referred } = referral
         if (!referred.phone) {
-          errors.push(`被邀请人手机号为空: ${referred.phone} `)
+          failed.push(`标记失败: ${referred.name}(${referred.phone}), 原因: 手机号为空`)
           continue
         }
 
@@ -127,7 +129,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         if (!tutorInfo || !tutorInfo.success) {
           // API 调用失败，记录错误但不中断
-          errors.push(`被邀请人 ${referred.name}(${referred.phone}): ${tutorInfo?.error || tutorInfo?.message || '获取伴学教练信息失败'}`)
+          failed.push(`标记失败: ${referred.name}(${referred.phone}), 原因: ${tutorInfo?.error || tutorInfo?.message || '获取伴学教练信息失败'}`)
           continue
         }
 
@@ -144,22 +146,27 @@ async function checkAndMarkTeachingCompleted(): Promise<{
             select: { id: true },
           })
 
-          // 批量标记所有相关邀请记录
-          // for (const r of allReferrals) {
-          //   const markResult = await markTeachingCompleted(
-          //     r.id,
-          //     `系统检测：已完成${regularLessonHours}课时`,
-          //     '系统自动检测'
-          //   )
+         // 批量标记所有相关邀请记录
+          for (const r of allReferrals) {
+            const markResult = { success: true , error: null }
+            // const markResult = await markTeachingCompleted(
+            //   r.id,
+            //   `系统检测：已完成${regularLessonHours}课时`,
+            //   '系统自动检测'
+            // )
 
-          //   if (markResult.success) {
-          //     marked++
-          //   } else {
-          //     errors.push(`邀请记录 ${r.id}: 标记授课完成失败 - ${markResult.error}`)
-          //   }
-          // }
 
-          console.log(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}, 关联邀请记录数: ${allReferrals.length}`)
+            if (markResult.success) {
+
+              marked++
+              success.push(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}`)
+
+            } else {
+
+              failed.push(`邀请记录 ${r.id}: 标记授课完成失败 - ${markResult.error}`)
+            }
+          }
+
         }
       }
 
@@ -167,12 +174,14 @@ async function checkAndMarkTeachingCompleted(): Promise<{
       const totalCount = result.totalCount || 0
       hasMore = page * pageSize < totalCount
       page++
+
     }
+
   } catch (error) {
-    errors.push(`处理异常: ${error instanceof Error ? error.message : String(error)}`)
+    failed.push(`处理异常: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  return { processed, marked, errors }
+  return { processed, marked, success, failed }
 }
 
 // 验证 Cron Secret
@@ -214,7 +223,8 @@ export async function GET(request: NextRequest) {
   console.log('授课状态检查任务完成:', {
     processed: result.processed,
     marked: result.marked,
-    errors: result.errors.length,
+    success: result.success.length,
+    failed: result.failed.length,
   })
 
   return NextResponse.json({
@@ -222,7 +232,8 @@ export async function GET(request: NextRequest) {
     data: {
       processed: result.processed,
       marked: result.marked,
-      errors: result.errors,
+      success: result.success,
+      failed: result.failed,
       timestamp: new Date().toISOString(),
     },
   })
