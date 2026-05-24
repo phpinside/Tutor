@@ -71,13 +71,15 @@ async function getTutorInfo(phone: string, tutorId: string): Promise<{
 async function checkAndMarkTeachingCompleted(): Promise<{
   processed: number
   marked: number
-  success: string[]  // 成功标记的记录
-  failed: string[]   // 失败的记录
+  success: string[]     // 成功标记的记录
+  failed: string[]      // 失败的记录
+  insufficient: string[] // 课时不足的记录
 }> {
   let processed = 0
   let marked = 0
   const success: string[] = []
   const failed: string[] = []
+  const insufficient: string[] = []
 
   // 用于跟踪已处理的被邀请人，避免重复调用外部 API
   const processedReferredIds = new Set<string>()
@@ -167,6 +169,9 @@ async function checkAndMarkTeachingCompleted(): Promise<{
             }
           }
 
+        } else {
+          // 课时不足，记录但不标记
+          insufficient.push(`课时不足: ${referred.name}(${referred.phone}), 当前课时: ${regularLessonHours}`)
         }
       }
 
@@ -181,7 +186,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
     failed.push(`处理异常: ${error instanceof Error ? error.message : String(error)}`)
   }
 
-  return { processed, marked, success, failed }
+  return { processed, marked, success, failed, insufficient }
 }
 
 // 验证 Cron Secret
@@ -225,6 +230,7 @@ export async function GET(request: NextRequest) {
     marked: result.marked,
     success: result.success.length,
     failed: result.failed.length,
+    insufficient: result.insufficient.length,
   })
 
   return NextResponse.json({
@@ -234,6 +240,7 @@ export async function GET(request: NextRequest) {
       marked: result.marked,
       success: result.success,
       failed: result.failed,
+      insufficient: result.insufficient,
       timestamp: new Date().toISOString(),
     },
   })
