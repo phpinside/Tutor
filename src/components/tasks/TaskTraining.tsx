@@ -169,10 +169,10 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
   useEffect(() => {
     if (!videoUrl) return
     
-    // 10秒后自动标记为已观看（实际应该监听视频播放进度）
+    // 60秒后自动标记为已观看（实际应该监听视频播放进度）
     const timer = setTimeout(() => {
       markAsWatched(currentVideoIndex)
-    }, 10000)
+    }, 60000)
     
     return () => clearTimeout(timer)
   }, [videoUrl, currentVideoIndex])
