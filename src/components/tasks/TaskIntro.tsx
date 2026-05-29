@@ -105,7 +105,10 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
   
   // 标记视频为已观看
   const markAsWatched = (index: number) => {
-    setWatchedVideos(prev => new Set(prev).add(index))
+    setWatchedVideos(prev => {
+      if (prev.has(index)) return prev
+      return new Set(prev).add(index)
+    })
   }
   
   // 监听视频播放完成（简单模拟，实际应监听 video 的 ended 事件）
@@ -323,5 +326,4 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
     </div>
   )
 }
-
 

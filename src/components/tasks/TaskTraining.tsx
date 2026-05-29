@@ -162,7 +162,10 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
   
   // 标记视频为已观看
   const markAsWatched = (index: number) => {
-    setWatchedVideos(prev => new Set(prev).add(index))
+    setWatchedVideos(prev => {
+      if (prev.has(index)) return prev
+      return new Set(prev).add(index)
+    })
   }
   
   // 监听视频播放（简单模拟，实际应监听 video 的 ended 事件）
@@ -381,4 +384,3 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
     </div>
   )
 }
-

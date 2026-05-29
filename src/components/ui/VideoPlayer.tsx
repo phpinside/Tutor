@@ -1,8 +1,22 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import Plyr from 'plyr'
+import * as PlyrModule from 'plyr'
 import 'plyr/dist/plyr.css'
+
+type PlyrInstance = {
+  on: (event: string, callback: (event: any) => void) => void
+  destroy: () => void
+  play: () => Promise<void> | void
+}
+
+type PlyrConstructor = new (
+  target: HTMLVideoElement,
+  options?: Record<string, unknown>
+) => PlyrInstance
+
+const Plyr = (PlyrModule as unknown as { default?: PlyrConstructor }).default ??
+  (PlyrModule as unknown as PlyrConstructor)
 
 interface VideoPlayerProps {
   videoUrl: string
@@ -13,8 +27,15 @@ interface VideoPlayerProps {
 
 export default function VideoPlayer({ videoUrl, autoplay = false, onError, onReady }: VideoPlayerProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const playerRef = useRef<Plyr | null>(null)
+  const playerRef = useRef<PlyrInstance | null>(null)
+  const onErrorRef = useRef(onError)
+  const onReadyRef = useRef(onReady)
   const [isReady, setIsReady] = useState(false)
+
+  useEffect(() => {
+    onErrorRef.current = onError
+    onReadyRef.current = onReady
+  }, [onError, onReady])
 
   useEffect(() => {
     console.log('VideoPlayer useEffect 触发, videoUrl:', videoUrl)
@@ -24,10 +45,16 @@ export default function VideoPlayer({ videoUrl, autoplay = false, onError, onRea
     }
 
     console.log('开始初始化 Plyr 播放器')
+    setIsReady(false)
+    const videoElement = videoRef.current
+    const handleLoadedMetadata = () => {
+      console.log('视频元数据加载完成')
+      setIsReady(true)
+    }
     
     try {
       // 初始化 Plyr 播放器
-      playerRef.current = new Plyr(videoRef.current, {
+      playerRef.current = new Plyr(videoElement, {
         controls: [
           'play-large',
           'play',
@@ -76,35 +103,32 @@ export default function VideoPlayer({ videoUrl, autoplay = false, onError, onRea
       playerRef.current.on('ready', () => {
         console.log('Plyr ready 事件触发')
         setIsReady(true)
-        onReady?.()
+        onReadyRef.current?.()
       })
 
       // 监听错误事件
       playerRef.current.on('error', (event: any) => {
         console.error('视频播放错误:', event)
-        onError?.('视频加载失败，请检查视频链接是否正确')
+        onErrorRef.current?.('视频加载失败，请检查视频链接是否正确')
       })
       
       // 添加 loadedmetadata 事件监听，确保视频元数据加载后也显示播放器
-      if (videoRef.current) {
-        videoRef.current.addEventListener('loadedmetadata', () => {
-          console.log('视频元数据加载完成')
-          setIsReady(true)
-        })
-      }
+      videoElement.addEventListener('loadedmetadata', handleLoadedMetadata)
 
     } catch (error) {
       console.error('初始化播放器失败:', error)
-      onError?.('播放器初始化失败: ' + (error instanceof Error ? error.message : String(error)))
+      onErrorRef.current?.('播放器初始化失败: ' + (error instanceof Error ? error.message : String(error)))
     }
 
     // 清理函数
     return () => {
+      videoElement.removeEventListener('loadedmetadata', handleLoadedMetadata)
       if (playerRef.current) {
         playerRef.current.destroy()
+        playerRef.current = null
       }
     }
-  }, [videoUrl, onError, onReady])
+  }, [videoUrl])
 
   // 处理自动播放逻辑
   useEffect(() => {
@@ -162,4 +186,3 @@ export default function VideoPlayer({ videoUrl, autoplay = false, onError, onRea
     </div>
   )
 }
-
