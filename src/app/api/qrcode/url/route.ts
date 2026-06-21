@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
-import { generatePrivateUrl, generateQRCodeKey } from '@/lib/qiniu'
+import { generateQRCodePrivateUrl, generateQRCodeKey } from '@/lib/qiniu'
 
 export async function GET() {
   try {
     const key = generateQRCodeKey()
-    // 生成 10 小时有效期的签名URL
-    const signedUrl = generatePrivateUrl(key, Math.floor(Date.now() / 1000) + 36000)
+    // 生成带版本参数的 10 小时有效期签名 URL（覆盖上传后强制刷新缓存）
+    const signedUrl = generateQRCodePrivateUrl(key, Math.floor(Date.now() / 1000) + 36000)
     
     return NextResponse.json({
       url: signedUrl,

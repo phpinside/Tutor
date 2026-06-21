@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { uploadToQiniu, generateQRCodeKey } from '@/lib/qiniu'
+import { uploadToQiniu, generateQRCodeKey, refreshCdnCache } from '@/lib/qiniu'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     console.log('二维码上传成功:', result.url)
+
+    // 刷新 CDN 缓存，使覆盖上传的新图立即生效（失败不阻断响应）
+    await refreshCdnCache([result.url])
 
     return NextResponse.json({
       success: true,

@@ -34,6 +34,21 @@ export function generatePrivateUrl(key: string, deadline?: number): string {
 }
 
 /**
+ * 生成微信群二维码的私有下载 URL（带版本参数，用于覆盖上传后强制刷新缓存）。
+ * 通过在签名 baseUrl 中加入 v 参数，使每次请求 URL 不同，配合 CDN 刷新避免命中旧缓存。
+ */
+export function generateQRCodePrivateUrl(key: string, deadline?: number): string {
+  const expireTime = deadline || Math.floor(Date.now() / 1000) + 3600
+  const version = Math.floor(Date.now() / 1000)
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/')
+  const baseUrl = `${QINIU_CONFIG.domain}/${encodedKey}?v=${version}&e=${expireTime}`
+  const signature = (qiniu.util as any).hmacSha1(baseUrl, QINIU_CONFIG.secretKey)
+  const encodedSign = (qiniu.util as any).base64ToUrlSafe(signature)
+  const downloadToken = `${QINIU_CONFIG.accessKey}:${encodedSign}`
+  return `${baseUrl}&token=${downloadToken}`
+}
+
+/**
  * 生成私有视频下载 URL，并强制覆盖响应 Content-Type 为 video/mp4。
  * 适用于 .mov 等浏览器默认不内联播放的格式（需将 response-content-type 纳入签名范围）。
  */
@@ -203,4 +218,34 @@ export async function uploadToQiniu(buffer: Buffer, key: string): Promise<{ succ
       })
     }
   })
+}
+
+/**
+ * 刷新七牛云 CDN 缓存（覆盖上传后使边缘节点立即回源最新文件）。
+ * 失败仅记录日志，不抛出，避免阻断上传主流程。
+ * @param urls 需要刷新的完整 URL 列表
+ */
+export async function refreshCdnCache(urls: string[]): Promise<void> {
+  try {
+    const mac = new qiniu.auth.digest.Mac(
+      QINIU_CONFIG.accessKey,
+      QINIU_CONFIG.secretKey
+    )
+    const cdnManager = new qiniu.cdn.CdnManager(mac)
+
+    await new Promise<void>((resolve) => {
+      cdnManager.refreshUrls(urls, (err: any, _respBody: any, respInfo: any) => {
+        if (err) {
+          console.error('CDN 刷新失败:', err)
+        } else if (respInfo.statusCode !== 200) {
+          console.error('CDN 刷新非 200:', respInfo.statusCode, respInfo.data)
+        } else {
+          console.log('CDN 刷新成功:', urls)
+        }
+        resolve()
+      })
+    })
+  } catch (error) {
+    console.error('CDN 刷新异常:', error)
+  }
 }
