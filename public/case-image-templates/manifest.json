@@ -1,0 +1,91 @@
+{
+  "templates": [
+    {
+      "id": "red-gold-gaokao",
+      "name": "红金喜报",
+      "filename": "red-gold-gaokao.svg",
+      "previewFilename": "red-gold-gaokao.svg",
+      "width": 1024,
+      "height": 1536,
+      "screenshotBox": {
+        "x": 198,
+        "y": 535,
+        "width": 628,
+        "height": 665,
+        "radius": 0
+      },
+      "textSlots": {
+        "celebrationTitle": {
+          "x": 512,
+          "y": 300,
+          "maxWidth": 880,
+          "fontSize": 150,
+          "minFontSize": 74,
+          "fontWeight": "900",
+          "fontFamily": "STKaiti, KaiTi, \"PingFang SC\", serif",
+          "color": "#ffe3a5",
+          "align": "center",
+          "shadowColor": "rgba(94, 0, 0, 0.42)",
+          "shadowBlur": 10,
+          "shadowOffsetY": 5,
+          "strokeColor": "rgba(130, 22, 8, 0.26)",
+          "strokeWidth": 2
+        },
+        "scoreTitle": {
+          "x": 512,
+          "y": 440,
+          "maxWidth": 650,
+          "fontSize": 78,
+          "minFontSize": 46,
+          "fontWeight": "900",
+          "fontFamily": "\"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+          "color": "#ffe2a4",
+          "align": "center",
+          "shadowColor": "rgba(100, 0, 0, 0.25)",
+          "shadowBlur": 6,
+          "strokeColor": "rgba(118, 28, 0, 0.2)",
+          "strokeWidth": 1
+        },
+        "deliveryCenter": {
+          "x": 512,
+          "y": 985,
+          "maxWidth": 500,
+          "fontSize": 58,
+          "minFontSize": 34,
+          "fontWeight": "900",
+          "fontFamily": "\"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+          "color": "#ef2c18",
+          "align": "center",
+          "shadowColor": "rgba(255, 255, 255, 0.9)",
+          "shadowBlur": 4
+        },
+        "congratulation": {
+          "x": 512,
+          "y": 1315,
+          "maxWidth": 820,
+          "fontSize": 62,
+          "minFontSize": 36,
+          "fontWeight": "900",
+          "fontFamily": "\"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+          "color": "#ffe1a0",
+          "align": "center",
+          "lineHeight": 76,
+          "shadowColor": "rgba(90, 0, 0, 0.26)",
+          "shadowBlur": 5
+        },
+        "footer": {
+          "x": 512,
+          "y": 1446,
+          "maxWidth": 680,
+          "fontSize": 28,
+          "minFontSize": 20,
+          "fontWeight": "800",
+          "fontFamily": "\"PingFang SC\", \"Microsoft YaHei\", sans-serif",
+          "color": "#ffe0a0",
+          "align": "center",
+          "lineHeight": 34
+        }
+      }
+    }
+  ]
+}

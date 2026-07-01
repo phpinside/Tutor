@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1536" viewBox="0 0 1024 1536">
+  <defs>
+    <radialGradient id="bgGlow" cx="50%" cy="42%" r="72%">
+      <stop offset="0%" stop-color="#dc1f1f"/>
+      <stop offset="54%" stop-color="#bd1118"/>
+      <stop offset="100%" stop-color="#860812"/>
+    </radialGradient>
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fff0bf"/>
+      <stop offset="35%" stop-color="#f6c66e"/>
+      <stop offset="70%" stop-color="#ffe0a2"/>
+      <stop offset="100%" stop-color="#d99842"/>
+    </linearGradient>
+    <linearGradient id="panel" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe7bf"/>
+      <stop offset="48%" stop-color="#ffd39a"/>
+      <stop offset="100%" stop-color="#f7b866"/>
+    </linearGradient>
+    <pattern id="diagonal" width="18" height="18" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <line x1="0" y1="0" x2="0" y2="18" stroke="#f5b863" stroke-width="1" opacity="0.18"/>
+    </pattern>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#6a0000" flood-opacity="0.32"/>
+    </filter>
+  </defs>
+
+  <rect width="1024" height="1536" fill="url(#bgGlow)"/>
+  <rect width="1024" height="1536" fill="url(#diagonal)" opacity="0.55"/>
+  <circle cx="120" cy="430" r="118" fill="#e33b20" opacity="0.22"/>
+  <circle cx="876" cy="294" r="150" fill="#f5b45a" opacity="0.08"/>
+  <circle cx="512" cy="785" r="520" fill="#7c000b" opacity="0.12"/>
+
+  <g opacity="0.28" stroke="url(#gold)" stroke-width="4" fill="none">
+    <path d="M48 84H84V48H48V84Z"/>
+    <path d="M48 48H84M84 48V84M84 84H48M48 84V48"/>
+    <path d="M20 20H60V60H20V20ZM84 20H940V84H1004V148H968V48H84V148H20V84"/>
+    <path d="M976 84H940V48H976V84Z"/>
+    <path d="M48 1452H84V1488H48V1452Z"/>
+    <path d="M20 1388H84V1488H940V1452H1004V1516H84V1452H20V1388Z"/>
+    <path d="M976 1452H940V1488H976V1452Z"/>
+  </g>
+
+  <g opacity="0.34" stroke="#f7c875" stroke-width="2" fill="none">
+    <path d="M132 442c28-38 80-38 108 0M186 388v110M142 405l88 76M230 405l-88 76"/>
+    <path d="M477 138c22-30 66-30 88 0M521 92v88M486 106l70 62M556 106l-70 62"/>
+  </g>
+
+  <g text-anchor="middle">
+    <text x="512" y="70" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="44" font-weight="900" fill="#fff8ed">鼎伴学</text>
+    <text x="512" y="104" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="18" font-weight="700" letter-spacing="2" fill="#ffe4b0">智能教育 / 高效提升</text>
+  </g>
+
+  <rect x="66" y="506" width="892" height="720" rx="22" fill="url(#panel)" filter="url(#softShadow)"/>
+  <rect x="91" y="531" width="842" height="670" rx="10" fill="none" stroke="#e6a258" stroke-width="2"/>
+  <rect x="198" y="535" width="628" height="665" fill="url(#panel)"/>
+
+  <g opacity="0.42">
+    <line x1="236" y1="1260" x2="488" y2="1260" stroke="url(#gold)" stroke-width="1.5"/>
+    <line x1="536" y1="1260" x2="788" y2="1260" stroke="url(#gold)" stroke-width="1.5"/>
+    <rect x="504" y="1251" width="17" height="17" fill="url(#gold)" transform="rotate(45 512.5 1259.5)"/>
+  </g>
+</svg>

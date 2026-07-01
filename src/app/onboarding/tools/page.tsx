@@ -19,6 +19,13 @@ const TOOLS: Tool[] = [
     available: true,
   },
   {
+    icon: '🎉',
+    name: '案例图片生成器',
+    description: '选择喜报模板，上传案例截图并填写文案，一键生成案例图片',
+    href: '/onboarding/tools/case-image-generator',
+    available: true,
+  },
+  {
     icon: '🤖',
     name: '头像生成器',
     description: '依据上传的个人照片，生成伴学教练的微信头像',
