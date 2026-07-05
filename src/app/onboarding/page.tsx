@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { getRejectedDirectReferralForReferred } from '@/app/actions/referral'
+import { getCoachReviewRejectionForReferred } from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs, getPhaseConfigs } from '@/lib/config'
 import { formatDateTime } from '@/lib/utils'
@@ -43,15 +44,23 @@ export default async function OnboardingPage({
   // 从数据库获取任务和阶段配置
   const TASKS_CONFIG = await getTaskConfigs()
   const PHASES_CONFIG = await getPhaseConfigs()
-  const rejectedReferral = await getRejectedDirectReferralForReferred(teacherId)
+
+  // 优先检查 CoachReview 两级审核的驳回
+  const coachReviewRejection = await getCoachReviewRejectionForReferred(teacherId)
+  // 没有 CoachReview 驳回时，回退到原有邀请驳回检查
+  const rejectedReferral = coachReviewRejection
+    ? null
+    : await getRejectedDirectReferralForReferred(teacherId)
+
+  const isCoachReviewRejected = coachReviewRejection !== null
 
   const allTasksDone =
     teacher.status === 'COMPLETED' ||
     teacher.status === 'UNLOCKED' ||
     teacher.currentTaskIndex >= TASKS_CONFIG.length
 
-  // 如果已完成所有任务且邀请未被驳回，跳转到完成页
-  if (allTasksDone && !rejectedReferral) {
+  // 如果已完成所有任务且未被驳回，跳转到完成页
+  if (allTasksDone && !rejectedReferral && !isCoachReviewRejected) {
     redirect('/onboarding/complete')
   }
   
@@ -78,42 +87,48 @@ export default async function OnboardingPage({
   }))
   
   const taskStepsLabel =
-    rejectedReferral && allTasksDone
+    (rejectedReferral || isCoachReviewRejected) && allTasksDone
       ? '任务步骤（可点击进入修改）'
       : '已完成的任务(点击可查看或修改)'
+
+  // 统一驳回信息
+  const rejectionNote = coachReviewRejection?.note ?? rejectedReferral?.adminNote ?? null
+  const rejectionReviewedAt = coachReviewRejection?.reviewedAt ?? rejectedReferral?.reviewedAt ?? null
+  const hasRejection = isCoachReviewRejected || !!rejectedReferral
+  const resubmitMode: 'referral' | 'coachReview' = isCoachReviewRejected ? 'coachReview' : 'referral'
 
   return (
     <div className="animate-fade-in">
       {/* 保存邀请码到 localStorage */}
       {refCode && <ReferralCodeSaver refCode={refCode} />}
 
-      {rejectedReferral && (
+      {hasRejection && (
         <div className="mb-8 p-5 rounded-xl border-2 border-red-300 bg-red-50 text-red-950 shadow-sm">
-          <h2 className="text-lg font-bold text-red-900 mb-2">邀请审核未通过</h2>
+          <h2 className="text-lg font-bold text-red-900 mb-2">审核未通过</h2>
           <p className="text-sm text-red-900/90 mb-2">
             请根据下方说明修改对应任务内容，保存后点击下方按钮重新提交审核。
           </p>
-          {rejectedReferral.adminNote ? (
+          {rejectionNote ? (
             <div className="mt-3 p-3 rounded-lg bg-white/80 border border-red-200">
               <p className="text-xs font-semibold text-red-800 mb-1">审核说明</p>
-              <p className="text-sm text-red-950 whitespace-pre-wrap">{rejectedReferral.adminNote}</p>
+              <p className="text-sm text-red-950 whitespace-pre-wrap">{rejectionNote}</p>
             </div>
           ) : (
             <p className="text-sm text-red-800 mt-2">管理员未填写具体说明，如有疑问请联系运营人员。</p>
           )}
-          {rejectedReferral.reviewedAt && (
+          {rejectionReviewedAt && (
             <p className="text-xs text-red-700/80 mt-3">
-              审核时间：{formatDateTime(rejectedReferral.reviewedAt)}
+              审核时间：{formatDateTime(rejectionReviewedAt)}
             </p>
           )}
-          {allTasksDone && <ReferralRevisionResubmit />}
+          {allTasksDone && <ReferralRevisionResubmit mode={resubmitMode} />}
         </div>
       )}
       
       {/* 欢迎标题 */}
       <div className="text-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">
-          {rejectedReferral && allTasksDone
+          {hasRejection && allTasksDone
             ? teacher.name
               ? `${teacher.name}，请按要求修改后重新提交`
               : '请按要求修改后重新提交审核'
@@ -122,7 +137,7 @@ export default async function OnboardingPage({
               : '欢迎加入伴学团队!'}
         </h1>
         <p className="text-gray-600">
-          {rejectedReferral && allTasksDone
+          {hasRejection && allTasksDone
             ? '点击下方任务步骤进入对应页面，修改并保存即可。'
             : '完成新手任务,开启你的数理化伴学之旅'}
         </p>

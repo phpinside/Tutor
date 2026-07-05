@@ -1,11 +1,17 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import { resetTeacherPassword } from '@/app/actions/teacher'
+import { batchSubmitFinalReview } from '@/app/actions/coachReview'
+import ReferralRejectReasonModal from '@/components/admin/ReferralRejectReasonModal'
+import {
+  getReviewBadgeForViewer,
+  type CoachReviewSnapshot,
+} from '@/lib/coachReviewShared'
 
 const SUBJECT_LABELS: Record<string, string> = {
   MATH: '数学',
@@ -35,6 +41,9 @@ export default function TeachersManagementClient({
   initialFilters,
   pagination,
   canResetTeacherPassword,
+  viewer,
+  reviewMap,
+  batchableTeacherIds,
 }: {
   initialTeachers: Teacher[]
   initialFilters: {
@@ -60,6 +69,9 @@ export default function TeachersManagementClient({
     hasPrevPage: boolean
   }
   canResetTeacherPassword: boolean
+  viewer: { operatorId: string | null; isSuperAdmin: boolean }
+  reviewMap: Record<string, unknown>
+  batchableTeacherIds: string[]
 }) {
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState(initialFilters.search || '')
@@ -78,6 +90,70 @@ export default function TeachersManagementClient({
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
   const [resetMsg, setResetMsg] = useState('')
+
+  const batchableSet = new Set(batchableTeacherIds)
+  const showBatchColumn = viewer.isSuperAdmin && batchableTeacherIds.length > 0
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [batchLoading, setBatchLoading] = useState(false)
+  const [batchMsg, setBatchMsg] = useState('')
+  const [showBatchReject, setShowBatchReject] = useState(false)
+
+  useEffect(() => {
+    setSelectedIds([])
+    setBatchMsg('')
+  }, [pagination?.currentPage])
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+    setBatchMsg('')
+  }
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === batchableTeacherIds.length) {
+      setSelectedIds([])
+    } else {
+      setSelectedIds([...batchableTeacherIds])
+    }
+    setBatchMsg('')
+  }
+
+  const handleBatchApprove = async () => {
+    if (selectedIds.length === 0) return
+    if (!confirm(`确认批量通过 ${selectedIds.length} 位教练？`)) return
+    setBatchLoading(true)
+    setBatchMsg('')
+    const result = await batchSubmitFinalReview(selectedIds, 'APPROVED')
+    setBatchLoading(false)
+    if (!result.success) {
+      alert('操作失败，请确认您有超管权限后重试')
+      return
+    }
+    const ok = result.results.filter((r) => r.ok).length
+    const fail = result.results.filter((r) => !r.ok).length
+    setBatchMsg(`✅ 成功 ${ok} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`)
+    setSelectedIds([])
+    setTimeout(() => router.refresh(), 2000)
+    setTimeout(() => setBatchMsg(''), 5000)
+  }
+
+  const handleBatchReject = async (reason: string): Promise<boolean> => {
+    setBatchLoading(true)
+    const result = await batchSubmitFinalReview(selectedIds, 'REJECTED', reason)
+    setBatchLoading(false)
+    if (!result.success) {
+      alert('操作失败，请确认您有超管权限后重试')
+      return false
+    }
+    const ok = result.results.filter((r) => r.ok).length
+    const fail = result.results.filter((r) => !r.ok).length
+    setBatchMsg(`✅ 成功 ${ok} 条${fail > 0 ? `，失败 ${fail} 条` : ''}`)
+    setSelectedIds([])
+    setTimeout(() => router.refresh(), 2000)
+    setTimeout(() => setBatchMsg(''), 5000)
+    return true
+  }
 
   const openResetModal = (teacherId: string, teacherName: string | null) => {
     setResetModal({ id: teacherId, name: teacherName })
@@ -368,6 +444,19 @@ export default function TeachersManagementClient({
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                {showBatchColumn && (
+                  <th className="px-4 py-3 w-10">
+                    <input
+                      type="checkbox"
+                      checked={
+                        batchableTeacherIds.length > 0 &&
+                        selectedIds.length === batchableTeacherIds.length
+                      }
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                    />
+                  </th>
+                )}
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   ID
                 </th>
@@ -394,6 +483,18 @@ export default function TeachersManagementClient({
             <tbody className="bg-white divide-y divide-gray-200">
               {initialTeachers.map(teacher => (
                 <tr key={teacher.id} className="hover:bg-gray-50">
+                  {showBatchColumn && (
+                    <td className="px-4 py-4 w-10">
+                      {batchableSet.has(teacher.id) && (
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.includes(teacher.id)}
+                          onChange={() => toggleSelect(teacher.id)}
+                          className="w-4 h-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                        />
+                      )}
+                    </td>
+                  )}
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-mono">
                     <Link
                       href={`/admin/teachers/${teacher.id}`}
@@ -461,6 +562,27 @@ export default function TeachersManagementClient({
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-3">
+                      {(() => {
+                        const review = reviewMap[teacher.id] as CoachReviewSnapshot | undefined
+                        const badge = getReviewBadgeForViewer(review, viewer)
+                        if (badge) {
+                          const badgeClass =
+                            badge.variant === 'first'
+                              ? 'bg-blue-100 text-blue-700'
+                              : badge.variant === 'final'
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-orange-100 text-orange-700'
+                          return (
+                            <Link
+                              href={`/admin/teachers/${teacher.id}`}
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeClass} animate-pulse`}
+                            >
+                              {badge.text}
+                            </Link>
+                          )
+                        }
+                        return null
+                      })()}
                       <Link
                         href={`/admin/teachers/${teacher.id}`}
                         className="text-primary-600 hover:text-primary-900 font-medium transition-colors"
@@ -573,6 +695,53 @@ export default function TeachersManagementClient({
           </div>
         </div>
       )}
+
+      {/* 批量复审操作栏 */}
+      {showBatchColumn && selectedIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white rounded-xl shadow-2xl border border-gray-200 px-6 py-4 flex items-center gap-4">
+          <span className="text-sm font-medium text-gray-900">
+            已选 {selectedIds.length} 人
+          </span>
+          <div className="w-px h-6 bg-gray-200" />
+          <button
+            onClick={handleBatchApprove}
+            disabled={batchLoading}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors disabled:opacity-50"
+          >
+            {batchLoading ? '处理中…' : '批量通过'}
+          </button>
+          <button
+            onClick={() => { setBatchMsg(''); setShowBatchReject(true) }}
+            disabled={batchLoading}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            批量拒绝
+          </button>
+          <button
+            onClick={() => setSelectedIds([])}
+            disabled={batchLoading}
+            className="px-3 py-2 text-gray-500 hover:text-gray-700 text-sm"
+          >
+            取消选择
+          </button>
+        </div>
+      )}
+
+      {/* 批量操作结果提示 */}
+      {batchMsg && selectedIds.length === 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-white rounded-xl shadow-2xl border border-gray-200 px-6 py-4">
+          <span className={`text-sm font-medium ${batchMsg.startsWith('✅') ? 'text-green-600' : 'text-red-500'}`}>
+            {batchMsg}
+          </span>
+        </div>
+      )}
+
+      {/* 批量拒绝弹窗 */}
+      <ReferralRejectReasonModal
+        open={showBatchReject}
+        onClose={() => setShowBatchReject(false)}
+        onConfirm={handleBatchReject}
+      />
     </div>
   )
 }

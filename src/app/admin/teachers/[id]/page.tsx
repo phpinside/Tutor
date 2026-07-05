@@ -13,6 +13,8 @@ import TeacherPhoneRevealControl from './TeacherPhoneRevealControl'
 import { getTeacherRemarks } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import TeacherDirectReferralReview from './TeacherDirectReferralReview'
+import CoachReviewPanel from './CoachReviewPanel'
+import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
@@ -93,7 +95,7 @@ export default async function TeacherDetailPage({
     notFound()
   }
 
-  const [remarks, directReferralSnapshot] = await Promise.all([
+  const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
     viewerInfo.id
       ? Promise.resolve(null)
@@ -112,7 +114,10 @@ export default async function TeacherDetailPage({
             createdAt: true,
           },
         }),
+    getCoachReviewForTeacher(id),
   ])
+
+  const coachReview = coachReviewResult.success ? coachReviewResult.review : null
 
   const directReferralForReview = directReferralSnapshot
     ? {
@@ -704,9 +709,17 @@ export default async function TeacherDetailPage({
         )}
       </div>
 
-      {canViewInviteAudit && (
+      {coachReview ? (
+        <CoachReviewPanel
+          review={coachReview}
+          viewer={{
+            operatorId: viewerInfo.id,
+            isSuperAdmin: viewerInfo.isSuperAdmin,
+          }}
+        />
+      ) : canViewInviteAudit ? (
         <TeacherDirectReferralReview directReferral={directReferralForReview} />
-      )}
+      ) : null}
 
       {/* 备注日志 */}
       <TeacherRemarkSection

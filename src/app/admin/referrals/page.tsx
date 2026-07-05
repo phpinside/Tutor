@@ -1,5 +1,6 @@
 import { getAllReferrals, getReferralOverview } from '@/app/actions/referral'
 import ReferralManagementClient from './ReferralManagementClient'
+import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
 
@@ -88,6 +89,20 @@ export default async function ReferralsManagementPage({
     hasNextPage: currentPage < totalPages,
     hasPrevPage: currentPage > 1
   }
+
+  // 查询有活跃 CoachReview（非 APPROVED）的教练ID，用于隐藏手动审核按钮
+  const referredIds = referrals.map((r: any) => r.referred?.id).filter(Boolean) as string[]
+  const activeCoachReviewTeacherIds = new Set<string>()
+  if (referredIds.length > 0) {
+    const activeReviews = await prisma.coachReview.findMany({
+      where: {
+        teacherId: { in: referredIds },
+        stage: { not: 'APPROVED' },
+      },
+      select: { teacherId: true },
+    })
+    activeReviews.forEach((r) => activeCoachReviewTeacherIds.add(r.teacherId))
+  }
   
   return (
     <div className="p-6">
@@ -123,6 +138,7 @@ export default async function ReferralsManagementPage({
         initialStats={referralStats}
         initialFilters={params}
         pagination={pagination}
+        activeCoachReviewTeacherIds={Array.from(activeCoachReviewTeacherIds)}
       />
     </div>
   )

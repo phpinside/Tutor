@@ -36,7 +36,8 @@ export default function ReferralManagementClient({
   initialReferrals,
   initialStats,
   initialFilters,
-  pagination
+  pagination,
+  activeCoachReviewTeacherIds = []
 }: {
   initialReferrals: any[]
   initialStats: any
@@ -58,6 +59,7 @@ export default function ReferralManagementClient({
     hasNextPage: boolean
     hasPrevPage: boolean
   }
+  activeCoachReviewTeacherIds?: string[]
 }) {
   const router = useRouter()
   const [selectedIds, setSelectedIds] = useState<string[]>([])
@@ -71,6 +73,7 @@ export default function ReferralManagementClient({
   const [teachingStatus, setTeachingStatus] = useState(initialFilters?.teachingStatus || '')
   const [isLoading, setIsLoading] = useState(false)
   const [rejectReferralId, setRejectReferralId] = useState<string | null>(null)
+  const activeCoachReviewSet = new Set(activeCoachReviewTeacherIds)
   
   // 处理恢复有效
   const handleMarkValid = async (referralId: string) => {
@@ -408,7 +411,15 @@ export default function ReferralManagementClient({
                   </td>
                   <td className="py-3 px-4 text-sm">
                     <div className="flex gap-2 flex-wrap">
-                      {referral.status === 'PENDING' ? (
+                      {activeCoachReviewSet.has(referral.referred.id) ? (
+                        <span className="text-xs text-blue-600">
+                          该教练走两级审核流程，请在
+                          <Link href={`/admin/teachers/${referral.referred.id}`} className="underline font-medium">
+                            老师管理
+                          </Link>
+                          页面审核
+                        </span>
+                      ) : referral.status === 'PENDING' ? (
                         <>
                           <button
                             onClick={() => handleMarkValid(referral.id)}

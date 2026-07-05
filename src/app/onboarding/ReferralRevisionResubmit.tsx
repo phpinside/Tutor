@@ -3,8 +3,13 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { resubmitDirectReferralAfterRejection } from '@/app/actions/referral'
+import { resubmitCoachReview } from '@/app/actions/coachReview'
 
-export default function ReferralRevisionResubmit() {
+export default function ReferralRevisionResubmit({
+  mode = 'referral',
+}: {
+  mode?: 'referral' | 'coachReview'
+}) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -12,12 +17,15 @@ export default function ReferralRevisionResubmit() {
   async function handleClick() {
     setError(null)
     setLoading(true)
-    const result = await resubmitDirectReferralAfterRejection()
+    const result =
+      mode === 'coachReview'
+        ? await resubmitCoachReview()
+        : await resubmitDirectReferralAfterRejection()
     setLoading(false)
     if (result.success) {
       router.refresh()
     } else {
-      setError(result.error)
+      setError(result.error ?? null)
     }
   }
 

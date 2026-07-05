@@ -2,6 +2,7 @@ import { prisma } from '@/lib/prisma'
 import { ReferralStatus, ReferralType, TeacherStatus } from '@prisma/client'
 import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
+import { getCoachReviewsForTeachers } from '@/app/actions/coachReview'
 
 export const dynamic = 'force-dynamic'
 
@@ -33,6 +34,29 @@ async function getCanResetTeacherPassword(): Promise<boolean> {
     }
   }
   return false
+}
+
+async function getViewerInfo() {
+  const cookieStore = await cookies()
+  const operatorSession = cookieStore.get('operator_session')
+  if (operatorSession) {
+    try {
+      const data = JSON.parse(operatorSession.value)
+      if (data.operatorId) {
+        return { operatorId: data.operatorId as string, isSuperAdmin: false }
+      }
+    } catch {}
+  }
+  const adminSession = cookieStore.get('admin_session')
+  if (adminSession) {
+    try {
+      const data = JSON.parse(adminSession.value)
+      if (data.role === 'super_admin') {
+        return { operatorId: null, isSuperAdmin: true }
+      }
+    } catch {}
+  }
+  return { operatorId: null, isSuperAdmin: false }
 }
 
 export default async function AdminTeachersPage({
@@ -72,6 +96,7 @@ export default async function AdminTeachersPage({
   } = params
   
   const canResetTeacherPassword = await getCanResetTeacherPassword()
+  const viewer = await getViewerInfo()
   
   // 分页参数
   const currentPage = params.page ? parseInt(params.page) : 1
@@ -272,7 +297,27 @@ export default async function AdminTeachersPage({
     hasNextPage: currentPage < totalPages,
     hasPrevPage: currentPage > 1
   }
-  
+
+  // 获取本页教练的审核记录
+  const teacherIds = teachers.map((t) => t.id)
+  const reviewMap = await getCoachReviewsForTeachers(teacherIds)
+  const reviewData: Record<string, unknown> = {}
+  for (const [tid, snap] of reviewMap) {
+    reviewData[tid] = snap
+  }
+
+  const batchableTeacherIds = teachers
+    .filter((t) => {
+      const r = reviewMap.get(t.id)
+      return (
+        r &&
+        r.stage === 'FINAL_REVIEW' &&
+        r.firstReviewOperatorId !== null &&
+        r.finalReviewVerdict === 'PENDING'
+      )
+    })
+    .map((t) => t.id)
+
   return (
     <div>
       <div className="mb-8">
@@ -302,6 +347,9 @@ export default async function AdminTeachersPage({
         }}
         pagination={pagination}
         canResetTeacherPassword={canResetTeacherPassword}
+        viewer={viewer}
+        reviewMap={reviewData}
+        batchableTeacherIds={batchableTeacherIds}
       />
     </div>
   )

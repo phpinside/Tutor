@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { TASK_VIDEOS } from '@/lib/config'
 import { generatePrivateUrl } from '@/lib/qiniu'
+import { ensureCoachReview } from './coachReview'
 
 // 获取任务提交记录
 export async function getTaskSubmission(teacherId: string, taskIndex: number) {
@@ -138,6 +139,7 @@ export async function submitTask(
             status: 'COMPLETED'
           }
         })
+        await ensureCoachReview(teacherId)
       }
       
       revalidatePath('/onboarding')
@@ -165,6 +167,10 @@ export async function submitTask(
             status: isAllCompleted ? 'COMPLETED' : 'IN_PROGRESS'
           }
         })
+        
+        if (isAllCompleted) {
+          await ensureCoachReview(teacherId)
+        }
       }
     }
     

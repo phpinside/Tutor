@@ -69,6 +69,22 @@ enum LearningPlannerReviewDecision {
   REJECTED // 审核不通过
 }
 
+// 教练审核阶段
+enum CoachReviewStage {
+  FIRST_REVIEW // 待初审（或合并审核）
+  FINAL_REVIEW // 待复审（初审已通过）
+  APPROVED // 终审通过
+  REJECTED // 已驳回，等待教练修改
+}
+
+// 单次审核结论
+enum ReviewVerdict {
+  PENDING // 待处理
+  APPROVED // 通过
+  REJECTED // 驳回
+  SKIPPED // 跳过（合并审核 / 超管越级终审）
+}
+
 // 授课状态枚举
 enum TeachingStatus {
   NOT_TAUGHT // 未授课
@@ -192,6 +208,7 @@ model Teacher {
   learningPlannerApplication LearningPlannerApplication?
   defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
   plannerCheckRecords      PlannerCheckRecord[]
+  coachReview              CoachReview?
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -426,6 +443,42 @@ model PlannerCheckRecord {
   @@index([teacherId])
   @@index([status])
   @@map("planner_check_records")
+}
+
+// 教练两级审核记录
+model CoachReview {
+  id        String   @id @default(cuid())
+  teacherId String   @unique // 被审核教练，一人一条
+
+  // 初审
+  firstReviewOperatorId String?                 // 初审运营ID；null = 合并审核（未走成两级）
+  firstReviewVerdict    ReviewVerdict @default(PENDING)
+  firstReviewedBy       String?                 // 初审人标识（operatorId）
+  firstReviewedAt       DateTime?
+  firstReviewNote       String?      @db.Text
+
+  // 复审（固定由超管，无需指定 operatorId）
+  finalReviewVerdict    ReviewVerdict @default(PENDING)
+  finalReviewedBy       String?                 // 复审人标识
+  finalReviewedAt       DateTime?
+  finalReviewNote       String?      @db.Text
+
+  // 整体状态
+  stage       CoachReviewStage @default(FIRST_REVIEW)
+  attemptCount Int             @default(1)      // 返工轮次
+
+  // 学管解析记录
+  resolvedManagerPhone String?                  // API 返回的学管手机号
+  resolveSource        String?                  // 'api' | 'merged'
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([stage])
+  @@index([firstReviewOperatorId])
+  @@map("coach_reviews")
 }
 
 // 系统配置表

@@ -280,6 +280,11 @@ export async function updateCurrentTask(teacherId: string, taskIndex: number) {
       }
     })
     
+    if (isCompleted) {
+      const { ensureCoachReview } = await import('./coachReview')
+      await ensureCoachReview(teacherId)
+    }
+    
     revalidatePath('/onboarding')
     revalidatePath('/onboarding/complete')
     return { success: true, teacher }

@@ -4,6 +4,7 @@ import {
   getDirectReferralStatusForReferred,
   getRejectedDirectReferralForReferred,
 } from '@/app/actions/referral'
+import { getCoachReviewRejectionForReferred } from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
@@ -31,7 +32,8 @@ export default async function CompletePage() {
   }
 
   const rejectedReferral = await getRejectedDirectReferralForReferred(teacherId)
-  if (rejectedReferral) {
+  const coachReviewRejection = await getCoachReviewRejectionForReferred(teacherId)
+  if (rejectedReferral || coachReviewRejection) {
     redirect('/onboarding')
   }
 
