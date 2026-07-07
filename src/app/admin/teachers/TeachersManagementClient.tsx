@@ -289,7 +289,17 @@ export default function TeachersManagementClient({
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             >
               <option value="">审核状态（全部）</option>
-              <option value="pending">待审核</option>
+              {viewer.operatorId && !viewer.isSuperAdmin && (
+                <option value="my_first_review">待我初审</option>
+              )}
+              {viewer.isSuperAdmin && (
+                <>
+                  <option value="coach_first_review">待初审</option>
+                  <option value="coach_final_review">待复审</option>
+                  <option value="coach_merged_review">待超管审核</option>
+                </>
+              )}
+              <option value="pending">待审核（旧）</option>
               <option value="valid">有效邀请</option>
               <option value="invalid">审核不通过</option>
             </select>

@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/prisma'
-import { ReferralStatus, ReferralType, TeacherStatus } from '@prisma/client'
+import { CoachReviewStage, ReferralStatus, ReferralType, TeacherStatus } from '@prisma/client'
 import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
 import { getCoachReviewsForTeachers } from '@/app/actions/coachReview'
@@ -148,7 +148,7 @@ export default async function AdminTeachersPage({
     })
   }
 
-  // 审核状态（作为被邀请人的直接邀请记录）
+  // 审核状态筛选
   if (inviteAudit === 'pending') {
     whereConditions.push({
       referredReferrals: {
@@ -171,6 +171,38 @@ export default async function AdminTeachersPage({
     whereConditions.push({
       referredReferrals: {
         none: { type: ReferralType.DIRECT },
+      },
+    })
+  } else if (inviteAudit === 'coach_first_review') {
+    // 待初审（两级流程）
+    whereConditions.push({
+      coachReview: {
+        stage: CoachReviewStage.FIRST_REVIEW,
+        firstReviewOperatorId: { not: null },
+      },
+    })
+  } else if (inviteAudit === 'coach_final_review') {
+    // 待复审（两级流程）
+    whereConditions.push({
+      coachReview: {
+        stage: CoachReviewStage.FINAL_REVIEW,
+        firstReviewOperatorId: { not: null },
+      },
+    })
+  } else if (inviteAudit === 'coach_merged_review') {
+    // 待超管审核（合并流程，无初审人）
+    whereConditions.push({
+      coachReview: {
+        firstReviewOperatorId: null,
+        finalReviewVerdict: 'PENDING',
+      },
+    })
+  } else if (inviteAudit === 'my_first_review' && viewer.operatorId) {
+    // 待我初审（学管视角）
+    whereConditions.push({
+      coachReview: {
+        firstReviewOperatorId: viewer.operatorId,
+        stage: CoachReviewStage.FIRST_REVIEW,
       },
     })
   }

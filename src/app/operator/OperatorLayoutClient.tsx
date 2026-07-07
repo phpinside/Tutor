@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 
 interface MenuItem {
   path: string
@@ -9,6 +9,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/teachers', label: '老师管理' },
+  { path: '/admin/teachers?inviteAudit=my_first_review', label: '教练审核' },
   { path: '/operator/team', label: '团队人员管理' },
   { path: '/operator/planner-review', label: '规划师审核' },
   { path: '/operator/settings', label: '资料设置' },
@@ -22,13 +23,25 @@ export default function OperatorLayoutClient({
   operatorName: string
 }) {
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const router = useRouter()
 
   const isActive = (path: string) => {
-    if (path === '/admin/teachers') {
-      return pathname.startsWith('/admin/teachers')
+    const [itemPath, itemQuery] = path.split('?')
+    if (itemPath === '/admin/teachers') {
+      if (pathname !== '/admin/teachers' && !pathname.startsWith('/admin/teachers/')) {
+        return false
+      }
+      if (itemQuery) {
+        const params = new URLSearchParams(itemQuery)
+        for (const [key, value] of params) {
+          if (searchParams.get(key) !== value) return false
+        }
+        return true
+      }
+      return !searchParams.get('inviteAudit')
     }
-    return pathname.startsWith(path)
+    return pathname.startsWith(itemPath)
   }
 
   const navLinkClass = (path: string) =>
