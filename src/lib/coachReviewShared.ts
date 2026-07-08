@@ -28,22 +28,32 @@ export function getReviewBadgeForViewer(
 ): ReviewBadgeInfo | null {
   if (!review) return null
 
+  // 待初审：两级流程，FIRST_REVIEW 阶段
   if (
-    viewer.operatorId &&
-    review.firstReviewOperatorId === viewer.operatorId &&
     review.stage === 'FIRST_REVIEW' &&
     review.firstReviewVerdict === 'PENDING' &&
-    review.finalReviewVerdict === 'PENDING'
+    review.finalReviewVerdict === 'PENDING' &&
+    review.firstReviewOperatorId
   ) {
-    return { text: '待初审', variant: 'first' }
+    // 学管只看到分配给自己的
+    if (viewer.operatorId && review.firstReviewOperatorId === viewer.operatorId) {
+      const name = review.firstReviewOperatorName || '未知'
+      return { text: `待初审·${name}`, variant: 'first' }
+    }
+    // 超管看到所有待初审，附审核人姓名
+    if (viewer.isSuperAdmin) {
+      const name = review.firstReviewOperatorName || '未知'
+      return { text: `待初审·${name}`, variant: 'first' }
+    }
   }
 
+  // 待复审 / 待审核：仅超管可见
   if (viewer.isSuperAdmin && review.finalReviewVerdict === 'PENDING') {
     if (!review.firstReviewOperatorId) {
-      return { text: '待审核', variant: 'merged' }
+      return { text: '待审核·管理员', variant: 'merged' }
     }
     if (review.stage === 'FINAL_REVIEW') {
-      return { text: '待复审', variant: 'final' }
+      return { text: '待复审·管理员', variant: 'final' }
     }
   }
 

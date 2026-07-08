@@ -74,6 +74,17 @@ export async function resolveFirstReviewer(
     return { operatorId: null, managerPhone: null, source: 'merged' }
   }
 
+  // 1. 邀请人本人就是学管（运营）→ 邀请人自己初审
+  const inviterAsOperator = await prisma.operator.findUnique({
+    where: { phone: inviterPhone },
+    select: { id: true, isEnabled: true },
+  })
+
+  if (inviterAsOperator && inviterAsOperator.isEnabled) {
+    return { operatorId: inviterAsOperator.id, managerPhone: inviterPhone, source: 'api' }
+  }
+
+  // 2. 邀请人不是学管 → 查邀请人的上级学管
   const result = await fetchTutorInfo(inviterPhone)
   const managerPhone = result?.managerPhone ?? null
 
