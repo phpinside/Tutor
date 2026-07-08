@@ -299,7 +299,6 @@ export default function TeachersManagementClient({
                   <option value="coach_merged_review">待超管审核</option>
                 </>
               )}
-              <option value="pending">待审核（旧）</option>
               <option value="valid">有效邀请</option>
               <option value="invalid">审核不通过</option>
             </select>

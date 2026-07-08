@@ -190,12 +190,22 @@ export default async function AdminTeachersPage({
       },
     })
   } else if (inviteAudit === 'coach_merged_review') {
-    // 待超管审核（合并流程，无初审人）
+    // 待超管审核（合并流程 + 旧流程无CoachReview的待审核教练）
     whereConditions.push({
-      coachReview: {
-        firstReviewOperatorId: null,
-        finalReviewVerdict: 'PENDING',
-      },
+      OR: [
+        {
+          coachReview: {
+            firstReviewOperatorId: null,
+            finalReviewVerdict: 'PENDING',
+          },
+        },
+        {
+          referredReferrals: {
+            some: { type: ReferralType.DIRECT, status: ReferralStatus.PENDING },
+          },
+          coachReview: { is: null },
+        },
+      ],
     })
   } else if (inviteAudit === 'my_first_review' && viewer.operatorId) {
     // 待我初审（学管视角）
