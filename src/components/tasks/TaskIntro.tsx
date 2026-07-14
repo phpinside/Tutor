@@ -191,6 +191,7 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
         ) : videoUrl ? (
           <VideoPlayer
             videoUrl={videoUrl}
+            videoKey={videos[currentVideoIndex]?.key ?? `task-${task.index}-video-${currentVideoIndex}`}
             autoplay={shouldAutoplay}
             onError={(error) => setVideoError(error)}
           />
@@ -326,4 +327,3 @@ export default function TaskIntro({ task, teacherId, submission }: TaskIntroProp
     </div>
   )
 }
-

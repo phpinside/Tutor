@@ -1,9 +1,14 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import dynamic from 'next/dynamic'
-import { submitTask, getTaskVideos, getVideoUrl } from '@/app/actions/task'
+import {
+  submitTask,
+  getTaskVideos,
+  getVideoUrl,
+  saveTrainingProgress
+} from '@/app/actions/task'
 import type { TaskConfig, VideoConfig } from '@/lib/config'
 
 // 动态导入 VideoPlayer，禁用 SSR
@@ -23,6 +28,10 @@ interface TaskTrainingProps {
   task: TaskConfig
   teacherId: string
   submission: any
+}
+
+interface TrainingProgressFormData {
+  completedVideoKeys?: unknown
 }
 
 // 培训任务的说明内容配置
@@ -90,12 +99,37 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
   const [currentVideoIndex, setCurrentVideoIndex] = useState(0)
   const [watchedVideos, setWatchedVideos] = useState<Set<number>>(new Set())
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
+  const [loadedVideoIndex, setLoadedVideoIndex] = useState<number | null>(null)
   const [videoLoading, setVideoLoading] = useState(true)
   const [videoError, setVideoError] = useState<string | null>(null)
   const [shouldAutoplay, setShouldAutoplay] = useState(false)
+  const [progressSaveError, setProgressSaveError] = useState<string | null>(null)
+  const [failedVideoIndex, setFailedVideoIndex] = useState<number | null>(null)
+  const [savingProgressCount, setSavingProgressCount] = useState(0)
+  const watchedVideosRef = useRef<Set<number>>(new Set())
+  const savingVideoIndexesRef = useRef<Set<number>>(new Set())
+  const currentVideoIndexRef = useRef(0)
   
   const content = TRAINING_CONTENT[task.index as keyof typeof TRAINING_CONTENT]
   const allWatched = watchedVideos.size === videos.length && videos.length > 0
+  const isSavingProgress = savingProgressCount > 0
+
+  const getCompletedVideoKeys = (videoIndexes: Set<number>) =>
+    Array.from(videoIndexes)
+      .map(index => videos[index]?.key)
+      .filter((videoKey): videoKey is string => Boolean(videoKey))
+
+  const selectVideo = useCallback((index: number, autoplay = false) => {
+    // Update the ref synchronously so an ended event from an unmounted video
+    // cannot be mistaken for the newly selected video.
+    currentVideoIndexRef.current = index
+    setCurrentVideoIndex(index)
+    setShouldAutoplay(autoplay)
+  }, [])
+
+  const handleAutoplaySettled = useCallback(() => {
+    setShouldAutoplay(false)
+  }, [])
   
   // 加载视频列表
   useEffect(() => {
@@ -121,64 +155,146 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
     
     loadVideos()
   }, [task.index])
+
+  // 从服务端记录恢复已完成视频，并从第一条未完成视频继续。
+  useEffect(() => {
+    if (videos.length === 0) return
+
+    const formData = submission?.formData as TrainingProgressFormData | undefined
+    const completedVideoKeys = new Set(
+      Array.isArray(formData?.completedVideoKeys)
+        ? formData.completedVideoKeys.filter(
+            (videoKey): videoKey is string => typeof videoKey === 'string'
+          )
+        : []
+    )
+    const restoredWatchedVideos = new Set(
+      videos
+        .map((video, index) => completedVideoKeys.has(video.key) ? index : null)
+        .filter((index): index is number => index !== null)
+    )
+    const firstUnwatchedVideoIndex = videos.findIndex(
+      (_, index) => !restoredWatchedVideos.has(index)
+    )
+
+    watchedVideosRef.current = restoredWatchedVideos
+    setWatchedVideos(restoredWatchedVideos)
+    selectVideo(firstUnwatchedVideoIndex === -1 ? 0 : firstUnwatchedVideoIndex)
+  }, [submission, videos, selectVideo])
   
   // 加载当前视频 URL
   useEffect(() => {
     if (videos.length === 0) return
+
+    let cancelled = false
+    const requestedVideoIndex = currentVideoIndex
     
     async function loadVideoUrl() {
-      console.log('开始加载培训视频 URL，索引:', currentVideoIndex)
+      console.log('开始加载培训视频 URL，索引:', requestedVideoIndex)
       setVideoLoading(true)
+      setVideoUrl(null)
+      setLoadedVideoIndex(null)
+      setVideoError(null)
       try {
-        const result = await getVideoUrl(task.index, currentVideoIndex)
+        const result = await getVideoUrl(task.index, requestedVideoIndex)
         console.log('培训视频 URL 获取结果:', result)
+
+        if (cancelled) return
         
         if (result.success && result.videoUrl) {
           console.log('培训视频 URL 获取成功:', result.videoUrl)
           setVideoUrl(result.videoUrl)
+          setLoadedVideoIndex(requestedVideoIndex)
           setVideoError(null)
         } else {
           console.error('培训视频 URL 获取失败:', result.error)
           setVideoError(result.error || '视频加载失败')
         }
       } catch (error) {
+        if (cancelled) return
         console.error('加载培训视频失败:', error)
         setVideoError('视频加载失败: ' + (error instanceof Error ? error.message : String(error)))
       } finally {
-        setVideoLoading(false)
+        if (!cancelled) {
+          setVideoLoading(false)
+        }
       }
     }
     
     loadVideoUrl()
+    return () => {
+      cancelled = true
+    }
   }, [task.index, currentVideoIndex, videos.length])
   
-  // 重置 autoplay 标志
-  useEffect(() => {
-    if (shouldAutoplay) {
-      const timer = setTimeout(() => setShouldAutoplay(false), 1500)
-      return () => clearTimeout(timer)
+  const saveCompletedVideo = async (index: number): Promise<boolean> => {
+    const video = videos[index]
+    if (!video) {
+      return false
     }
-  }, [shouldAutoplay])
-  
-  // 标记视频为已观看
-  const markAsWatched = (index: number) => {
-    setWatchedVideos(prev => {
-      if (prev.has(index)) return prev
-      return new Set(prev).add(index)
-    })
+
+    if (watchedVideosRef.current.has(index)) {
+      return true
+    }
+
+    if (savingVideoIndexesRef.current.has(index)) {
+      return false
+    }
+
+    const previousWatchedVideos = watchedVideosRef.current
+    const nextWatchedVideos = new Set(previousWatchedVideos).add(index)
+    watchedVideosRef.current = nextWatchedVideos
+    savingVideoIndexesRef.current.add(index)
+    setWatchedVideos(nextWatchedVideos)
+    setProgressSaveError(null)
+    setFailedVideoIndex(null)
+    setSavingProgressCount(count => count + 1)
+
+    try {
+      const result = await saveTrainingProgress(
+        teacherId,
+        task.index,
+        getCompletedVideoKeys(nextWatchedVideos)
+      )
+
+      if (!result.success) {
+        throw new Error(result.error || '观看进度保存失败，请重试')
+      }
+
+      return true
+    } catch (error) {
+      const revertedWatchedVideos = new Set(watchedVideosRef.current)
+      revertedWatchedVideos.delete(index)
+      watchedVideosRef.current = revertedWatchedVideos
+      setWatchedVideos(revertedWatchedVideos)
+      setFailedVideoIndex(index)
+      setProgressSaveError(
+        error instanceof Error ? error.message : '观看进度保存失败，请重试'
+      )
+      return false
+    } finally {
+      savingVideoIndexesRef.current.delete(index)
+      setSavingProgressCount(count => Math.max(0, count - 1))
+    }
   }
-  
-  // 监听视频播放（简单模拟，实际应监听 video 的 ended 事件）
-  useEffect(() => {
-    if (!videoUrl) return
-    
-    // 60秒后自动标记为已观看（实际应该监听视频播放进度）
-    const timer = setTimeout(() => {
-      markAsWatched(currentVideoIndex)
-    }, 60000)
-    
-    return () => clearTimeout(timer)
-  }, [videoUrl, currentVideoIndex])
+
+  const handleVideoEnded = async (videoKey: string) => {
+    const index = videos.findIndex(video => video.key === videoKey)
+    if (index === -1 || currentVideoIndexRef.current !== index) return
+
+    const saved = await saveCompletedVideo(index)
+    const nextVideoIndex = index + 1
+
+    if (
+      !saved ||
+      currentVideoIndexRef.current !== index ||
+      nextVideoIndex >= videos.length
+    ) {
+      return
+    }
+
+    selectVideo(nextVideoIndex, true)
+  }
   
   const handleSubmit = async () => {
     if (!isChecked) return
@@ -196,6 +312,7 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
         watchProgress: 100,
         formData: { 
           understood: true,
+          completedVideoKeys: getCompletedVideoKeys(watchedVideos),
           watchedVideoCount: watchedVideos.size,
           totalVideoCount: videos.length
         }
@@ -247,11 +364,16 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
               <p className="text-sm mt-1">请检查七牛云配置或视频文件是否存在</p>
             </div>
           </div>
-        ) : videoUrl ? (
+        ) : videoUrl && loadedVideoIndex === currentVideoIndex ? (
           <VideoPlayer
             videoUrl={videoUrl}
+            videoKey={videos[loadedVideoIndex].key}
             autoplay={shouldAutoplay}
+            onAutoplaySettled={handleAutoplaySettled}
             onError={(error) => setVideoError(error)}
+            onEnded={(videoKey) => {
+              void handleVideoEnded(videoKey)
+            }}
           />
         ) : (
           <div className="aspect-video bg-gray-100 rounded-lg flex items-center justify-center">
@@ -267,6 +389,20 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
         
       
       </div>
+
+      {progressSaveError && failedVideoIndex !== null && (
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700" role="alert">
+          <span>{progressSaveError}</span>
+          <button
+            type="button"
+            onClick={() => void saveCompletedVideo(failedVideoIndex)}
+            disabled={isSavingProgress}
+            className="shrink-0 font-medium underline disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            重试保存
+          </button>
+        </div>
+      )}
       
       {/* 视频列表（多视频时显示） */}
       {videos.length > 1 && (
@@ -279,8 +415,7 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
               <button
                 key={index}
                 onClick={() => {
-                  setCurrentVideoIndex(index)
-                  setShouldAutoplay(true)
+                  selectVideo(index, true)
                 }}
                 className={`w-full text-left p-3 rounded-lg border transition-all ${
                   currentVideoIndex === index
@@ -370,11 +505,13 @@ export default function TaskTraining({ task, teacherId, submission }: TaskTraini
       <div className="flex gap-3">
         <button
           onClick={handleSubmit}
-          disabled={!isChecked || isSubmitting || !allWatched}
+          disabled={!isChecked || isSubmitting || isSavingProgress || !allWatched}
           className="btn-primary flex-1"
         >
           {isSubmitting 
             ? '提交中...' 
+            : isSavingProgress
+              ? '保存观看进度中...'
             : !allWatched
               ? `请观看所有视频 (${watchedVideos.size}/${videos.length})`
               : '确认并继续'
