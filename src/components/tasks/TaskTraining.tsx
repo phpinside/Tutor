@@ -42,7 +42,7 @@ const TRAINING_CONTENT = {
       {
         title: '1.伴学软件下载',
         points: [
-          '百度网盘链接: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
+          '百度网盘链接: https://pan.baidu.com/s/1O2AnnkB-HTHpKs5SZyo4LQ?pwd=58sf 提取码: 58sf ',
         ]
       },
       {

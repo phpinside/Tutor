@@ -290,7 +290,7 @@ export const TASK_VIDEO_UPLOADS: Record<number, VideoUploadConfig[]> = {
         '校区账号：15099942178， 密码：123qwe',
         '用自己手机号从试课学员入口注册体验',
 
-        '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
+        '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/1O2AnnkB-HTHpKs5SZyo4LQ?pwd=58sf 提取码: 58sf ',
         '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
 
       ]
@@ -362,7 +362,7 @@ export function getTaskVideoUploadConfigs(
             '要求：流程完整、表达清晰、符合伴学课堂节奏',
             '校区账号：15099942178， 密码：123qwe',
             '用自己手机号从试课学员入口注册体验',
-            '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/10c1VjToMw5Fvq0Kj39PPkw?pwd=gebd 提取码: gebd ',
+            '附：【鼎伴学软件】百度网盘下载: https://pan.baidu.com/s/1O2AnnkB-HTHpKs5SZyo4LQ?pwd=58sf 提取码: 58sf  ',
             '下载完成，解压缩后，双击【鼎伴学(正式版).exe】安装即可',
           ]
         }
