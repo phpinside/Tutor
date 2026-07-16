@@ -108,8 +108,17 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       return
     }
     
-    if (!formData.mathScore || !formData.physicsScore || !formData.chemistryScore || grades.length === 0) {
-      alert('请填写高考数学、物理、化学成绩并至少选择一个可辅导学段')
+    const missingScores: string[] = []
+    if (formData.subjects.includes('MATH') && !formData.mathScore) missingScores.push('数学')
+    if (formData.subjects.includes('PHYSICS') && !formData.physicsScore) missingScores.push('物理')
+    if (formData.subjects.includes('CHEMISTRY') && !formData.chemistryScore) missingScores.push('化学')
+    if (missingScores.length > 0) {
+      alert(`请填写所选可教学科的高考成绩：${missingScores.join('、')}`)
+      return
+    }
+
+    if (grades.length === 0) {
+      alert('请至少选择一个可辅导学段')
       return
     }
 
@@ -388,7 +397,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
           {/* 高考数学成绩 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              高考数学成绩 <span className="text-red-500">*</span>
+              高考数学成绩 {formData.subjects.includes('MATH') && <span className="text-red-500">*</span>}
             </label>
             <input
               type="text"
@@ -402,7 +411,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               }}
               placeholder="如: 130"
               className="input"
-              required
+              required={formData.subjects.includes('MATH')}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数，满分150分</p>
           </div>
@@ -410,7 +419,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
           {/* 高考物理成绩 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              高考物理成绩 <span className="text-red-500">*</span>
+              高考物理成绩 {formData.subjects.includes('PHYSICS') && <span className="text-red-500">*</span>}
             </label>
             <input
               type="text"
@@ -424,7 +433,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               }}
               placeholder="如: 95"
               className="input"
-              required
+              required={formData.subjects.includes('PHYSICS')}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
@@ -432,7 +441,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
           {/* 高考化学成绩 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              高考化学成绩 <span className="text-red-500">*</span>
+              高考化学成绩 {formData.subjects.includes('CHEMISTRY') && <span className="text-red-500">*</span>}
             </label>
             <input
               type="text"
@@ -446,7 +455,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               }}
               placeholder="如: 88"
               className="input"
-              required
+              required={formData.subjects.includes('CHEMISTRY')}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
