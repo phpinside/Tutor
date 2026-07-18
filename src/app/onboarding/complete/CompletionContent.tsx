@@ -20,6 +20,13 @@ export interface TaskSummaryForCompletion {
   submissionStatus: string | null
 }
 
+export interface CoachReviewStatus {
+  stage: string | null
+  firstReviewVerdict: string | null
+  firstReviewOperatorName: string | null
+  hasFirstReviewer: boolean
+}
+
 interface CompletionContentProps {
   teacherName: string | null
   teacherId: string
@@ -30,6 +37,7 @@ interface CompletionContentProps {
   taskSummaries: TaskSummaryForCompletion[]
   inviteApproved: boolean
   profileTaskHref: string
+  coachReviewStatus: CoachReviewStatus
 }
 
 export default function CompletionContent({
@@ -42,6 +50,7 @@ export default function CompletionContent({
   taskSummaries,
   inviteApproved,
   profileTaskHref,
+  coachReviewStatus,
 }: CompletionContentProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -49,6 +58,18 @@ export default function CompletionContent({
   const [introCopied, setIntroCopied] = useState(false)
 
   const subjectLabel = primarySubject ? (SUBJECT_LABELS[primarySubject] ?? primarySubject) : '数学'
+
+  // 审核状态推导
+  // 待审核页：判断是"待学管初审"还是"待管理员审核"
+  const isWaitingFirstReview =
+    coachReviewStatus.stage === 'FIRST_REVIEW' &&
+    coachReviewStatus.hasFirstReviewer &&
+    coachReviewStatus.firstReviewVerdict === 'PENDING'
+
+  // 成功页：判断是否经过了学管初审并最终通过
+  const hasAssignedManager =
+    coachReviewStatus.firstReviewVerdict === 'APPROVED' &&
+    !!coachReviewStatus.firstReviewOperatorName
 
   const buildIntroText = () =>
     `大家好，我是刚完成伴学引导任务的伴学教练${teacherName ?? ''}。\n最擅长学科：${subjectLabel}\n伴学教练ID：${teacherId}\n邀请人：${inviterName ?? '无'}\n团队认领人：${teamLeaderName ?? '无'}\n\n很高兴加入伴学团队，后续请大家多多指导与支持！`
@@ -93,6 +114,29 @@ export default function CompletionContent({
                 ⏳
               </div>
               <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-3">资料已提交，审核中</h1>
+
+              {/* 审核阶段状态标识 */}
+              <div className="flex justify-center mb-4">
+                {isWaitingFirstReview ? (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-amber-50 border border-amber-200">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse" />
+                    <span className="text-sm font-semibold text-amber-800">
+                      待初审
+                    </span>
+                    <span className="text-sm text-amber-700">
+                      （初审负责人：{coachReviewStatus.firstReviewOperatorName ?? '未知'}学管）
+                    </span>
+                  </div>
+                ) : (
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-indigo-50 border border-indigo-200">
+                    <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+                    <span className="text-sm font-semibold text-indigo-800">
+                      待管理员审核
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="text-left max-w-xl mx-auto space-y-3 text-gray-600 text-base leading-relaxed">
                 <p>我们已经收到您的资料，预计将在3个工作日内完成审核，请您耐心等待。</p>
                 <p>
@@ -257,6 +301,27 @@ export default function CompletionContent({
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-gray-900">接下来你可以:</h2>
 
+                {/* 初筛通过提示与下一步指引 */}
+                <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <span className="text-2xl shrink-0">🎊</span>
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-base font-bold text-amber-900 mb-2">
+                        恭喜您通过了伴学师初筛！
+                      </h3>
+                      <p className="text-sm text-amber-800 leading-relaxed mb-3">
+                        下一步请您入群后根据群公告完成学管的复试工作。
+                      </p>
+                      <div className="rounded-lg bg-white/70 border border-amber-200 p-3">
+                        <p className="text-sm text-amber-900 leading-relaxed">
+                          <span className="font-semibold">⚠️ 注册EDU系统时，请注意您所使用的手机号：</span>
+                          您所使用的手机号必须能注册企业微信，且与注册EDU时使用的手机号一致。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 <div className="grid gap-6 md:grid-cols-2">
                   <div className="flex flex-col items-center justify-center border-2 border-primary-400 rounded-xl p-6 bg-green-50">
                     <div className="text-base font-semibold text-gray-800 mb-4">扫码加入新手群，开启接单 👇</div>
@@ -267,7 +332,7 @@ export default function CompletionContent({
                         <div className="text-gray-400 text-sm text-center px-4">二维码加载中…</div>
                       )}
                     </div>
-                    <p className="mt-3 text-xs text-gray-500">微信扫一扫加入伴学新手群</p>
+                    <p className="mt-3 text-xs text-gray-500">微信扫一扫加入伴学新手群(入群后请修改备注后真实姓名)</p>
                   </div>
 
                   <div className="flex flex-col">
@@ -308,6 +373,37 @@ export default function CompletionContent({
                     <p className="mt-2 text-xs text-gray-400">内容已根据你的信息自动填写，可直接修改后复制发送</p>
                   </div>
                 </div>
+
+                {/* 学管信息提示 */}
+                {hasAssignedManager ? (
+                  <div className="rounded-xl border-2 border-primary-300 bg-primary-50 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">🤝</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-primary-900 mb-1">
+                          您的学管是{coachReviewStatus.firstReviewOperatorName}老师
+                        </h3>
+                        <p className="text-sm text-primary-800 leading-relaxed">
+                          请您进群后与她（他）联系，并获得进一步的指导。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="rounded-xl border-2 border-amber-300 bg-amber-50 p-5 shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl shrink-0">📋</span>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-base font-bold text-amber-900 mb-1">
+                          您的学管当前待分配
+                        </h3>
+                        <p className="text-sm text-amber-800 leading-relaxed">
+                          请进群后联系群主确定。
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="rounded-xl border-2 border-primary-200 bg-primary-50/80 p-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>

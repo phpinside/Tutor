@@ -4,7 +4,10 @@ import {
   getDirectReferralStatusForReferred,
   getRejectedDirectReferralForReferred,
 } from '@/app/actions/referral'
-import { getCoachReviewRejectionForReferred } from '@/app/actions/coachReview'
+import {
+  getCoachReviewForTeacher,
+  getCoachReviewRejectionForReferred,
+} from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
@@ -49,7 +52,18 @@ export default async function CompletePage() {
 
   const directReferral = await getDirectReferralStatusForReferred(teacherId)
   const inviteApproved = directReferral?.status === 'VALID'
-  const profileTaskHref = `/onboarding/task/1}`
+
+  // 获取教练审核记录，用于展示初审/复审状态及归属学管
+  const coachReviewResult = await getCoachReviewForTeacher(teacherId)
+  const coachReview = coachReviewResult.success ? coachReviewResult.review : null
+  const coachReviewStatus = {
+    stage: coachReview?.stage ?? null,
+    firstReviewVerdict: coachReview?.firstReviewVerdict ?? null,
+    firstReviewOperatorName: coachReview?.firstReviewOperatorName ?? null,
+    hasFirstReviewer: !!coachReview?.firstReviewOperatorId,
+  }
+
+  const profileTaskHref = `/onboarding/task/1`
 
   return (
     <CompletionContent
@@ -62,6 +76,7 @@ export default async function CompletePage() {
       taskSummaries={taskSummaries}
       inviteApproved={inviteApproved}
       profileTaskHref={profileTaskHref}
+      coachReviewStatus={coachReviewStatus}
     />
   )
 }
