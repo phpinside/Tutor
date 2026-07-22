@@ -61,15 +61,20 @@ export default function CompletionContent({
 
   // 审核状态推导
   // 待审核页：判断是"待学管初审"还是"待管理员审核"
+  // 仅当 CoachReview 明确分配了初审负责人时才显示"待初审"，
+  // 否则（合并审核 / 无审核记录）显示"待管理员审核"
   const isWaitingFirstReview =
     coachReviewStatus.stage === 'FIRST_REVIEW' &&
     coachReviewStatus.hasFirstReviewer &&
     coachReviewStatus.firstReviewVerdict === 'PENDING'
 
-  // 成功页：判断是否经过了学管初审并最终通过
-  const hasAssignedManager =
-    coachReviewStatus.firstReviewVerdict === 'APPROVED' &&
-    !!coachReviewStatus.firstReviewOperatorName
+  // 成功页：判断学管归属
+  // 优先使用初审负责人（通过学管初审并最终通过的情况）；
+  // 若无（合并审核通过 / 无审核记录），回退到团队认领人（teamLeaderName）
+  const assignedManagerName =
+    (coachReviewStatus.firstReviewVerdict === 'APPROVED'
+      ? coachReviewStatus.firstReviewOperatorName
+      : null) ?? teamLeaderName ?? null
 
   const buildIntroText = () =>
     `大家好，我是刚完成伴学引导任务的伴学教练${teacherName ?? ''}。\n最擅长学科：${subjectLabel}\n伴学教练ID：${teacherId}\n邀请人：${inviterName ?? '无'}\n团队认领人：${teamLeaderName ?? '无'}\n\n很高兴加入伴学团队，后续请大家多多指导与支持！`
@@ -375,13 +380,13 @@ export default function CompletionContent({
                 </div>
 
                 {/* 学管信息提示 */}
-                {hasAssignedManager ? (
+                {assignedManagerName ? (
                   <div className="rounded-xl border-2 border-primary-300 bg-primary-50 p-5 shadow-sm">
                     <div className="flex items-start gap-3">
                       <span className="text-2xl shrink-0">🤝</span>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-primary-900 mb-1">
-                          您的学管是{coachReviewStatus.firstReviewOperatorName}老师
+                          您的学管是{assignedManagerName}老师
                         </h3>
                         <p className="text-sm text-primary-800 leading-relaxed">
                           请您进群后与她（他）联系，并获得进一步的指导。

@@ -5,12 +5,15 @@ import {
   getRejectedDirectReferralForReferred,
 } from '@/app/actions/referral'
 import {
+  ensureCoachReview,
   getCoachReviewForTeacher,
   getCoachReviewRejectionForReferred,
 } from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
 import CompletionContent from './CompletionContent'
+
+export const dynamic = 'force-dynamic'
 
 export default async function CompletePage() {
   const cookieStore = await cookies()
@@ -52,6 +55,12 @@ export default async function CompletePage() {
 
   const directReferral = await getDirectReferralStatusForReferred(teacherId)
   const inviteApproved = directReferral?.status === 'VALID'
+
+  // 确保教练审核记录存在（兜底：submitTask 中 ensureCoachReview 可能因外部 API
+  // 未配置等原因静默失败，此处补创，避免页面拿不到审核状态）
+  if (!inviteApproved) {
+    await ensureCoachReview(teacherId)
+  }
 
   // 获取教练审核记录，用于展示初审/复审状态及归属学管
   const coachReviewResult = await getCoachReviewForTeacher(teacherId)
