@@ -25,6 +25,119 @@ export async function getTaskSubmission(teacherId: string, taskIndex: number) {
   }
 }
 
+/**
+ * 保存培训任务的逐视频观看进度，不会提交任务或推进教师的当前任务。
+ */
+export async function saveTrainingProgress(
+  teacherId: string,
+  taskIndex: number,
+  completedVideoKeys: string[]
+) {
+  try {
+    const [teacher, taskConfig] = await Promise.all([
+      prisma.teacher.findUnique({ where: { id: teacherId } }),
+      prisma.taskConfig.findFirst({
+        where: { index: taskIndex, isActive: true },
+        select: { type: true }
+      })
+    ])
+
+    if (!teacher) {
+      return { success: false, error: '教师不存在' }
+    }
+
+    if (!taskConfig || taskConfig.type !== 'TRAINING') {
+      return { success: false, error: '该任务不是培训任务' }
+    }
+
+    const videos = TASK_VIDEOS[taskIndex]
+    if (!videos || videos.length === 0) {
+      return { success: false, error: '该任务没有配置视频' }
+    }
+
+    const validVideoKeys = new Set(videos.map(video => video.key))
+    const requestedCompletedVideoKeys = Array.from(new Set(completedVideoKeys))
+
+    if (requestedCompletedVideoKeys.some(videoKey => !validVideoKeys.has(videoKey))) {
+      return { success: false, error: '视频进度包含无效的视频' }
+    }
+
+    const existing = await prisma.taskSubmission.findUnique({
+      where: {
+        teacherId_taskIndex: {
+          teacherId,
+          taskIndex
+        }
+      }
+    })
+
+    const existingFormData =
+      existing?.formData &&
+      typeof existing.formData === 'object' &&
+      !Array.isArray(existing.formData)
+        ? existing.formData as Record<string, unknown>
+        : {}
+    const existingCompletedVideoKeys = Array.isArray(existingFormData.completedVideoKeys)
+      ? existingFormData.completedVideoKeys.filter(
+          (videoKey): videoKey is string =>
+            typeof videoKey === 'string' && validVideoKeys.has(videoKey)
+        )
+      : []
+    const mergedCompletedVideoKeys = Array.from(
+      new Set([...existingCompletedVideoKeys, ...requestedCompletedVideoKeys])
+    )
+    const watchedVideoCount = mergedCompletedVideoKeys.length
+    const totalVideoCount = videos.length
+    const watchProgress = Math.round((watchedVideoCount / totalVideoCount) * 100)
+    const formData = {
+      ...existingFormData,
+      completedVideoKeys: mergedCompletedVideoKeys,
+      watchedVideoCount,
+      totalVideoCount
+    }
+
+    const submission = existing
+      ? await prisma.taskSubmission.update({
+          where: {
+            teacherId_taskIndex: {
+              teacherId,
+              taskIndex
+            }
+          },
+          data: {
+            formData,
+            watchProgress
+          }
+        })
+      : await prisma.taskSubmission.create({
+          data: {
+            teacherId,
+            taskIndex,
+            taskType: 'TRAINING',
+            status: 'IN_PROGRESS',
+            formData,
+            watchProgress
+          }
+        })
+
+    revalidatePath(`/onboarding/task/${taskIndex}`)
+
+    return {
+      success: true,
+      submission,
+      progress: {
+        completedVideoKeys: mergedCompletedVideoKeys,
+        watchedVideoCount,
+        totalVideoCount,
+        watchProgress
+      }
+    }
+  } catch (error) {
+    console.error('保存培训视频进度失败:', error)
+    return { success: false, error: '观看进度保存失败，请重试' }
+  }
+}
+
 // 创建或更新任务提交
 export async function submitTask(
   teacherId: string,
