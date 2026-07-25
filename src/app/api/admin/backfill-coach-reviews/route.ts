@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import {
-  resolveFirstReviewer,
+  resolveFirstReviewerWithFallback,
   REVIEW_ELIGIBLE_SINCE,
 } from '@/lib/externalTutor'
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       }
 
       const inviterPhone = directReferral.referrer?.phone ?? null
-      const resolved = await resolveFirstReviewer(inviterPhone)
+      const resolved = await resolveFirstReviewerWithFallback(teacher.id, inviterPhone)
 
       await prisma.coachReview.create({
         data: {

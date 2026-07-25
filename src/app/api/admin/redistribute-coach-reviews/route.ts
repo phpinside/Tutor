@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import {
-  resolveFirstReviewer,
+  resolveFirstReviewerWithFallback,
   REVIEW_ELIGIBLE_SINCE,
 } from '@/lib/externalTutor'
 
@@ -65,7 +65,7 @@ export async function POST() {
       })
 
       const inviterPhone = directReferral?.referrer?.phone ?? null
-      const resolved = await resolveFirstReviewer(inviterPhone)
+      const resolved = await resolveFirstReviewerWithFallback(review.teacherId, inviterPhone)
 
       const beforeOp = review.firstReviewOperatorId || '合并审核'
       const afterOp = resolved.operatorId || '合并审核'

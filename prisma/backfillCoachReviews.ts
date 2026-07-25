@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { resolveFirstReviewer, REVIEW_ELIGIBLE_SINCE } from '../src/lib/externalTutor'
+import { resolveFirstReviewerWithFallback, REVIEW_ELIGIBLE_SINCE } from '../src/lib/externalTutor'
 
 const prisma = new PrismaClient()
 
@@ -54,7 +54,7 @@ async function main() {
     }
 
     const inviterPhone = directReferral.referrer?.phone ?? null
-    const resolved = await resolveFirstReviewer(inviterPhone)
+    const resolved = await resolveFirstReviewerWithFallback(teacher.id, inviterPhone)
 
     await prisma.coachReview.create({
       data: {

@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import {
   isCoachReviewEligible,
-  resolveFirstReviewer,
+  resolveFirstReviewerWithFallback,
 } from '@/lib/externalTutor'
 import { updateReferralStats } from './teacher'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
@@ -108,33 +108,14 @@ export async function ensureCoachReview(
     if (!directReferral) return { success: true, created: false }
 
     const inviterPhone = directReferral.referrer?.phone ?? null
-    const resolved = await resolveFirstReviewer(inviterPhone)
-
-    // 兜底：若 resolveFirstReviewer 未能确定初审人（外部 API 未配置 /
-    // 邀请人无上级学管等），回退到教练的团队认领人（TeacherTeam.operator）
-    // 这样有团队认领人的教练都会走两级审核，而非合并审核
-    let firstReviewOperatorId = resolved.operatorId
-    let resolveSource: string = resolved.source
-    if (!firstReviewOperatorId) {
-      const teamAssignment = await prisma.teacherTeam.findUnique({
-        where: { teacherId },
-        select: {
-          operatorId: true,
-          operator: { select: { isEnabled: true } },
-        },
-      })
-      if (teamAssignment?.operator?.isEnabled) {
-        firstReviewOperatorId = teamAssignment.operatorId
-        resolveSource = 'team_assignment'
-      }
-    }
+    const resolved = await resolveFirstReviewerWithFallback(teacherId, inviterPhone)
 
     await prisma.coachReview.create({
       data: {
         teacherId,
-        firstReviewOperatorId,
+        firstReviewOperatorId: resolved.operatorId,
         resolvedManagerPhone: resolved.managerPhone,
-        resolveSource,
+        resolveSource: resolved.source,
         stage: 'FIRST_REVIEW',
       },
     })
