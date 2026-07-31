@@ -81,8 +81,6 @@ const REQUIRED_FIELDS: Array<[keyof FormState, string]> = [
   ['studentName', '学生姓名'],
   ['celebrationTitle', '喜报标题'],
   ['scoreTitle', '提分类目/标题'],
-  ['studyDuration', '学习时长'],
-  ['scoreIncrease', '提分分数'],
 ]
 
 const FALLBACK_SLOT: TextSlot = {
@@ -267,6 +265,15 @@ function formatStudentDisplayName(value: string) {
   return `${trimmed[0]}同学`
 }
 
+function buildCongratulationLine(studyDuration: string, scoreIncrease: string) {
+  const study = studyDuration.trim()
+  const score = scoreIncrease.trim()
+  if (study && score) return `在鼎伴学${study}提分${score}`
+  if (study) return `在鼎伴学${study}提分`
+  if (score) return `在鼎伴学提分${score}`
+  return '在鼎伴学提分'
+}
+
 export default function CaseImageGeneratorClient() {
   const [templates, setTemplates] = useState<CaseImageTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
@@ -421,7 +428,7 @@ export default function CaseImageGeneratorClient() {
         ctx,
         [
           `恭喜${form.studentRegion}${formatStudentDisplayName(form.studentName)}`,
-          `在鼎伴学${form.studyDuration}提分${form.scoreIncrease}`,
+          buildCongratulationLine(form.studyDuration, form.scoreIncrease),
         ],
         getSlot(selectedTemplate, 'congratulation')
       )
@@ -592,14 +599,12 @@ export default function CaseImageGeneratorClient() {
                 value={form.studyDuration}
                 onChange={(value) => updateForm('studyDuration', value)}
                 placeholder="10小时"
-                required
               />
               <TextField
                 label="提分分数"
                 value={form.scoreIncrease}
                 onChange={(value) => updateForm('scoreIncrease', value)}
                 placeholder="19分"
-                required
               />
               <TextField
                 label="团队名"
