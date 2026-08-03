@@ -4,6 +4,15 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
+/**
+ * 去除字符串两端的空格、空白字符和空字符（null）
+ * 用于登录/注册等表单输入的统一清洗（不用于密码）
+ */
+export function sanitizeInput(value: string): string {
+  if (typeof value !== 'string') return value
+  return value.replace(/\0/g, '').trim()
+}
+
 // 格式化时长
 export function formatDuration(minutes: number): string {
   if (minutes < 60) {

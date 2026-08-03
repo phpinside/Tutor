@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createOperator } from '@/app/actions/adminOperatorActions'
 import Link from 'next/link'
+import { sanitizeInput } from '@/lib/utils'
 
 export default function NewOperatorPage() {
   const router = useRouter()
@@ -18,11 +19,11 @@ export default function NewOperatorPage() {
 
     const form = e.currentTarget
     const data = {
-      name: (form.elements.namedItem('name') as HTMLInputElement).value.trim(),
-      phone: (form.elements.namedItem('phone') as HTMLInputElement).value.trim(),
+      name: sanitizeInput((form.elements.namedItem('name') as HTMLInputElement).value),
+      phone: sanitizeInput((form.elements.namedItem('phone') as HTMLInputElement).value),
       password: (form.elements.namedItem('password') as HTMLInputElement).value,
       isEnabled,
-      remarks: (form.elements.namedItem('remarks') as HTMLTextAreaElement).value.trim() || undefined,
+      remarks: sanitizeInput((form.elements.namedItem('remarks') as HTMLTextAreaElement).value) || undefined,
     }
 
     if (!data.name || !data.phone || !data.password) {

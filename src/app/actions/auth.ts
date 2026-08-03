@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { ensureInviteCodes, createReferralRecord } from './teacher'
+import { sanitizeInput } from '@/lib/utils'
 
 // 验证手机号格式
 function isValidPhone(phone: string): boolean {
@@ -21,13 +22,16 @@ export async function registerReferrer(formData: {
   primarySubject?: string
 }) {
   try {
-    const { name, phone, password, confirmPassword, referralCode, subjects, primarySubject } = formData
+    const { password, confirmPassword, subjects, primarySubject } = formData
+    const name = sanitizeInput(formData.name)
+    const phone = sanitizeInput(formData.phone)
+    const referralCode = formData.referralCode ? sanitizeInput(formData.referralCode) : undefined
 
     // 验证必填字段
-    if (!name?.trim()) {
+    if (!name) {
       return { success: false, error: '请输入姓名' }
     }
-    if (!phone?.trim()) {
+    if (!phone) {
       return { success: false, error: '请输入手机号' }
     }
     if (!password) {
@@ -55,9 +59,9 @@ export async function registerReferrer(formData: {
     // 查找邀请人（如果提供了邀请码）
     let invitedById: string | null = null
     let inviterDefaultFollowUpId: string | null = null
-    if (referralCode?.trim()) {
+    if (referralCode) {
       const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode.trim().toUpperCase() },
+        where: { inviteCode: referralCode.toUpperCase() },
         select: { id: true, defaultInviteeFollowUpId: true }
       })
       
@@ -71,7 +75,7 @@ export async function registerReferrer(formData: {
 
     // 检查手机号是否已注册
     const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone: phone.trim() }
+      where: { phone }
     })
 
     if (existingTeacher) {
@@ -79,14 +83,14 @@ export async function registerReferrer(formData: {
       if (existingTeacher.password) {
         return { success: false, error: '该手机号已注册为邀请人，请直接登录' }
       }
-      
+
       // 如果没有密码，说明是通过引导系统创建的，升级为邀请人
       const hashedPassword = await bcrypt.hash(password, 10)
-      
+
       const teacher = await prisma.teacher.update({
         where: { id: existingTeacher.id },
         data: {
-          name: name.trim(),
+          name,
           password: hashedPassword,
           // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
           ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
@@ -129,8 +133,8 @@ export async function registerReferrer(formData: {
     // 创建新的老师记录
     const teacher = await prisma.teacher.create({
       data: {
-        name: name.trim(),
-        phone: phone.trim(),
+        name,
+        phone,
         password: hashedPassword,
         status: 'NOT_STARTED',
         invitedById,
@@ -141,7 +145,7 @@ export async function registerReferrer(formData: {
 
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
-    
+
     // 如果有邀请人，创建邀请记录并自动归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
@@ -179,10 +183,11 @@ export async function loginReferrer(formData: {
   password: string
 }) {
   try {
-    const { phone, password } = formData
+    const phone = sanitizeInput(formData.phone)
+    const { password } = formData
 
     // 验证必填字段
-    if (!phone?.trim()) {
+    if (!phone) {
       return { success: false, error: '请输入手机号' }
     }
     if (!password) {
@@ -196,7 +201,7 @@ export async function loginReferrer(formData: {
 
     // 查找用户
     const teacher = await prisma.teacher.findUnique({
-      where: { phone: phone.trim() },
+      where: { phone },
       select: {
         id: true,
         name: true,
@@ -300,13 +305,16 @@ export async function registerTeacher(formData: {
   referralCode?: string
 }) {
   try {
-    const { name, phone, password, confirmPassword, referralCode } = formData
+    const { password, confirmPassword } = formData
+    const name = sanitizeInput(formData.name)
+    const phone = sanitizeInput(formData.phone)
+    const referralCode = formData.referralCode ? sanitizeInput(formData.referralCode) : undefined
 
     // 验证必填字段
-    if (!name?.trim()) {
+    if (!name) {
       return { success: false, error: '请输入姓名' }
     }
-    if (!phone?.trim()) {
+    if (!phone) {
       return { success: false, error: '请输入手机号' }
     }
     if (!password) {
@@ -334,9 +342,9 @@ export async function registerTeacher(formData: {
     // 查找邀请人（如果提供了邀请码）
     let invitedById: string | null = null
     let inviterDefaultFollowUpId: string | null = null
-    if (referralCode?.trim()) {
+    if (referralCode) {
       const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode.trim().toUpperCase() },
+        where: { inviteCode: referralCode.toUpperCase() },
         select: { id: true, defaultInviteeFollowUpId: true }
       })
       
@@ -350,7 +358,7 @@ export async function registerTeacher(formData: {
 
     // 检查手机号是否已注册
     const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone: phone.trim() }
+      where: { phone }
     })
 
     if (existingTeacher) {
@@ -358,14 +366,14 @@ export async function registerTeacher(formData: {
       if (existingTeacher.password) {
         return { success: false, error: '该手机号已注册，请直接登录' }
       }
-      
+
       // 如果没有密码，说明是通过引导系统创建的老用户，升级账号
       const hashedPassword = await bcrypt.hash(password, 10)
-      
+
       const teacher = await prisma.teacher.update({
         where: { id: existingTeacher.id },
         data: {
-          name: name.trim(),
+          name,
           password: hashedPassword,
           // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
           ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
@@ -408,8 +416,8 @@ export async function registerTeacher(formData: {
     // 创建新的老师记录
     const teacher = await prisma.teacher.create({
       data: {
-        name: name.trim(),
-        phone: phone.trim(),
+        name,
+        phone,
         password: hashedPassword,
         status: 'NOT_STARTED',
         invitedById
@@ -418,7 +426,7 @@ export async function registerTeacher(formData: {
 
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
-    
+
     // 如果有邀请人，创建邀请记录并自动归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
@@ -453,8 +461,10 @@ export async function registerTeacher(formData: {
 // 老师登录（用于引导流程）
 export async function loginTeacher(phone: string, password: string) {
   try {
+    const trimmedPhone = sanitizeInput(phone)
+
     // 验证必填字段
-    if (!phone?.trim()) {
+    if (!trimmedPhone) {
       return { success: false, error: '请输入手机号' }
     }
     if (!password) {
@@ -462,13 +472,13 @@ export async function loginTeacher(phone: string, password: string) {
     }
 
     // 验证手机号格式
-    if (!isValidPhone(phone)) {
+    if (!isValidPhone(trimmedPhone)) {
       return { success: false, error: '手机号格式不正确' }
     }
 
     // 查找用户
     const teacher = await prisma.teacher.findUnique({
-      where: { phone: phone.trim() },
+      where: { phone: trimmedPhone },
       select: {
         id: true,
         name: true,

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { sanitizeInput } from '@/lib/utils'
 
 export default function AdminLoginPage() {
   const router = useRouter()
@@ -21,7 +22,7 @@ export default function AdminLoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username: sanitizeInput(username), password }),
       })
 
       const data = await response.json()

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { sanitizeInput } from '@/lib/utils'
 
 export default function OperatorLoginPage() {
   const router = useRouter()
@@ -19,7 +20,7 @@ export default function OperatorLoginPage() {
       const res = await fetch('/api/operator/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone, password }),
+        body: JSON.stringify({ phone: sanitizeInput(phone), password }),
       })
 
       const data = await res.json()

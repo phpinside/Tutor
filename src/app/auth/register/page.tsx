@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { registerReferrer } from '@/app/actions/auth'
+import { sanitizeInput } from '@/lib/utils'
 
 function RegisterForm() {
   const router = useRouter()
@@ -92,7 +93,13 @@ function RegisterForm() {
     setIsSubmitting(true)
 
     try {
-      const result = await registerReferrer(formData)
+      const result = await registerReferrer({
+        name: sanitizeInput(formData.name),
+        phone: sanitizeInput(formData.phone),
+        password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        referralCode: sanitizeInput(formData.referralCode),
+      })
 
       if (result.success) {
         // 注册成功，跳转到新手引导

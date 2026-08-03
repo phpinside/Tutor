@@ -2,10 +2,12 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
+import { sanitizeInput } from '@/lib/utils'
 
 export async function POST(request: Request) {
   try {
-    const { phone, password } = await request.json()
+    const { phone: rawPhone, password } = await request.json()
+    const phone = sanitizeInput(rawPhone)
 
     if (!phone || !password) {
       return NextResponse.json({ error: '请输入手机号和密码' }, { status: 400 })

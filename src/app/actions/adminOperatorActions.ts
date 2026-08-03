@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
+import { sanitizeInput } from '@/lib/utils'
 
 export async function getOperators() {
   return prisma.operator.findMany({
@@ -42,7 +43,11 @@ export async function createOperator(data: {
   isEnabled?: boolean
   remarks?: string
 }) {
-  const exists = await prisma.operator.findUnique({ where: { phone: data.phone } })
+  const name = sanitizeInput(data.name)
+  const phone = sanitizeInput(data.phone)
+  const remarks = data.remarks ? sanitizeInput(data.remarks) : undefined
+
+  const exists = await prisma.operator.findUnique({ where: { phone } })
   if (exists) {
     return { success: false, error: '该手机号已存在' }
   }
@@ -50,11 +55,11 @@ export async function createOperator(data: {
   const hashedPassword = await bcrypt.hash(data.password, 10)
   const operator = await prisma.operator.create({
     data: {
-      name: data.name,
-      phone: data.phone,
+      name,
+      phone,
       password: hashedPassword,
       isEnabled: data.isEnabled ?? true,
-      remarks: data.remarks || null,
+      remarks: remarks || null,
     },
   })
 

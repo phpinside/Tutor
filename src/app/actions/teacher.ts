@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
+import { sanitizeInput } from '@/lib/utils'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
@@ -75,10 +76,20 @@ export async function registerAndCreateTeacher(formData: {
   holidayTime?: string
 }) {
   try {
-    const { phone, password, confirmPassword, referralCode, ...teacherInfo } = formData
+    const { password, confirmPassword, phone: rawPhone, referralCode: rawReferralCode, ...rawTeacherInfo } = formData
+    const phone = sanitizeInput(rawPhone)
+    const referralCode = rawReferralCode ? sanitizeInput(rawReferralCode) : undefined
+
+    // 对 teacherInfo 中的字符串字段统一去空格
+    const teacherInfo = Object.fromEntries(
+      Object.entries(rawTeacherInfo).map(([key, value]) => [
+        key,
+        typeof value === 'string' ? sanitizeInput(value) : value,
+      ])
+    ) as typeof rawTeacherInfo
 
     // 验证必填字段
-    if (!phone?.trim()) {
+    if (!phone) {
       return { success: false, error: '请输入手机号' }
     }
     if (!password) {
@@ -105,7 +116,7 @@ export async function registerAndCreateTeacher(formData: {
 
     // 检查手机号是否已注册
     const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone: phone.trim() }
+      where: { phone }
     })
 
     if (existingTeacher) {
@@ -117,7 +128,7 @@ export async function registerAndCreateTeacher(formData: {
     let inviterDefaultFollowUpId: string | null = null
     if (referralCode) {
       const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode },
+        where: { inviteCode: referralCode.toUpperCase() },
         select: { id: true, defaultInviteeFollowUpId: true }
       })
       if (referrer) {
@@ -140,7 +151,7 @@ export async function registerAndCreateTeacher(formData: {
     // 创建老师记录，包含所有基本信息
     const teacher = await prisma.teacher.create({
       data: {
-        phone: phone.trim(),
+        phone,
         password: hashedPassword,
         invitedById,
         status: 'NOT_STARTED',

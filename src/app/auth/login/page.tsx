@@ -4,6 +4,7 @@ import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loginReferrer } from '@/app/actions/auth'
+import { sanitizeInput } from '@/lib/utils'
 
 function LoginForm() {
   const router = useRouter()
@@ -46,7 +47,10 @@ function LoginForm() {
     setIsSubmitting(true)
 
     try {
-      const result = await loginReferrer(formData)
+      const result = await loginReferrer({
+        phone: sanitizeInput(formData.phone),
+        password: formData.password,
+      })
 
       if (result.success) {
         // 登录成功，跳转到指定页面
