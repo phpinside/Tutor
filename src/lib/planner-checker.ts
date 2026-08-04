@@ -37,8 +37,8 @@ export async function runPlannerCheck(id: string, extractedText: string) {
     const client = new OpenAI({
       apiKey,
       ...(process.env.OPENAI_BASE_URL ? { baseURL: process.env.OPENAI_BASE_URL } : {}),
-      timeout: 120000,   // 2 分钟，防止 LLM 调用挂死
-      maxRetries: 2,
+      timeout: 300000,   // 5 分钟，GLM-5 深度推理较长
+      maxRetries: 0,     // 超时不重试，避免成倍等待
     })
     const systemPrompt = loadSystemPrompt()
 
