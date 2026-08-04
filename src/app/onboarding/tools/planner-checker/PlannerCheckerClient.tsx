@@ -173,8 +173,24 @@ function RecordCard({
   onStatusUpdate: (id: string, updated: Partial<CheckRecord>) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const isActive = record.status === 'PENDING' || record.status === 'PROCESSING'
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+
+  const handleRetry = async (e: React.MouseEvent) => {
+    e.stopPropagation()
+    setRetrying(true)
+    try {
+      const res = await fetch(`/api/tools/planner-checker/process/${record.id}`, { method: 'POST' })
+      if (res.ok) {
+        onStatusUpdate(record.id, { status: 'PROCESSING', errorMsg: null })
+      }
+    } catch {
+      // ignore
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   useEffect(() => {
     if (!isActive) return
@@ -230,6 +246,15 @@ function RecordCard({
           <span className={`text-xs font-medium px-2 py-1 rounded-full border ${statusCfg.color}`}>
             {statusCfg.text}
           </span>
+          {(record.status === 'PENDING' || record.status === 'FAILED') && (
+            <button
+              onClick={handleRetry}
+              disabled={retrying}
+              className="text-xs font-medium text-indigo-600 hover:text-indigo-700 disabled:opacity-50 px-2 py-1 rounded transition-colors"
+            >
+              {retrying ? '重试中...' : '重试'}
+            </button>
+          )}
           {record.status === 'COMPLETED' && (
             <span className="text-gray-400 text-sm">{expanded ? '▲' : '▼'}</span>
           )}

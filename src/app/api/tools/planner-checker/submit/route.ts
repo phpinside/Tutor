@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
+import { runPlannerCheck } from '@/lib/planner-checker'
 
 export async function POST(req: NextRequest) {
   try {
@@ -70,12 +71,9 @@ export async function POST(req: NextRequest) {
       },
     })
 
-    // Trigger background processing (fire-and-forget)
-    const baseUrl = req.nextUrl.origin
-    void fetch(`${baseUrl}/api/tools/planner-checker/process/${record.id}`, {
-      method: 'POST',
-    }).catch(() => {
-      // Ignore errors - the job will remain in PENDING and can be retried
+    // 直接在进程内触发分析（不依赖 HTTP 自调用，避免反代/域名解析问题）
+    void runPlannerCheck(record.id, extractedText).catch(err => {
+      console.error('[planner-checker/submit] 触发分析失败:', err)
     })
 
     return NextResponse.json({
