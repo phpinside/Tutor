@@ -45,7 +45,7 @@ export async function runPlannerCheck(id: string, extractedText: string) {
     const userMessage = `以下是需要审查的规划书内容：\n\n---\n\n${extractedText}\n\n---\n\n请按照要求输出 JSON 格式的分析结果。`
 
     const completion = await client.chat.completions.create({
-      model: 'glm-5',
+      model: 'glm-5.2',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userMessage },
