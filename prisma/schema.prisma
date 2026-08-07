@@ -469,7 +469,7 @@ model CoachReview {
 
   // 学管解析记录
   resolvedManagerPhone String?                  // API 返回的学管手机号
-  resolveSource        String?                  // 'api' | 'merged' | 'team_assignment' | 'random_assignment'
+  resolveSource        String?                  // 'api' | 'inviter_chain' | 'merged' | 'team_assignment' | 'random_assignment'
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

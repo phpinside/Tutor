@@ -65,11 +65,20 @@ export async function fetchTutorInfo(
 export type ResolveResult = {
   operatorId: string | null
   managerPhone: string | null
-  source: 'api' | 'merged' | 'team_assignment' | 'random_assignment'
+  source:
+    | 'api'
+    | 'merged'
+    | 'team_assignment'
+    | 'random_assignment'
+    | 'inviter_chain'
 }
 
 // 递归向上查找的最大层数，防止异常组织架构导致无限递归
 const RESOLVE_MAX_DEPTH = 5
+
+// 邀请人链条总查找层数（含初始邀请人 B）：B → C → D，共 3 级。
+// B 由主路径 resolveFirstReviewer 处理，此处为 B 之上再查的层数 = 2（C 和 D）
+const INVITER_CHAIN_MAX_DEPTH = 2
 
 export async function resolveFirstReviewer(
   inviterPhone: string | null
@@ -128,6 +137,27 @@ export async function resolveFirstReviewer(
 
   // 超过最大递归深度仍未命中启用运营
   return { operatorId: null, managerPhone: lastManagerPhone, source: 'merged' }
+}
+
+// 通过 Referral 表查找某教师的直接邀请人（返回邀请人 ID 与手机号）
+async function findDirectInviter(
+  teacherId: string
+): Promise<{ inviterId: string; inviterPhone: string } | null> {
+  const referral = await prisma.referral.findFirst({
+    where: {
+      referredId: teacherId,
+      type: 'DIRECT',
+    },
+    select: {
+      referrerId: true,
+      referrer: { select: { phone: true } },
+    },
+  })
+  if (!referral || !referral.referrer.phone) return null
+  return {
+    inviterId: referral.referrerId,
+    inviterPhone: referral.referrer.phone,
+  }
 }
 
 // 加权随机兜底运营池条目
@@ -228,13 +258,55 @@ async function getAllEnabledOperatorsAsPool(): Promise<FallbackPoolEntry[]> {
   return operators.map((o) => ({ phone: o.phone, operatorId: o.id, weight: 1 }))
 }
 
-// 完整初审人解析：外部接口递归向上 → 团队认领人兜底 → 加权随机兜底
-// 三级兜底任一命中即返回；全部未命中则返回 source='merged'（合并审核）
+// 完整初审人解析：外部接口递归向上 → 邀请人链条识别 → 团队认领人兜底 → 加权随机兜底
+// 任一命中即返回；全部未命中则返回 source='merged'（合并审核）
 export async function resolveFirstReviewerWithFallback(
   teacherId: string,
   inviterPhone: string | null
 ): Promise<ResolveResult> {
   let resolved = await resolveFirstReviewer(inviterPhone)
+
+  // 邀请人链条识别：当主路径（对初始邀请人 B，即第 1 级）未找到初审人时，
+  // 沿邀请人链条向上继续查找：B 的邀请人 C（第 2 级）→ C 的邀请人 D（第 3 级）。
+  // 每一级均使用其手机号重新走主路径（resolveFirstReviewer）查找。
+  // 含 B 在内共 3 级，此处为 B 之上的 2 级（C 和 D）。
+  if (!resolved.operatorId && inviterPhone) {
+    // 通过手机号确定初始邀请人 B 的 teacherId（与主路径使用同一 B，
+    // 避免多条 DIRECT 邀请记录时 findFirst 返回不一致的问题）
+    const initialInviter = await prisma.teacher.findUnique({
+      where: { phone: inviterPhone },
+      select: { id: true },
+    })
+    if (initialInviter) {
+      let currentInviterId = initialInviter.id
+      // 防环：记录已访问的节点（含 A 自身和 B）
+      const visitedInviterIds = new Set<string>([teacherId, currentInviterId])
+
+      for (let depth = 0; depth < INVITER_CHAIN_MAX_DEPTH; depth++) {
+        if (resolved.operatorId) break
+
+        // 查找当前邀请人的上一级邀请人
+        const nextInviter = await findDirectInviter(currentInviterId)
+        if (!nextInviter) break // 无更上级邀请人，链条终止
+
+        // 防环：同一邀请人重复出现则终止
+        if (visitedInviterIds.has(nextInviter.inviterId)) break
+        visitedInviterIds.add(nextInviter.inviterId)
+
+        // 使用上级邀请人的手机号走主路径查找
+        const chainResult = await resolveFirstReviewer(nextInviter.inviterPhone)
+        if (chainResult.operatorId) {
+          // 命中：标记为 'inviter_chain' 以区分于直接邀请人主路径命中
+          resolved = {
+            operatorId: chainResult.operatorId,
+            managerPhone: chainResult.managerPhone,
+            source: 'inviter_chain',
+          }
+        }
+        currentInviterId = nextInviter.inviterId
+      }
+    }
+  }
 
   // 兜底 1：团队认领人（TeacherTeam.operator）
   if (!resolved.operatorId) {
