@@ -84,6 +84,14 @@ export async function POST() {
         },
       })
 
+      // 仅当无人跟进时，将跟进人设为初审负责人（已有跟进人则跳过）
+      if (resolved.operatorId) {
+        await prisma.teacherTeam.createMany({
+          data: [{ teacherId: review.teacherId, operatorId: resolved.operatorId }],
+          skipDuplicates: true,
+        })
+      }
+
       updated++
       details.push({
         teacherId: review.teacherId,

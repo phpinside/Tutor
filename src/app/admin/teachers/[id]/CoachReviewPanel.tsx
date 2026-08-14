@@ -6,9 +6,11 @@ import ReferralRejectReasonModal from '@/components/admin/ReferralRejectReasonMo
 import {
   submitFirstReview,
   submitFinalReview,
+  updateFirstReviewer,
 } from '@/app/actions/coachReview'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
 import { formatDateTime } from '@/lib/utils'
+import OperatorPickerModal from './OperatorPickerModal'
 
 type Viewer = {
   operatorId: string | null
@@ -162,7 +164,32 @@ export default function CoachReviewPanel({
 
       {/* 初审信息 */}
       <div className="mb-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
-        <p className="text-sm font-medium text-gray-700 mb-1">初审</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium text-gray-700">初审</p>
+          {viewer.isSuperAdmin && review.firstReviewVerdict === 'PENDING' && (
+            <OperatorPickerModal
+              triggerLabel="修改初审负责人"
+              title="修改初审负责人"
+              description="修改后，跟进人将同步更新为所选运营账号。设为合并审核（清除）则不影响现有跟进人。"
+              currentOperator={
+                review.firstReviewOperatorId
+                  ? {
+                      id: review.firstReviewOperatorId,
+                      name: review.firstReviewOperatorName || '未知',
+                    }
+                  : null
+              }
+              currentLabel="当前初审负责人"
+              emptyLabel="当前为合并审核模式（无初审负责人）"
+              allowClear
+              clearLabel="设为合并审核"
+              clearSuccessMessage="已设为合并审核模式"
+              onSubmit={(operatorId) => updateFirstReviewer(review.teacherId, operatorId)}
+              successMessage={(name) => `已将初审负责人设置为：${name}`}
+              buttonClassName="px-3 py-1 text-xs font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors"
+            />
+          )}
+        </div>
         <div className="text-xs text-gray-600 space-y-0.5">
           <p>
             结论：{VERDICT_LABELS[review.firstReviewVerdict] || review.firstReviewVerdict}

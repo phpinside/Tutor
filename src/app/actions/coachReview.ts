@@ -120,6 +120,14 @@ export async function ensureCoachReview(
       },
     })
 
+    // 仅当无人跟进时，将跟进人设为初审负责人（已有跟进人则跳过）
+    if (resolved.operatorId) {
+      await prisma.teacherTeam.createMany({
+        data: [{ teacherId, operatorId: resolved.operatorId }],
+        skipDuplicates: true,
+      })
+    }
+
     revalidatePath('/admin/teachers')
     revalidatePath(`/admin/teachers/${teacherId}`)
 
@@ -618,5 +626,51 @@ export async function hasActiveCoachReview(
     return review.stage !== 'APPROVED'
   } catch {
     return false
+  }
+}
+
+export async function updateFirstReviewer(
+  teacherId: string,
+  operatorId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminSession = await getSuperAdminSession()
+    if (!adminSession) {
+      return { success: false, error: '无权限，仅超管可修改初审负责人' }
+    }
+
+    const review = await prisma.coachReview.findUnique({
+      where: { teacherId },
+      select: { id: true, firstReviewVerdict: true },
+    })
+
+    if (!review) return { success: false, error: '审核记录不存在' }
+    if (review.firstReviewVerdict !== 'PENDING') {
+      return { success: false, error: '初审已完成，无法修改初审负责人' }
+    }
+
+    await prisma.coachReview.update({
+      where: { id: review.id },
+      data: { firstReviewOperatorId: operatorId },
+    })
+
+    // 同步更新跟进人：指定运营则覆盖/新建，设为 null（合并审核）则不动跟进人
+    if (operatorId) {
+      await prisma.teacherTeam.upsert({
+        where: { teacherId },
+        update: { operatorId },
+        create: { teacherId, operatorId },
+      })
+    }
+
+    revalidatePath('/admin/teachers')
+    revalidatePath(`/admin/teachers/${teacherId}`)
+    revalidatePath('/onboarding')
+    revalidatePath('/onboarding/complete')
+
+    return { success: true }
+  } catch (error) {
+    console.error('修改初审负责人失败:', error)
+    return { success: false, error: '操作失败，请重试' }
   }
 }

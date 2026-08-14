@@ -10,10 +10,11 @@ import SetInviteeDefaultFollowerModal from './SetInviteeDefaultFollowerModal'
 import TeacherInfoEditModal from './TeacherInfoEditModal'
 import ResetTeacherPasswordModal from './ResetTeacherPasswordModal'
 import TeacherPhoneRevealControl from './TeacherPhoneRevealControl'
-import { getTeacherRemarks } from '@/app/actions/operatorActions'
+import { getTeacherRemarks, updateTeacherFollower } from '@/app/actions/operatorActions'
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import TeacherDirectReferralReview from './TeacherDirectReferralReview'
 import CoachReviewPanel from './CoachReviewPanel'
+import OperatorPickerModal from './OperatorPickerModal'
 import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import {
   getLearningPlannerStatusBadgeClass,
@@ -87,6 +88,13 @@ export default async function TeacherDetailPage({
       },
       defaultInviteeFollowUp: {
         select: { id: true, name: true, phone: true },
+      },
+      teamAssignment: {
+        include: {
+          operator: {
+            select: { id: true, name: true, phone: true },
+          },
+        },
       },
     }
   })
@@ -381,6 +389,44 @@ export default async function TeacherDetailPage({
               ) : (
                 <p className="font-medium text-gray-400">暂无</p>
               )}
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">跟进人</p>
+              <div className="flex items-center gap-2">
+                {teacher.teamAssignment ? (
+                  <p className="font-medium text-gray-900">
+                    {teacher.teamAssignment.operator.name}
+                    {teacher.teamAssignment.operator.phone && (
+                      <span className="ml-1 text-gray-400 text-xs">{teacher.teamAssignment.operator.phone}</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="font-medium text-gray-400">暂无</p>
+                )}
+                {viewerInfo.isSuperAdmin && (
+                  <OperatorPickerModal
+                    triggerLabel="修改"
+                    title="修改跟进人"
+                    currentOperator={
+                      teacher.teamAssignment
+                        ? {
+                            id: teacher.teamAssignment.operator.id,
+                            name: teacher.teamAssignment.operator.name,
+                            phone: teacher.teamAssignment.operator.phone,
+                          }
+                        : null
+                    }
+                    currentLabel="当前跟进人"
+                    emptyLabel="当前无跟进人"
+                    allowClear
+                    clearLabel="移除跟进人"
+                    clearSuccessMessage="已移除跟进人"
+                    onSubmit={updateTeacherFollower.bind(null, teacher.id)}
+                    successMessage={(name) => `已将跟进人设置为：${name}`}
+                    buttonClassName="px-2 py-0.5 text-xs font-medium text-teal-700 bg-teal-50 rounded hover:bg-teal-100 transition-colors"
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>

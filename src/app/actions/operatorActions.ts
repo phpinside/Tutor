@@ -3,6 +3,7 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 
 // ——— 团队管理 ———
 
@@ -222,4 +223,46 @@ export async function setInviterDefaultFollowUpPerson(
   revalidatePath(`/admin/teachers/${inviterId}`)
 
   return { success: true as const }
+}
+
+export async function updateTeacherFollower(
+  teacherId: string,
+  operatorId: string | null
+): Promise<{ success: boolean; error?: string }> {
+  const cookieStore = await cookies()
+  const session = cookieStore.get('admin_session')
+  if (!session) {
+    return { success: false, error: '无权限' }
+  }
+  try {
+    const data = JSON.parse(session.value)
+    if (data.role !== 'super_admin') {
+      return { success: false, error: '无权限，仅超管可修改跟进人' }
+    }
+  } catch {
+    return { success: false, error: '会话无效' }
+  }
+
+  try {
+    if (operatorId) {
+      await prisma.teacherTeam.upsert({
+        where: { teacherId },
+        update: { operatorId },
+        create: { teacherId, operatorId },
+      })
+    } else {
+      await prisma.teacherTeam.deleteMany({
+        where: { teacherId },
+      })
+    }
+  } catch (error) {
+    console.error('修改跟进人失败:', error)
+    return { success: false, error: '操作失败，请重试' }
+  }
+
+  revalidatePath('/admin/teachers')
+  revalidatePath(`/admin/teachers/${teacherId}`)
+  revalidatePath('/operator/team')
+
+  return { success: true }
 }
