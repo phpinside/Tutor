@@ -645,9 +645,6 @@ export async function updateFirstReviewer(
     })
 
     if (!review) return { success: false, error: '审核记录不存在' }
-    if (review.firstReviewVerdict !== 'PENDING') {
-      return { success: false, error: '初审已完成，无法修改初审负责人' }
-    }
 
     await prisma.coachReview.update({
       where: { id: review.id },

@@ -166,7 +166,7 @@ export default function CoachReviewPanel({
       <div className="mb-4 p-3 rounded-lg border border-gray-200 bg-gray-50">
         <div className="flex items-center justify-between mb-1">
           <p className="text-sm font-medium text-gray-700">初审</p>
-          {viewer.isSuperAdmin && review.firstReviewVerdict === 'PENDING' && (
+          {viewer.isSuperAdmin && (
             <OperatorPickerModal
               triggerLabel="修改初审负责人"
               title="修改初审负责人"
