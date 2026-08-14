@@ -24,6 +24,9 @@ export async function POST(request: Request) {
         path: '/',
       })
 
+      // 清除运营身份，避免 cookie 冲突导致 getViewerInfo 误判
+      cookieStore.delete('operator_session')
+
       return NextResponse.json({ success: true })
     } else {
       return NextResponse.json(

@@ -43,6 +43,9 @@ export async function POST(request: Request) {
       path: '/',
     })
 
+    // 清除超管身份，避免 cookie 冲突导致 getViewerInfo 误判
+    cookieStore.delete('admin_session')
+
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: '登录请求处理失败' }, { status: 500 })
