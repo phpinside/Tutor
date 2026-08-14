@@ -185,7 +185,7 @@ export default function CoachReviewPanel({
               clearLabel="设为合并审核"
               clearSuccessMessage="已设为合并审核模式"
               onSubmit={(operatorId) => updateFirstReviewer(review.teacherId, operatorId)}
-              successMessage={(name) => `已将初审负责人设置为：${name}`}
+              successMessagePrefix="已将初审负责人设置为："
               buttonClassName="px-3 py-1 text-xs font-medium text-teal-700 bg-teal-50 rounded-lg hover:bg-teal-100 transition-colors"
             />
           )}

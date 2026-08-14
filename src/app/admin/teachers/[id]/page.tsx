@@ -422,7 +422,7 @@ export default async function TeacherDetailPage({
                     clearLabel="移除跟进人"
                     clearSuccessMessage="已移除跟进人"
                     onSubmit={updateTeacherFollower.bind(null, teacher.id)}
-                    successMessage={(name) => `已将跟进人设置为：${name}`}
+                    successMessagePrefix="已将跟进人设置为："
                     buttonClassName="px-2 py-0.5 text-xs font-medium text-teal-700 bg-teal-50 rounded hover:bg-teal-100 transition-colors"
                   />
                 )}

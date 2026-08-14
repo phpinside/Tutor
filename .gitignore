@@ -1,7 +1,8 @@
 node_modules
 .specstory
 .env
-.env.local
+.env.development
+.env.production
 .next
 .cursor
 .DS_Store

@@ -23,7 +23,7 @@ interface OperatorPickerModalProps {
   onSubmit: (
     operatorId: string | null
   ) => Promise<{ success: boolean; error?: string }>
-  successMessage: (name: string) => string
+  successMessagePrefix: string
   clearSuccessMessage?: string
   buttonClassName?: string
 }
@@ -39,7 +39,7 @@ export default function OperatorPickerModal({
   clearLabel = '清除设置',
   emptyLabel = '当前未设置',
   onSubmit,
-  successMessage,
+  successMessagePrefix,
   clearSuccessMessage,
   buttonClassName = 'px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors',
 }: OperatorPickerModalProps) {
@@ -104,7 +104,7 @@ export default function OperatorPickerModal({
     try {
       const result = await onSubmit(selected.id)
       if (result.success) {
-        alert(successMessage(selected.name))
+        alert(`${successMessagePrefix}${selected.name}`)
         handleClose()
         router.refresh()
       } else {
