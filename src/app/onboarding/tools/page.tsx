@@ -26,6 +26,13 @@ const TOOLS: Tool[] = [
     available: true,
   },
   {
+    icon: '🚀',
+    name: '快捷登录助手',
+    description: '安装一次，以后打开 B 网站点击书签即可完成初始化',
+    href: '/onboarding/tools/quick-login-helper',
+    available: true,
+  },
+  {
     icon: '🤖',
     name: '头像生成器',
     description: '依据上传的个人照片，生成伴学教练的微信头像',
