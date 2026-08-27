@@ -79,14 +79,14 @@ const STUDENT_GRADES = [
 const SCORE_SUBJECTS = ['数学喜报', '物理喜报', '化学喜报']
 
 const DEFAULT_FORM: FormState = {
-  studentRegion: '北京市',
-  studentName: '邹小欣',
-  studentGrade: '高三',
-  scoreTitle: '数学喜报',
-  studyDuration: '10小时',
-  scoreIncrease: '19分',
-  teamName: '黎沁团队',
-  coachSignature: '梁树玉教练负责伴学',
+  studentRegion: '',
+  studentName: '',
+  studentGrade: '',
+  scoreTitle: '',
+  studyDuration: '',
+  scoreIncrease: '',
+  teamName: '',
+  coachSignature: '',
   bottomNote: '',
 }
 
@@ -97,6 +97,8 @@ const REQUIRED_FIELDS: Array<[keyof FormState, string]> = [
   ['studentName', '学生姓名'],
   ['studentGrade', '学生年级'],
   ['scoreTitle', '提分科目'],
+  ['studyDuration', '学习时长'],
+  ['scoreIncrease', '提分分数'],
 ]
 
 const FALLBACK_SLOT: TextSlot = {
@@ -117,7 +119,10 @@ function TextField({
   placeholder,
   required = false,
   helper,
+  hidePlaceholderOnFocus = true,
 }: TextFieldProps) {
+  const [isFocused, setIsFocused] = useState(false)
+
   return (
     <label className="block">
       <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
@@ -127,7 +132,9 @@ function TextField({
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
+        placeholder={hidePlaceholderOnFocus && isFocused ? '' : placeholder}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
         className="input"
       />
       {helper && <span className="mt-1 block text-xs text-gray-400">{helper}</span>}
@@ -141,6 +148,7 @@ type SelectFieldProps = {
   onChange: (value: string) => void
   options: string[]
   required?: boolean
+  placeholder: string
 }
 
 function SelectField({
@@ -149,6 +157,7 @@ function SelectField({
   onChange,
   options,
   required = false,
+  placeholder,
 }: SelectFieldProps) {
   return (
     <label className="block">
@@ -161,6 +170,7 @@ function SelectField({
         onChange={(e) => onChange(e.target.value)}
         className="input"
       >
+        <option value="" disabled>{placeholder}</option>
         {options.map((opt) => (
           <option key={opt} value={opt}>{opt}</option>
         ))}
@@ -910,7 +920,7 @@ export default function CaseImageGeneratorClient() {
                 label="学生姓名"
                 value={form.studentName}
                 onChange={(value) => updateForm('studentName', value)}
-                placeholder="张小明"
+                placeholder="邹小欣"
                 required
               />
               <SelectField
@@ -918,6 +928,7 @@ export default function CaseImageGeneratorClient() {
                 value={form.studentGrade}
                 onChange={(value) => updateForm('studentGrade', value)}
                 options={STUDENT_GRADES}
+                placeholder="请选择学生年级"
                 required
               />
               <SelectField
@@ -925,6 +936,7 @@ export default function CaseImageGeneratorClient() {
                 value={form.scoreTitle}
                 onChange={(value) => updateForm('scoreTitle', value)}
                 options={SCORE_SUBJECTS}
+                placeholder="请选择提分科目"
                 required
               />
               <TextField
@@ -932,12 +944,14 @@ export default function CaseImageGeneratorClient() {
                 value={form.studyDuration}
                 onChange={(value) => updateForm('studyDuration', value)}
                 placeholder="10小时"
+                required
               />
               <TextField
                 label="提分分数"
                 value={form.scoreIncrease}
                 onChange={(value) => updateForm('scoreIncrease', value)}
                 placeholder="19分"
+                required
               />
               <TextField
                 label="团队名"
