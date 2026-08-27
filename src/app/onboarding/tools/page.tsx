@@ -12,13 +12,6 @@ interface Tool {
 
 const TOOLS: Tool[] = [
   {
-    icon: '📋',
-    name: '规划书自查器',
-    description: '依据上传的规划书，分析指出当前的问题和改进建议',
-    href: '/onboarding/tools/planner-checker',
-    available: true,
-  },
-  {
     icon: '🎉',
     name: '案例图片生成器',
     description: '选择喜报模板，上传案例截图并填写文案，一键生成案例图片',
@@ -26,23 +19,18 @@ const TOOLS: Tool[] = [
     available: true,
   },
   {
-    icon: '🚀',
-    name: '快捷登录助手',
-    description: '安装一次，以后打开 B 网站点击书签即可完成初始化',
-    href: '/onboarding/tools/quick-login-helper',
+    icon: '📋',
+    name: '规划书自查器',
+    description: '依据上传的规划书，分析指出当前的问题和改进建议',
+    href: '/onboarding/tools/planner-checker',
     available: true,
   },
   {
-    icon: '🤖',
-    name: '头像生成器',
-    description: '依据上传的个人照片，生成伴学教练的微信头像',
-    available: false,
-  },
-  {
-    icon: '💬',
-    name: '家长话术助手',
-    description: '依据截图或对话内容，生成回复的建议内容',
-    available: false,
+    icon: '📄',
+    name: '实习证明开具',
+    description: '系统模板填写信息或上传自定义 PDF，单位开具后下载正式证明',
+    href: '/onboarding/tools/internship-certificate',
+    available: true,
   },
 ]
 

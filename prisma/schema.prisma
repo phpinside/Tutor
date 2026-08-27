@@ -208,6 +208,7 @@ model Teacher {
   learningPlannerApplication LearningPlannerApplication?
   defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
   plannerCheckRecords      PlannerCheckRecord[]
+  internshipCertificateDraft InternshipCertificateDraft?
   coachReview              CoachReview?
 
   @@index([phone])
@@ -423,6 +424,50 @@ enum PlannerCheckStatus {
   PROCESSING  // 分析中
   COMPLETED   // 已完成
   FAILED      // 失败
+}
+
+// 实习证明开具状态
+enum InternshipCertificateDraftStatus {
+  PROCESSING
+  COMPLETED
+  ISSUED
+  REJECTED
+  FAILED
+}
+
+// 实习证明模板来源：系统默认模板（表单生成）或自定义模板（用户上传 PDF）
+enum InternshipCertificateTemplateMode {
+  SYSTEM
+  CUSTOM
+}
+
+// 实习证明申请（每位老师仅保留一条）
+model InternshipCertificateDraft {
+  id             String                           @id @default(cuid())
+  teacherId      String                           @unique
+  name           String?
+  gender         String?
+  idCard         String?
+  startDate      DateTime?
+  endDate        DateTime?
+  companyName    String                           @default("北京一生二科技有限公司")
+  templateMode   InternshipCertificateTemplateMode @default(SYSTEM)
+  status         InternshipCertificateDraftStatus @default(PROCESSING)
+  pdfKey         String?
+  officialPdfKey String?
+  errorMsg       String?
+  rejectionReason String?
+  createdAt      DateTime                         @default(now())
+  completedAt    DateTime?
+  issuedAt       DateTime?
+  rejectedAt     DateTime?
+  updatedAt      DateTime                         @updatedAt
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("internship_certificate_drafts")
 }
 
 // 规划书自查记录

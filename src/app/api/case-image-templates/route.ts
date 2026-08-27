@@ -15,8 +15,10 @@ type ManifestTemplate = {
   name: string
   filename: string
   previewFilename?: string
+  baseTemplateId?: string
   width: number
   height: number
+  layout?: 'portrait' | 'landscape'
   screenshotBox: Box
   textSlots: Record<string, unknown>
 }
@@ -61,14 +63,24 @@ export async function GET() {
     }
 
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8')) as { templates?: unknown[] }
-    const templates = (manifest.templates ?? [])
+    const validTemplates = (manifest.templates ?? [])
       .filter(isManifestTemplate)
       .filter((template) => fs.existsSync(path.join(templatesDir, path.basename(template.filename))))
+    const templatesById = new Map(validTemplates.map((template) => [template.id, template]))
+
+    const templates = validTemplates
       .map((template) => {
         const previewFilename = template.previewFilename ?? template.filename
+        const baseTemplate = template.baseTemplateId
+          ? templatesById.get(template.baseTemplateId)
+          : undefined
 
         return {
           ...template,
+          textSlots: {
+            ...(baseTemplate?.textSlots ?? {}),
+            ...template.textSlots,
+          },
           filename: path.basename(template.filename),
           previewFilename: path.basename(previewFilename),
           url: publicTemplateUrl(template.filename),

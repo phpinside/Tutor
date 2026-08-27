@@ -27,6 +27,8 @@ type TextSlot = {
   shadowOffsetY?: number
   strokeColor?: string
   strokeWidth?: number
+  opacity?: number
+  secondLine?: string
 }
 
 type CaseImageTemplate = {
@@ -37,6 +39,10 @@ type CaseImageTemplate = {
   previewUrl: string
   width: number
   height: number
+  layout?: 'portrait' | 'landscape'
+  scaleBackground?: boolean
+  landscapeLeftWidth?: number
+  dynamicScreenshot?: boolean
   screenshotBox: Box
   textSlots: Record<string, TextSlot>
 }
@@ -44,7 +50,7 @@ type CaseImageTemplate = {
 type FormState = {
   studentRegion: string
   studentName: string
-  celebrationTitle: string
+  studentGrade: string
   scoreTitle: string
   studyDuration: string
   scoreIncrease: string
@@ -60,13 +66,23 @@ type TextFieldProps = {
   placeholder?: string
   required?: boolean
   helper?: string
+  maxLength?: number
+  hidePlaceholderOnFocus?: boolean
 }
+
+const STUDENT_GRADES = [
+  '一年级', '二年级', '三年级', '四年级', '五年级', '六年级',
+  '七年级', '八年级', '九年级',
+  '高一', '高二', '高三',
+]
+
+const SCORE_SUBJECTS = ['数学喜报', '物理喜报', '化学喜报']
 
 const DEFAULT_FORM: FormState = {
   studentRegion: '北京市',
   studentName: '邹小欣',
-  celebrationTitle: '高考喜报',
-  scoreTitle: '数学提分',
+  studentGrade: '高三',
+  scoreTitle: '数学喜报',
   studyDuration: '10小时',
   scoreIncrease: '19分',
   teamName: '黎沁团队',
@@ -79,8 +95,8 @@ const DELIVERY_CENTER = '华北交付中心'
 const REQUIRED_FIELDS: Array<[keyof FormState, string]> = [
   ['studentRegion', '学生地区'],
   ['studentName', '学生姓名'],
-  ['celebrationTitle', '喜报标题'],
-  ['scoreTitle', '提分类目/标题'],
+  ['studentGrade', '学生年级'],
+  ['scoreTitle', '提分科目'],
 ]
 
 const FALLBACK_SLOT: TextSlot = {
@@ -119,6 +135,79 @@ function TextField({
   )
 }
 
+type SelectFieldProps = {
+  label: string
+  value: string
+  onChange: (value: string) => void
+  options: string[]
+  required?: boolean
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  required = false,
+}: SelectFieldProps) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+      </span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="input"
+      >
+        {options.map((opt) => (
+          <option key={opt} value={opt}>{opt}</option>
+        ))}
+      </select>
+    </label>
+  )
+}
+
+function TextAreaField({
+  label,
+  value,
+  onChange,
+  placeholder,
+  required = false,
+  helper,
+  maxLength,
+  hidePlaceholderOnFocus = false,
+}: TextFieldProps) {
+  const characterCount = Array.from(value).length
+  const [isFocused, setIsFocused] = useState(false)
+
+  return (
+    <label className="block">
+      <span className="mb-1.5 flex items-center gap-1 text-sm font-medium text-gray-700">
+        {label}
+        {required && <span className="text-red-500">*</span>}
+      </span>
+      <textarea
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={hidePlaceholderOnFocus && isFocused ? '' : placeholder}
+        rows={5}
+        maxLength={maxLength}
+        onFocus={() => setIsFocused(true)}
+        onBlur={() => setIsFocused(false)}
+        className="input resize-y"
+      />
+      {(helper || maxLength) && (
+        <span className="mt-1 flex justify-between text-xs text-gray-400">
+          <span>{helper}</span>
+          {maxLength && <span>{characterCount}/{maxLength}</span>}
+        </span>
+      )}
+    </label>
+  )
+}
+
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
     const image = new Image()
@@ -149,12 +238,32 @@ function roundedRect(ctx: CanvasRenderingContext2D, box: Box) {
   ctx.closePath()
 }
 
-function drawContainedImage(ctx: CanvasRenderingContext2D, image: HTMLImageElement, box: Box) {
+function drawContainedImage(
+  ctx: CanvasRenderingContext2D,
+  image: HTMLImageElement,
+  box: Box,
+  backgroundColor = '#ffd39a',
+  useBackdrop = false
+) {
   ctx.save()
   roundedRect(ctx, box)
   ctx.clip()
-  ctx.fillStyle = '#ffd39a'
+  ctx.fillStyle = backgroundColor
   ctx.fillRect(box.x, box.y, box.width, box.height)
+
+  if (useBackdrop) {
+    const coverScale = Math.max(box.width / image.naturalWidth, box.height / image.naturalHeight)
+    const coverWidth = image.naturalWidth * coverScale
+    const coverHeight = image.naturalHeight * coverScale
+    const coverX = box.x + (box.width - coverWidth) / 2
+    const coverY = box.y + (box.height - coverHeight) / 2
+
+    ctx.save()
+    ctx.globalAlpha = 0.2
+    ctx.filter = 'blur(28px)'
+    ctx.drawImage(image, coverX, coverY, coverWidth, coverHeight)
+    ctx.restore()
+  }
 
   const scale = Math.min(box.width / image.naturalWidth, box.height / image.naturalHeight)
   const drawWidth = image.naturalWidth * scale
@@ -195,6 +304,58 @@ function fitFontSize(ctx: CanvasRenderingContext2D, lines: string[], slot: TextS
   }
 
   return fontSize
+}
+
+function truncateTextToWidth(ctx: CanvasRenderingContext2D, text: string, maxWidth: number) {
+  let truncated = text
+  while (truncated.length > 0 && ctx.measureText(`${truncated}…`).width > maxWidth) {
+    truncated = truncated.slice(0, -1)
+  }
+  return truncated ? `${truncated}…` : '…'
+}
+
+function wrapTextLines(
+  ctx: CanvasRenderingContext2D,
+  lines: string[],
+  slot: TextSlot,
+  maxLines?: number
+) {
+  ctx.save()
+  ctx.font = buildFont(slot, slot.fontSize)
+
+  const wrapped = lines.flatMap((rawLine) => {
+    const text = rawLine.trim()
+    if (!text) return []
+
+    const result: string[] = []
+    let currentLine = ''
+    for (const character of text) {
+      const nextLine = `${currentLine}${character}`
+      if (currentLine && ctx.measureText(nextLine).width > slot.maxWidth) {
+        result.push(currentLine)
+        currentLine = character
+      } else {
+        currentLine = nextLine
+      }
+    }
+    if (currentLine) result.push(currentLine)
+    return result
+  })
+
+  ctx.restore()
+
+  if (!maxLines || wrapped.length <= maxLines) return wrapped
+
+  ctx.save()
+  ctx.font = buildFont(slot, slot.fontSize)
+  const visibleLines = wrapped.slice(0, maxLines)
+  visibleLines[maxLines - 1] = truncateTextToWidth(
+    ctx,
+    `${visibleLines[maxLines - 1]}${wrapped.slice(maxLines).join('')}`,
+    slot.maxWidth
+  )
+  ctx.restore()
+  return visibleLines
 }
 
 function drawTextLines(ctx: CanvasRenderingContext2D, lines: string[], slot: TextSlot) {
@@ -245,6 +406,34 @@ function drawChip(ctx: CanvasRenderingContext2D, text: string, slot: TextSlot) {
   prepareText(ctx, slot, fontSize)
   ctx.fillText(text, slot.x, slot.y)
   ctx.restore()
+}
+
+function drawWatermark(ctx: CanvasRenderingContext2D, slot: TextSlot) {
+  const lines = [DELIVERY_CENTER, slot.secondLine ?? '-鼎伴学-'].filter(Boolean)
+  const fontSize = fitFontSize(ctx, lines, slot)
+  const lineHeight = slot.lineHeight ?? Math.round(fontSize * 1.15)
+
+  ctx.save()
+  ctx.globalAlpha = slot.opacity ?? 0.28
+  prepareText(ctx, slot, fontSize)
+  lines.forEach((line, index) => {
+    ctx.fillText(line, slot.x, slot.y + index * lineHeight)
+  })
+  ctx.restore()
+}
+
+function getLandscapeScreenshotBox(template: CaseImageTemplate, image: HTMLImageElement): Box {
+  const leftWidth = template.landscapeLeftWidth ?? 780
+  const availableHeight = template.height
+  const width = Math.max(320, Math.round((image.naturalWidth / image.naturalHeight) * availableHeight))
+
+  return {
+    x: leftWidth,
+    y: 0,
+    width,
+    height: availableHeight,
+    radius: 0,
+  }
 }
 
 function getSlot(template: CaseImageTemplate, key: string, fallback: Partial<TextSlot> = {}) {
@@ -313,7 +502,9 @@ export default function CaseImageGeneratorClient() {
         if (!mounted) return
         const nextTemplates: CaseImageTemplate[] = data.templates ?? []
         setTemplates(nextTemplates)
-        setSelectedTemplateId(nextTemplates[0]?.id ?? null)
+        const defaultTemplate =
+          nextTemplates.find((template) => template.id === 'jinbu-summer') ?? nextTemplates[0]
+        setSelectedTemplateId(defaultTemplate?.id ?? null)
       } catch (error) {
         if (!mounted) return
         setTemplateError(error instanceof Error ? error.message : '模板加载失败，请刷新重试')
@@ -338,7 +529,11 @@ export default function CaseImageGeneratorClient() {
   }, [])
 
   const updateForm = (key: keyof FormState, value: string) => {
-    setForm((prev) => ({ ...prev, [key]: value }))
+    const nextValue = key === 'bottomNote'
+      ? Array.from(value).slice(0, 80).join('')
+      : value
+
+    setForm((prev) => ({ ...prev, [key]: nextValue }))
     setGeneratedUrl(null)
     setFormError(null)
   }
@@ -408,36 +603,162 @@ export default function CaseImageGeneratorClient() {
         loadImage(screenshotUrl),
       ])
 
-      canvas.width = selectedTemplate.width
+      const isLandscape = selectedTemplate.layout === 'landscape'
+      const screenshotBox = isLandscape && selectedTemplate.dynamicScreenshot
+        ? getLandscapeScreenshotBox(selectedTemplate, screenshotImage)
+        : selectedTemplate.screenshotBox
+      const leftWidth = selectedTemplate.landscapeLeftWidth ?? 780
+      const canvasWidth = isLandscape && selectedTemplate.dynamicScreenshot
+        ? screenshotBox.x + screenshotBox.width + 14
+        : selectedTemplate.width
+
+      canvas.width = canvasWidth
       canvas.height = selectedTemplate.height
 
       const ctx = canvas.getContext('2d')
       if (!ctx) throw new Error('Canvas context 获取失败')
 
       ctx.clearRect(0, 0, canvas.width, canvas.height)
-      ctx.drawImage(templateImage, 0, 0, canvas.width, canvas.height)
+      if (selectedTemplate.scaleBackground) {
+        // Scale the background image (e.g. PNG) to fill the left panel,
+        // preserving aspect ratio by fitting to canvas height.
+        ctx.drawImage(templateImage, 0, 0, leftWidth, canvas.height)
+      } else {
+        ctx.drawImage(templateImage, 0, 0, templateImage.naturalWidth, templateImage.naturalHeight)
+      }
 
-      drawContainedImage(ctx, screenshotImage, selectedTemplate.screenshotBox)
+      if (isLandscape && selectedTemplate.dynamicScreenshot) {
+        // The landscape canvas width follows the screenshot ratio. Paint over
+        // the fixed-width right side of the SVG so the screenshot can touch
+        // the left panel without a border or outer whitespace.
+        ctx.fillStyle = '#f1f3f5'
+        ctx.fillRect(leftWidth, 0, canvas.width - leftWidth, canvas.height)
+      }
 
-      drawSingleText(ctx, form.celebrationTitle, getSlot(selectedTemplate, 'celebrationTitle'))
-      drawSingleText(ctx, form.scoreTitle, getSlot(selectedTemplate, 'scoreTitle'))
-
-      drawChip(ctx, DELIVERY_CENTER, getSlot(selectedTemplate, 'deliveryCenter'))
-
-      drawTextLines(
+      drawContainedImage(
         ctx,
-        [
-          `恭喜${form.studentRegion}${formatStudentDisplayName(form.studentName)}`,
-          buildCongratulationLine(form.studyDuration, form.scoreIncrease),
-        ],
-        getSlot(selectedTemplate, 'congratulation')
+        screenshotImage,
+        screenshotBox,
+        isLandscape ? '#f1f3f5' : undefined,
+        isLandscape
       )
 
-      drawTextLines(
-        ctx,
-        [form.teamName, form.coachSignature, form.bottomNote],
-        getSlot(selectedTemplate, 'footer')
-      )
+      if (selectedTemplate.layout === 'landscape') {
+        const titleSlot = getSlot(selectedTemplate, 'celebrationTitle')
+        const titleBaseline = 640
+        // Keep the form content below the fixed title area. This prevents a
+        // long optional note from pushing the subject/title into the panel edge.
+        const contentYStart = 680
+        const contentYEnd = 950
+        const availableHeight = contentYEnd - contentYStart
+
+        // Collect non-empty text blocks in display order
+        const blocks: Array<{ slot: TextSlot; lines: string[]; maxLines?: number }> = []
+
+        // 1. Student line
+        const studentLine = `恭喜${form.studentRegion}${form.studentGrade}${formatStudentDisplayName(form.studentName)}`
+        blocks.push({
+          slot: getSlot(selectedTemplate, 'student'),
+          lines: [studentLine],
+          maxLines: 1,
+        })
+
+        // 2. Progress — skip if both duration and increase are empty
+        const progressParts = [
+          form.studyDuration.trim() ? `学习${form.studyDuration.trim()}` : '',
+          form.scoreIncrease.trim() ? `提分${form.scoreIncrease.trim()}` : '',
+        ].filter(Boolean)
+        if (progressParts.length > 0) {
+          blocks.push({
+            slot: getSlot(selectedTemplate, 'progress'),
+            lines: [progressParts.join(' · ')],
+            maxLines: 1,
+          })
+        }
+
+        // 3. Footer — teamName & coachSignature, skip empty
+        const footerLines = [form.teamName, form.coachSignature]
+          .map((l) => l.trim())
+          .filter(Boolean)
+        if (footerLines.length > 0) {
+          blocks.push({
+            slot: getSlot(selectedTemplate, 'footer'),
+            lines: footerLines,
+            maxLines: 2,
+          })
+        }
+
+        // 4. Strategy (提升策略简介) — bottomNote, split by newlines
+        if (form.bottomNote.trim()) {
+          const strategyLines = form.bottomNote
+            .split('\n')
+            .map((l) => l.trim())
+            .filter(Boolean)
+          if (strategyLines.length > 0) {
+            blocks.push({
+              slot: getSlot(selectedTemplate, 'strategy'),
+              lines: strategyLines,
+              maxLines: 3,
+            })
+          }
+        }
+
+        const wrappedBlocks = blocks.map(({ slot, lines, maxLines }) => ({
+          slot,
+          lines: wrapTextLines(ctx, lines, slot, maxLines),
+        }))
+
+        // Dynamically distribute blocks vertically to fill the white area.
+        const blockHeights = wrappedBlocks.map(({ slot, lines }) => {
+          const lineHeight = slot.lineHeight ?? Math.round((slot.fontSize ?? 28) * 1.2)
+          return lineHeight * lines.length
+        })
+        const totalHeight = blockHeights.reduce((sum, h) => sum + h, 0)
+        const gap = Math.max(
+          4,
+          (availableHeight - totalHeight) / (wrappedBlocks.length + 1)
+        )
+
+        let currentY = contentYStart + gap
+        ctx.save()
+        ctx.beginPath()
+        ctx.rect(48, titleBaseline - titleSlot.fontSize - 24, leftWidth - 96, contentYEnd - titleBaseline + titleSlot.fontSize + 48)
+        ctx.clip()
+        drawSingleText(ctx, form.scoreTitle, { ...titleSlot, y: titleBaseline })
+        wrappedBlocks.forEach(({ slot, lines }, i) => {
+          drawTextLines(ctx, lines, { ...slot, y: currentY })
+          currentY += blockHeights[i] + gap
+        })
+        ctx.restore()
+
+        const watermarkSlot = getSlot(selectedTemplate, 'watermark')
+        drawWatermark(ctx, {
+          ...watermarkSlot,
+          x: screenshotBox.x + screenshotBox.width / 2,
+          y: screenshotBox.y + screenshotBox.height / 2 - (watermarkSlot.lineHeight ?? 84) / 2,
+        })
+      } else {
+        // Portrait: scoreTitle (提分科目) as the main title
+        drawSingleText(ctx, form.scoreTitle, getSlot(selectedTemplate, 'celebrationTitle'))
+        drawChip(ctx, DELIVERY_CENTER, getSlot(selectedTemplate, 'deliveryCenter'))
+
+        // Congratulation — skip second line if both duration and increase are empty
+        const congratulationLines = [
+          `恭喜${form.studentRegion}${form.studentGrade}${formatStudentDisplayName(form.studentName)}`,
+          form.studyDuration.trim() || form.scoreIncrease.trim()
+            ? buildCongratulationLine(form.studyDuration, form.scoreIncrease)
+            : '',
+        ].filter(Boolean)
+        drawTextLines(ctx, congratulationLines, getSlot(selectedTemplate, 'congratulation'))
+
+        // Footer — skip empty lines
+        const footerLines = [form.teamName, form.coachSignature, form.bottomNote]
+          .map((l) => l.trim())
+          .filter(Boolean)
+        if (footerLines.length > 0) {
+          drawTextLines(ctx, footerLines, getSlot(selectedTemplate, 'footer'))
+        }
+      }
 
       setGeneratedUrl(canvas.toDataURL('image/png', 1))
     } catch (error) {
@@ -483,35 +804,47 @@ export default function CaseImageGeneratorClient() {
             )}
 
             {!loadingTemplates && templates.length > 0 && (
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {templates.map((template) => (
-                  <button
-                    key={template.id}
-                    type="button"
-                    onClick={() => selectTemplate(template.id)}
-                    className={`
-                      relative overflow-hidden rounded-lg border-2 bg-white text-left transition-all
-                      ${selectedTemplateId === template.id
-                        ? 'border-primary-600 ring-2 ring-primary-100'
-                        : 'border-gray-200 hover:border-primary-300'
-                      }
-                    `}
-                  >
-                    <img
-                      src={template.previewUrl}
-                      alt={template.name}
-                      className="w-full aspect-[2/3] object-cover"
-                    />
-                    <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-8 text-xs font-medium text-white">
-                      {template.name}
-                    </span>
-                    {selectedTemplateId === template.id && (
-                      <span className="absolute right-2 top-2 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white">
-                        已选
+              <div className="grid grid-cols-2 sm:grid-cols-3 items-stretch gap-3">
+                {templates.map((template) => {
+                  const isLandscape = template.layout === 'landscape'
+                  return (
+                    <button
+                      key={template.id}
+                      type="button"
+                      onClick={() => selectTemplate(template.id)}
+                      className={`
+                        relative overflow-hidden rounded-lg border-2 bg-white text-left transition-all
+                        ${selectedTemplateId === template.id
+                          ? 'border-primary-600 ring-2 ring-primary-100'
+                          : 'border-gray-200 hover:border-primary-300'
+                        }
+                      `}
+                    >
+                      <img
+                        src={template.previewUrl}
+                        alt={template.name}
+                        className={
+                          isLandscape
+                            ? 'h-full w-full object-cover object-left'
+                            : 'w-full object-cover'
+                        }
+                        style={
+                          isLandscape
+                            ? undefined
+                            : { aspectRatio: `${template.width} / ${template.height}` }
+                        }
+                      />
+                      <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 pb-2 pt-8 text-xs font-medium text-white">
+                        {template.name}
                       </span>
-                    )}
-                  </button>
-                ))}
+                      {selectedTemplateId === template.id && (
+                        <span className="absolute right-2 top-2 rounded-full bg-primary-600 px-2 py-0.5 text-xs font-medium text-white">
+                          已选
+                        </span>
+                      )}
+                    </button>
+                  )
+                })}
               </div>
             )}
           </div>
@@ -580,18 +913,18 @@ export default function CaseImageGeneratorClient() {
                 placeholder="张小明"
                 required
               />
-              <TextField
-                label="喜报标题"
-                value={form.celebrationTitle}
-                onChange={(value) => updateForm('celebrationTitle', value)}
-                placeholder="高考喜报"
+              <SelectField
+                label="学生年级"
+                value={form.studentGrade}
+                onChange={(value) => updateForm('studentGrade', value)}
+                options={STUDENT_GRADES}
                 required
               />
-              <TextField
-                label="提分类目/标题"
+              <SelectField
+                label="提分科目"
                 value={form.scoreTitle}
                 onChange={(value) => updateForm('scoreTitle', value)}
-                placeholder="数学提分"
+                options={SCORE_SUBJECTS}
                 required
               />
               <TextField
@@ -618,12 +951,17 @@ export default function CaseImageGeneratorClient() {
                 onChange={(value) => updateForm('coachSignature', value)}
                 placeholder="梁树玉教练负责伴学"
               />
-              <TextField
-                label="底部补充文案"
-                value={form.bottomNote}
-                onChange={(value) => updateForm('bottomNote', value)}
-                placeholder="可留空"
-              />
+              <div className="sm:col-span-2">
+                <TextAreaField
+                  label="提升策略简介"
+                  value={form.bottomNote}
+                  onChange={(value) => updateForm('bottomNote', value)}
+                  placeholder="针对学生当前薄弱点，先通过试卷和错题找出主要失分原因，优先补基础、抓计算、改习惯，再针对不会的题型进行专项训练。每节课解决1—2个核心问题，配合同类题巩固和错题复盘，先做到会做的题不丢分，实现成绩稳定提升。"
+                  helper="最多 80 字，生成时会自动换行"
+                  maxLength={80}
+                  hidePlaceholderOnFocus
+                />
+              </div>
             </div>
 
             {formError && (

@@ -97,6 +97,30 @@ export function generateLearningPlannerPdfKey(
   return `uploads/learning-planner/${teacherId}-${timestamp}${fileExt}`
 }
 
+/** 生成实习证明草稿 PDF 的存储 key。 */
+export function generateInternshipCertificatePdfKey(
+  teacherId: string,
+  fileExt: string = '.pdf'
+): string {
+  return `uploads/internship-certificates/${teacherId}-${Date.now()}${fileExt}`
+}
+
+/** 生成实习证明正式版 PDF 的存储 key。 */
+export function generateInternshipCertificateOfficialPdfKey(
+  teacherId: string,
+  fileExt: string = '.pdf'
+): string {
+  return `uploads/internship-certificates/${teacherId}-official-${Date.now()}${fileExt}`
+}
+
+/** 生成用户自定义模板上传的实习证明 PDF 的存储 key。 */
+export function generateInternshipCertificateUploadPdfKey(
+  teacherId: string,
+  fileExt: string = '.pdf'
+): string {
+  return `uploads/internship-certificates/${teacherId}-upload-${Date.now()}${fileExt}`
+}
+
 /**
  * 生成七牛云上传凭证
  * @param key 文件在七牛云上的 key（路径）
