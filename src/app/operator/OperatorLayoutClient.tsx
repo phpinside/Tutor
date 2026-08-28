@@ -10,6 +10,7 @@ interface MenuItem {
 const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/teachers', label: '老师管理' },
   { path: '/admin/teachers?inviteAudit=my_first_review', label: '教练审核' },
+  { path: '/admin/tencent-meetings', label: '腾讯会议' },
   { path: '/operator/team', label: '团队人员管理' },
   { path: '/operator/planner-review', label: '规划师审核' },
   { path: '/operator/settings', label: '资料设置' },

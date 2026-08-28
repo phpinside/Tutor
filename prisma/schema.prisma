@@ -91,6 +91,19 @@ enum TeachingStatus {
   TAUGHT // 已授课
 }
 
+// 腾讯会议预约状态；进行中/已结束根据预约时间动态计算
+enum TencentMeetingBookingStatus {
+  SCHEDULED
+  CANCELLED
+}
+
+// 腾讯会议预约创建人员类型；历史老师预约也保留在共享列表中
+enum TencentMeetingCreatorType {
+  TEACHER
+  OPERATOR
+  ADMIN
+}
+
 // 运营人员
 model Operator {
   id           String   @id @default(cuid())
@@ -210,6 +223,7 @@ model Teacher {
   plannerCheckRecords      PlannerCheckRecord[]
   internshipCertificateDraft InternshipCertificateDraft?
   coachReview              CoachReview?
+  tencentMeetingBookings   TencentMeetingBooking[]
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -488,6 +502,37 @@ model PlannerCheckRecord {
   @@index([teacherId])
   @@index([status])
   @@map("planner_check_records")
+}
+
+// 通过共享腾讯会议账号创建的预约记录
+model TencentMeetingBooking {
+  id                String                      @id @default(cuid())
+  teacherId         String?
+  creatorType       TencentMeetingCreatorType   @default(ADMIN)
+  creatorId         String?
+  creatorName       String                      @default("管理员")
+  meetingId         String                      @unique
+  meetingCode       String
+  subject           String
+  startTime         DateTime
+  endTime           DateTime
+  joinUrl           String
+  meetingPassword   String?
+  status            TencentMeetingBookingStatus @default(SCHEDULED)
+  meetingRecordId   String?
+  recordingUrl      String?
+  recordingPassword String?
+  recordingSyncedAt DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime                    @default(now())
+  updatedAt         DateTime                    @updatedAt
+
+  teacher Teacher? @relation(fields: [teacherId], references: [id], onDelete: SetNull)
+
+  @@index([teacherId, startTime])
+  @@index([creatorType, creatorId])
+  @@index([status, endTime])
+  @@map("tencent_meeting_bookings")
 }
 
 // 教练两级审核记录

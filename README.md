@@ -48,7 +48,10 @@ cp .env.example .env
 DATABASE_URL="postgresql://user:password@localhost:5432/tutor_onboarding?schema=public"
 NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PORT=3000
+TENCENT_MEETING_TOKEN="从腾讯会议 AI Skill 专区获取的共享服务账号 Token"
 ```
+
+腾讯会议 Token 只能配置在服务端环境变量中，不要添加 `NEXT_PUBLIC_` 前缀，也不要提交真实 Token。
 
 ### 3. 初始化数据库
 
@@ -176,7 +179,7 @@ npm run dev
 
 1. 将代码推送到 GitHub
 2. 在 Vercel 导入项目
-3. 配置环境变量(DATABASE_URL)
+3. 配置环境变量（至少包含 `DATABASE_URL`；启用会议预约时还需配置 `TENCENT_MEETING_TOKEN`）
 4. 自动部署完成
 
 ### Docker 部署
@@ -244,4 +247,3 @@ MIT
 ---
 
 **注意**: 本系统为演示版本,视频上传功能需要集成云存储服务(如 Uploadthing、AWS S3 等)才能在生产环境使用。
-

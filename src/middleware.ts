@@ -7,6 +7,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/admin/referrals': ['super_admin'],
   '/admin/withdrawals': ['super_admin'],
   '/admin/internship-certificates': ['super_admin'],
+  '/admin/tencent-meetings': ['super_admin'],
   '/admin/config': ['super_admin'],
   '/admin/operators': ['super_admin'],
 }
@@ -24,8 +25,8 @@ function getRequiredRoles(pathname: string): string[] | null {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // 运营人员可直接访问 /admin/teachers/* 路径
-  if (pathname.startsWith('/admin/teachers')) {
+  // 运营人员可直接访问老师管理和共享腾讯会议路径
+  if (pathname.startsWith('/admin/teachers') || pathname.startsWith('/admin/tencent-meetings')) {
     const operatorSession = request.cookies.get('operator_session')
     if (operatorSession) {
       try {
@@ -123,7 +124,5 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*'],
 }
-
-
 
 
