@@ -22,7 +22,7 @@ CREATE TABLE "internship_certificate_drafts" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "internship_certificate_drafts_teacherId_key" ON "internship_certificate_drafts"("teacherId");
+CREATE INDEX "internship_certificate_drafts_teacherId_idx" ON "internship_certificate_drafts"("teacherId");
 CREATE INDEX "internship_certificate_drafts_status_idx" ON "internship_certificate_drafts"("status");
 CREATE INDEX "internship_certificate_drafts_createdAt_idx" ON "internship_certificate_drafts"("createdAt");
 

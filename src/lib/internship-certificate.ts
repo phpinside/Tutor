@@ -16,12 +16,12 @@ function formatDate(date: Date): string {
   return `${year}年${month}月${day}日`
 }
 
-/** 生成系统默认模板的实习证明 PDF（无水印、无草稿标注、无公章）。公章由管理员在预览中拖动后另行覆盖。 */
+/** 生成仅供审核使用的实习证明草稿 PDF；不包含公章或签名。 */
 export function generateInternshipCertificatePdf(data: InternshipCertificateData): Promise<Buffer> {
   const fontPath = path.join(process.cwd(), 'public', 'fonts', 'NotoSansCJKsc-Regular.otf')
 
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ size: 'A4', margins: { top: 58, bottom: 56, left: 76, right: 76 } })
+    const doc = new PDFDocument({ size: 'A4', margins: { top: 70, bottom: 70, left: 76, right: 76 } })
     const chunks: Buffer[] = []
     doc.on('data', (chunk: Buffer) => chunks.push(chunk))
     doc.on('end', () => resolve(Buffer.concat(chunks)))
@@ -29,8 +29,17 @@ export function generateInternshipCertificatePdf(data: InternshipCertificateData
 
     doc.font(fontPath)
 
+    // 斜向水印和顶部声明，确保该文件不会被误认为已正式开具的证明。
+    doc.save()
+    doc.rotate(-32, { origin: [300, 430] })
+    doc.fillColor('#d97706').fillOpacity(0.16).fontSize(38)
+    doc.text('草稿 · 待审核盖章', 35, 405, { width: 520, align: 'center' })
+    doc.restore()
+    doc.fillColor('#92400e').fillOpacity(1).fontSize(11)
+    doc.text('草稿 / 待审核盖章 · 不具备正式证明效力', 76, 42, { align: 'center', width: 443 })
+
     doc.fillColor('#111827').fontSize(20).text('实习实践证明', { align: 'center' })
-    doc.moveDown(1.1)
+    doc.moveDown(1.2)
 
     const bodyWidth = 443
     doc.fontSize(12).fillColor('#1f2937').lineGap(4)
@@ -64,6 +73,11 @@ export function generateInternshipCertificatePdf(data: InternshipCertificateData
     doc.text('（单位公章）', { width: bodyWidth, align: 'right' })
     doc.moveDown(1.0)
     doc.text(`日期：${formatDate(data.endDate)}`, { width: bodyWidth, align: 'right' })
+
+    doc.fillColor('#92400e').fontSize(10).text('本文件为系统自动生成的待审核草稿，需经单位审核并线下盖章后方可使用。', 76, 770, {
+      width: bodyWidth,
+      align: 'center',
+    })
 
     doc.end()
   })

@@ -29,16 +29,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '用户不存在' }, { status: 404 })
     }
 
-    const existing = await prisma.internshipCertificateDraft.findUnique({ where: { teacherId } })
-    // 处理中 / 待开具 / 已开具 均不允许重复提交；仅 已打回 / 失败 可重新提交
-    if (
-      existing &&
-      (existing.status === 'PROCESSING' ||
-        existing.status === 'COMPLETED' ||
-        existing.status === 'ISSUED')
-    ) {
+    // 同一时间仅允许生成一份，已完成、已开具和被打回的记录均保留为历史记录。
+    const processingDraft = await prisma.internshipCertificateDraft.findFirst({
+      where: { teacherId, status: 'PROCESSING' },
+      orderBy: { createdAt: 'desc' },
+    })
+    if (processingDraft) {
       return NextResponse.json(
-        { error: '已有处理中或已提交的申请，不能重复提交', draft: serializeDraft(existing) },
+        { error: '已有草稿正在生成，请完成后再提交新的申请', draft: serializeDraft(processingDraft) },
         { status: 409 }
       )
     }
@@ -60,40 +58,19 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: '实习开始日期不能晚于结束日期' }, { status: 400 })
       }
 
-      const draft = existing
-        ? await prisma.internshipCertificateDraft.update({
-            where: { teacherId },
-            data: {
-              name,
-              gender,
-              idCard,
-              startDate,
-              endDate,
-              companyName: COMPANY_NAME,
-              templateMode: 'SYSTEM',
-              status: 'PROCESSING',
-              pdfKey: null,
-              officialPdfKey: null,
-              errorMsg: null,
-              rejectionReason: null,
-              completedAt: null,
-              issuedAt: null,
-              rejectedAt: null,
-            },
-          })
-        : await prisma.internshipCertificateDraft.create({
-            data: {
-              teacherId,
-              name,
-              gender,
-              idCard,
-              startDate,
-              endDate,
-              companyName: COMPANY_NAME,
-              templateMode: 'SYSTEM',
-              status: 'PROCESSING',
-            },
-          })
+      const draft = await prisma.internshipCertificateDraft.create({
+        data: {
+          teacherId,
+          name,
+          gender,
+          idCard,
+          startDate,
+          endDate,
+          companyName: COMPANY_NAME,
+          templateMode: 'SYSTEM',
+          status: 'PROCESSING',
+        },
+      })
 
       void processInternshipCertificateDraft(draft.id)
       return NextResponse.json({ draft: serializeDraft(draft) }, { status: 202 })
@@ -105,37 +82,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请先上传实习证明 PDF' }, { status: 400 })
     }
 
-    const draft = existing
-      ? await prisma.internshipCertificateDraft.update({
-          where: { teacherId },
-          data: {
-            name: null,
-            gender: null,
-            idCard: null,
-            startDate: null,
-            endDate: null,
-            companyName: COMPANY_NAME,
-            templateMode: 'CUSTOM',
-            status: 'COMPLETED',
-            pdfKey,
-            officialPdfKey: null,
-            errorMsg: null,
-            rejectionReason: null,
-            completedAt: new Date(),
-            issuedAt: null,
-            rejectedAt: null,
-          },
-        })
-      : await prisma.internshipCertificateDraft.create({
-          data: {
-            teacherId,
-            companyName: COMPANY_NAME,
-            templateMode: 'CUSTOM',
-            status: 'COMPLETED',
-            pdfKey,
-            completedAt: new Date(),
-          },
-        })
+    const draft = await prisma.internshipCertificateDraft.create({
+      data: {
+        teacherId,
+        companyName: COMPANY_NAME,
+        templateMode: 'CUSTOM',
+        status: 'COMPLETED',
+        pdfKey,
+        completedAt: new Date(),
+      },
+    })
 
     return NextResponse.json({ draft: serializeDraft(draft) }, { status: 202 })
   } catch (error) {

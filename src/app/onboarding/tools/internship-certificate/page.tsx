@@ -9,9 +9,9 @@ export default async function InternshipCertificatePage() {
   const teacherId = (await cookies()).get('teacherId')?.value
   if (!teacherId) redirect('/auth/login')
 
-  const [teacher, draft] = await Promise.all([
+  const [teacher, drafts] = await Promise.all([
     prisma.teacher.findUnique({ where: { id: teacherId }, select: { name: true, gender: true } }),
-    prisma.internshipCertificateDraft.findUnique({ where: { teacherId } }),
+    prisma.internshipCertificateDraft.findMany({ where: { teacherId }, orderBy: { createdAt: 'desc' }, take: 20 }),
   ])
   if (!teacher) redirect('/auth/login')
 
@@ -23,16 +23,16 @@ export default async function InternshipCertificatePage() {
         </Link>
         <div className="flex items-center gap-3 mb-2">
           <span className="text-3xl">📄</span>
-          <h1 className="text-2xl font-bold text-gray-900">实习证明开具</h1>
+          <h1 className="text-2xl font-bold text-gray-900">实习证明草稿</h1>
         </div>
-        <p className="text-gray-600">选择系统默认模板填写信息，或上传自定义模板 PDF，单位审核开具后下载正式证明。</p>
+        <p className="text-gray-600">填写信息后生成带“草稿 / 待审核盖章”水印的 PDF，供单位审核使用。</p>
       </div>
 
       <InternshipCertificateClient
         teacherId={teacherId}
         initialName={teacher.name ?? ''}
         initialGender={teacher.gender ?? ''}
-        initialDraft={draft ? serializeDraft(draft) : null}
+        initialDrafts={drafts.map(serializeDraft)}
       />
     </div>
   )

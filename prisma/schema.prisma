@@ -221,7 +221,7 @@ model Teacher {
   learningPlannerApplication LearningPlannerApplication?
   defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
   plannerCheckRecords      PlannerCheckRecord[]
-  internshipCertificateDraft InternshipCertificateDraft?
+  internshipCertificateDrafts InternshipCertificateDraft[]
   coachReview              CoachReview?
   tencentMeetingBookings   TencentMeetingBooking[]
 
@@ -458,7 +458,7 @@ enum InternshipCertificateTemplateMode {
 // 实习证明申请（每位老师仅保留一条）
 model InternshipCertificateDraft {
   id             String                           @id @default(cuid())
-  teacherId      String                           @unique
+  teacherId      String
   name           String?
   gender         String?
   idCard         String?
@@ -480,6 +480,7 @@ model InternshipCertificateDraft {
   teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
   @@index([status])
+  @@index([teacherId])
   @@index([createdAt])
   @@map("internship_certificate_drafts")
 }
