@@ -11,7 +11,8 @@ type Props = {
   onIssued: () => void
 }
 
-type StampState = { left: number; top: number; width: number }
+type StampState = { page: number; left: number; top: number; width: number }
+type PageMetric = { width: number; height: number; scale: number }
 
 const DEFAULT_STAMP_PT = 110
 
@@ -66,24 +67,24 @@ export function preloadStampPreview(draftId: string, previewVersion: string | nu
 
 export default function StampPreviewModal({ draftId, previewVersion, title, onClose, onIssued }: Props) {
   const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([])
+  const pageContainerRefs = useRef<Array<HTMLDivElement | null>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [pageCount, setPageCount] = useState(0)
-  const [pageWidth, setPageWidth] = useState(0)
-  const [pageHeight, setPageHeight] = useState(0)
-  const [scale, setScale] = useState(1)
-  const [stamp, setStamp] = useState<StampState>({ left: 0, top: 0, width: 0 })
+  const [pageMetrics, setPageMetrics] = useState<PageMetric[]>([])
+  const [stamp, setStamp] = useState<StampState>({ page: 0, left: 0, top: 0, width: 0 })
   const [stampWidthPt, setStampWidthPt] = useState(DEFAULT_STAMP_PT)
   const [issuing, setIssuing] = useState(false)
   const [actionError, setActionError] = useState('')
-  const dragRef = useRef<{ startX: number; startY: number; origLeft: number; origTop: number } | null>(null)
+  const dragRef = useRef<{ offsetX: number; offsetY: number } | null>(null)
 
-  // 每页单独渲染，管理员在一个可滚动区域内预览完整 PDF；印章仍定位于第一页。
+  // 每页单独渲染；印章默认位于最后一页，可拖动到任意页面。
   useEffect(() => {
     let cancelled = false
     setLoading(true)
     setError('')
     setPageCount(0)
+    setPageMetrics([])
     ;(async () => {
       try {
         const [data, pdfjs] = await Promise.all([loadPreviewPdf(draftId, previewVersion), loadPdfJs()])
@@ -96,6 +97,7 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
         if (cancelled) return
 
         const maxWidth = Math.min(560, window.innerWidth - 80)
+        const metrics: PageMetric[] = []
         for (let index = 0; index < document.numPages; index += 1) {
           const page = await document.getPage(index + 1)
           const baseViewport = page.getViewport({ scale: 1 })
@@ -108,15 +110,17 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
           const context = canvas.getContext('2d')
           if (!context) throw new Error(`第 ${index + 1} 页无法获取画布`)
           await page.render({ canvasContext: context, viewport, canvas }).promise
-          if (index === 0) {
-            setPageWidth(baseViewport.width)
-            setPageHeight(baseViewport.height)
-            setScale(pageScale)
-            const stampWidth = DEFAULT_STAMP_PT * pageScale
-            setStamp({ left: viewport.width - stampWidth - 24, top: viewport.height - stampWidth - 90, width: stampWidth })
-          }
+          metrics.push({ width: viewport.width, height: viewport.height, scale: pageScale })
         }
-        if (!cancelled) setLoading(false)
+        if (!cancelled) {
+          const lastPage = metrics.length - 1
+          const lastMetric = metrics[lastPage]
+          if (!lastMetric) throw new Error('PDF 没有可预览的页面')
+          const stampWidth = DEFAULT_STAMP_PT * lastMetric.scale
+          setPageMetrics(metrics)
+          setStamp({ page: lastPage, left: lastMetric.width - stampWidth - 24, top: lastMetric.height - stampWidth - 90, width: stampWidth })
+          setLoading(false)
+        }
       } catch (renderError) {
         if (!cancelled) {
           setError(renderError instanceof Error ? renderError.message : '预览加载失败')
@@ -128,38 +132,63 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
   }, [draftId, previewVersion])
 
   useEffect(() => {
-    if (!scale) return
-    setStamp((previous) => ({ ...previous, width: stampWidthPt * scale }))
-  }, [stampWidthPt, scale])
+    setStamp((previous) => {
+      const metric = pageMetrics[previous.page]
+      if (!metric) return previous
+      const width = stampWidthPt * metric.scale
+      return {
+        ...previous,
+        width,
+        left: Math.max(0, Math.min(metric.width - width, previous.left)),
+        top: Math.max(0, Math.min(metric.height - width, previous.top)),
+      }
+    })
+  }, [stampWidthPt, pageMetrics])
+
+  const moveStampToPointer = (clientX: number, clientY: number) => {
+    if (!dragRef.current) return
+    const targetPage = pageContainerRefs.current.findIndex((node) => {
+      const rect = node?.getBoundingClientRect()
+      return !!rect && clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom
+    })
+    const metric = pageMetrics[targetPage]
+    const container = pageContainerRefs.current[targetPage]
+    if (!metric || !container) return
+    const rect = container.getBoundingClientRect()
+    const width = stampWidthPt * metric.scale
+    setStamp({
+      page: targetPage,
+      width,
+      left: Math.max(0, Math.min(metric.width - width, clientX - rect.left - dragRef.current.offsetX)),
+      top: Math.max(0, Math.min(metric.height - width, clientY - rect.top - dragRef.current.offsetY)),
+    })
+  }
 
   const onPointerDown = (event: React.PointerEvent) => {
     event.preventDefault()
     event.stopPropagation()
-    ;(event.target as HTMLElement).setPointerCapture(event.pointerId)
-    dragRef.current = { startX: event.clientX, startY: event.clientY, origLeft: stamp.left, origTop: stamp.top }
-  }
-
-  const onPointerMove = (event: React.PointerEvent) => {
-    if (!dragRef.current) return
-    const maxX = pageWidth * scale - stamp.width
-    const maxY = pageHeight * scale - stamp.width
-    setStamp((previous) => ({
-      ...previous,
-      left: Math.max(0, Math.min(maxX, dragRef.current!.origLeft + event.clientX - dragRef.current!.startX)),
-      top: Math.max(0, Math.min(maxY, dragRef.current!.origTop + event.clientY - dragRef.current!.startY)),
-    }))
+    dragRef.current = { offsetX: event.clientX - event.currentTarget.getBoundingClientRect().left, offsetY: event.clientY - event.currentTarget.getBoundingClientRect().top }
+    const onDocumentMove = (moveEvent: PointerEvent) => moveStampToPointer(moveEvent.clientX, moveEvent.clientY)
+    const onDocumentUp = () => {
+      dragRef.current = null
+      document.removeEventListener('pointermove', onDocumentMove)
+      document.removeEventListener('pointerup', onDocumentUp)
+    }
+    document.addEventListener('pointermove', onDocumentMove)
+    document.addEventListener('pointerup', onDocumentUp)
   }
 
   const handleConfirm = async () => {
-    if (!scale) return
+    const metric = pageMetrics[stamp.page]
+    if (!metric) return
     setActionError('')
     setIssuing(true)
     try {
       const result = await issueInternshipCertificate(draftId, {
-        x: stamp.left / scale,
-        y: stamp.top / scale,
-        width: stamp.width / scale,
-        page: 0,
+        x: stamp.left / metric.scale,
+        y: stamp.top / metric.scale,
+        width: stamp.width / metric.scale,
+        page: stamp.page,
       })
       if (!result.success) {
         setActionError(result.error || '开具失败，请稍后重试')
@@ -187,7 +216,7 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
           {!error && loading && <div className="py-16 text-center text-gray-500"><div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-4 border-gray-200 border-t-primary-600" />正在加载完整预览…</div>}
           {!error && (
             <div className={loading ? 'hidden' : undefined}>
-              <p className="mb-2 text-sm text-gray-500">已加载完整 PDF（共 {pageCount} 页）。拖动第一页的公章到合适位置，调整大小后确认开具。</p>
+              <p className="mb-2 text-sm text-gray-500">已加载完整 PDF（共 {pageCount} 页）。公章默认在最后一页，可拖动到任意页面，调整大小后确认开具。</p>
               <div className="mb-3 flex items-center gap-3 text-sm text-gray-600">
                 <span>公章大小</span>
                 <input type="range" min={60} max={180} value={stampWidthPt} onChange={(event) => setStampWidthPt(Number(event.target.value))} className="flex-1" />
@@ -196,10 +225,10 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
               <div className="space-y-5">
                 {Array.from({ length: pageCount }, (_, index) => (
                   <div key={index}>
-                    <p className="mb-2 text-center text-xs text-gray-500">第 {index + 1} 页{index === 0 ? '（公章定位页）' : ''}</p>
-                    <div className="relative mx-auto w-fit select-none rounded border border-gray-300 bg-gray-50 shadow-sm">
+                    <p className="mb-2 text-center text-xs text-gray-500">第 {index + 1} 页{index === stamp.page ? '（公章定位页）' : ''}</p>
+                    <div ref={(node) => { pageContainerRefs.current[index] = node }} className="relative mx-auto w-fit select-none rounded border border-gray-300 bg-gray-50 shadow-sm">
                       <canvas ref={(node) => { canvasRefs.current[index] = node }} className="block" />
-                      {index === 0 && <img src="/yishenger.png" alt="公章" draggable={false} onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={() => { dragRef.current = null }} className="absolute cursor-move touch-none" style={{ left: stamp.left, top: stamp.top, width: stamp.width, height: stamp.width }} />}
+                      {index === stamp.page && <img src="/yishenger.png" alt="公章" draggable={false} onPointerDown={onPointerDown} className="absolute cursor-move touch-none" style={{ left: stamp.left, top: stamp.top, width: stamp.width, height: stamp.width }} />}
                     </div>
                   </div>
                 ))}
