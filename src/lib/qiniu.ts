@@ -122,6 +122,36 @@ export function generateInternshipCertificateUploadPdfKey(
 }
 
 /**
+ * 生成案例喜报图片的存储 key。
+ * 文件名段沿用"案例喜报-学生显示名-时间戳"风格，attname 强制下载时会作为默认文件名。
+ */
+export function generateCaseImageKey(teacherId: string, studentName: string): string {
+  const safeName = (studentName || '案例')
+    .replace(/[\\/:*?"<>|\s]+/g, '')
+    .slice(0, 30) || '案例'
+  return `uploads/case-images/${teacherId}/案例喜报-${safeName}-${Date.now()}.png`
+}
+
+/**
+ * 生成案例图喜报图片的私有下载 URL（带签名）。
+ * download 为 true 时在签名前附加 attname 参数，强制浏览器以附件形式下载。
+ */
+export function generateCaseImagePrivateUrl(
+  key: string,
+  options?: { download?: boolean; deadline?: number }
+): string {
+  const expireTime = options?.deadline || Math.floor(Date.now() / 1000) + 3600
+
+  const encodedKey = key.split('/').map(encodeURIComponent).join('/')
+  const baseUrl = `${QINIU_CONFIG.domain}/${encodedKey}?e=${expireTime}${options?.download ? '&attname=' : ''}`
+
+  const signature = (qiniu.util as any).hmacSha1(baseUrl, QINIU_CONFIG.secretKey)
+  const encodedSign = (qiniu.util as any).base64ToUrlSafe(signature)
+  const downloadToken = `${QINIU_CONFIG.accessKey}:${encodedSign}`
+  return `${baseUrl}&token=${downloadToken}`
+}
+
+/**
  * 生成七牛云上传凭证
  * @param key 文件在七牛云上的 key（路径）
  * @param expires 过期时间（秒），默认 1 小时

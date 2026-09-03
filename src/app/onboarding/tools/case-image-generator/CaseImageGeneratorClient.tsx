@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { CaseImageRecordDTO } from '@/lib/case-image-records'
+import { formatDateTime } from '@/lib/utils'
 
 type Box = {
   x: number
@@ -473,7 +475,11 @@ function buildCongratulationLine(studyDuration: string, scoreIncrease: string) {
   return '在鼎伴学提分'
 }
 
-export default function CaseImageGeneratorClient() {
+export default function CaseImageGeneratorClient({
+  initialRecords,
+}: {
+  initialRecords: CaseImageRecordDTO[]
+}) {
   const [templates, setTemplates] = useState<CaseImageTemplate[]>([])
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null)
   const [loadingTemplates, setLoadingTemplates] = useState(true)
@@ -484,6 +490,9 @@ export default function CaseImageGeneratorClient() {
   const [generatedUrl, setGeneratedUrl] = useState<string | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [records, setRecords] = useState<CaseImageRecordDTO[]>(initialRecords)
+  const [saveNotice, setSaveNotice] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [previewRecord, setPreviewRecord] = useState<CaseImageRecordDTO | null>(null)
 
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const screenshotObjectUrlRef = useRef<string | null>(null)
@@ -771,11 +780,62 @@ export default function CaseImageGeneratorClient() {
       }
 
       setGeneratedUrl(canvas.toDataURL('image/png', 1))
+      void saveRecord(canvas)
     } catch (error) {
       console.error('生成案例图片失败:', error)
       setFormError(error instanceof Error ? error.message : '生成失败，请重试')
     } finally {
       setIsGenerating(false)
+    }
+  }
+
+  const saveRecord = async (canvas: HTMLCanvasElement) => {
+    setSaveNotice(null)
+
+    const blob = await new Promise<Blob | null>((resolve) => {
+      canvas.toBlob(resolve, 'image/png', 1)
+    })
+    if (!blob) {
+      setSaveNotice({ type: 'error', text: '历史记录保存失败：图片导出异常' })
+      return
+    }
+
+    const formData = new FormData()
+    formData.append('image', blob, 'case.png')
+    formData.append('payload', JSON.stringify({
+      templateId: selectedTemplate?.id,
+      templateName: selectedTemplate?.name,
+      studentRegion: form.studentRegion,
+      studentName: form.studentName,
+      studentGrade: form.studentGrade,
+      scoreTitle: form.scoreTitle,
+      studyDuration: form.studyDuration,
+      scoreIncrease: form.scoreIncrease,
+      teamName: form.teamName,
+      coachSignature: form.coachSignature,
+      bottomNote: form.bottomNote,
+    }))
+
+    try {
+      const response = await fetch('/api/tools/case-image-records', {
+        method: 'POST',
+        body: formData,
+      })
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        throw new Error(data?.error || '保存失败')
+      }
+      const record = data?.record as CaseImageRecordDTO | undefined
+      if (record) {
+        setRecords((prev) => [record, ...prev])
+      }
+      setSaveNotice({ type: 'success', text: '已自动保存到历史生成记录' })
+    } catch (error) {
+      console.error('保存历史记录失败:', error)
+      setSaveNotice({
+        type: 'error',
+        text: error instanceof Error ? `历史记录保存失败：${error.message}` : '历史记录保存失败，不影响本地下载',
+      })
     }
   }
 
@@ -1044,6 +1104,122 @@ export default function CaseImageGeneratorClient() {
           </div>
         </aside>
       </div>
+
+      <div className="card">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-base font-semibold text-gray-900">历史生成记录</h2>
+          {saveNotice && (
+            <span
+              className={`text-sm ${
+                saveNotice.type === 'success' ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              {saveNotice.text}
+            </span>
+          )}
+        </div>
+
+        {records.length === 0 ? (
+          <div className="rounded-lg bg-gray-50 px-4 py-10 text-center text-sm text-gray-400">
+            暂无生成记录，生成案例图后会自动保存到这里
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {records.map((record) => {
+              const detail = [
+                record.studyDuration && `学习${record.studyDuration}`,
+                record.scoreIncrease && `提分${record.scoreIncrease}`,
+                record.teamName,
+                record.coachSignature,
+              ]
+                .filter(Boolean)
+                .join(' · ')
+
+              return (
+                <li key={record.id} className="flex items-center gap-3 py-3">
+                  <button
+                    type="button"
+                    onClick={() => setPreviewRecord(record)}
+                    aria-label="查看大图"
+                    className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
+                  >
+                    <img src={record.imageUrl} alt="" className="h-full w-full object-cover" />
+                  </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-x-2 text-sm">
+                      <span className="font-medium text-gray-900">
+                        {record.studentRegion} {record.studentGrade} {record.studentName}
+                      </span>
+                      <span className="rounded-full bg-primary-50 px-2 py-0.5 text-xs text-primary-700">
+                        {record.scoreTitle}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 truncate text-xs text-gray-400">
+                      {formatDateTime(record.createdAt)}
+                      {detail ? ` · ${detail}` : ''}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPreviewRecord(record)}
+                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                    >
+                      查看大图
+                    </button>
+                    <a
+                      href={record.imageDownloadUrl}
+                      className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+                    >
+                      下载
+                    </a>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )}
+      </div>
+
+      {previewRecord && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => setPreviewRecord(null)}
+        >
+          <div
+            className="relative max-h-full w-auto max-w-3xl overflow-auto rounded-xl bg-white p-4"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p className="mb-3 text-center text-sm text-gray-600">
+              {formatDateTime(previewRecord.createdAt)} ·{' '}
+              {previewRecord.studentRegion} {previewRecord.studentGrade} {previewRecord.studentName} ·{' '}
+              {previewRecord.scoreTitle}
+              {previewRecord.teamName ? ` · ${previewRecord.teamName}` : ''}
+              {previewRecord.coachSignature ? ` · ${previewRecord.coachSignature}` : ''}
+            </p>
+            <img
+              src={previewRecord.imageUrl}
+              alt={`案例图 - ${previewRecord.studentName}`}
+              className="mx-auto max-h-[72vh] w-auto rounded-lg"
+            />
+            <div className="mt-4 flex justify-center gap-2">
+              <a
+                href={previewRecord.imageDownloadUrl}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-green-700"
+              >
+                下载案例图
+              </a>
+              <button
+                type="button"
+                onClick={() => setPreviewRecord(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
+              >
+                关闭
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <canvas ref={canvasRef} className="hidden" />
     </div>

@@ -224,6 +224,7 @@ model Teacher {
   internshipCertificateDrafts InternshipCertificateDraft[]
   coachReview              CoachReview?
   tencentMeetingBookings   TencentMeetingBooking[]
+  caseImageRecords         CaseImageRecord[]
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -483,6 +484,32 @@ model InternshipCertificateDraft {
   @@index([teacherId])
   @@index([createdAt])
   @@map("internship_certificate_drafts")
+}
+
+// 案例图片生成记录（老师端生成喜报案例图后自动保存）
+model CaseImageRecord {
+  id             String   @id @default(cuid())
+  teacherId      String
+  templateId     String?  // 使用的模板 id
+  templateName   String?  // 使用的模板名称
+  studentRegion  String   // 学生地区
+  studentName    String   // 学生姓名
+  studentGrade   String   // 学生年级
+  scoreTitle     String   // 提分科目（数学喜报/物理喜报/化学喜报）
+  studyDuration  String   // 学习时长
+  scoreIncrease  String   // 提分分数
+  teamName       String   // 团队名
+  coachSignature String   // 教练署名
+  bottomNote     String?  // 提升策略简介
+  imageKey       String   // 案例图在七牛云上的存储 key
+
+  createdAt DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId, createdAt])
+  @@index([createdAt])
+  @@map("case_image_records")
 }
 
 // 规划书自查记录

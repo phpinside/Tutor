@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import { prisma } from '@/lib/prisma'
+import { serializeCaseImageRecord } from '@/lib/case-image-records'
 import CaseImageGeneratorClient from './CaseImageGeneratorClient'
+
+export const dynamic = 'force-dynamic'
 
 export default async function CaseImageGeneratorPage() {
   const cookieStore = await cookies()
@@ -10,6 +14,12 @@ export default async function CaseImageGeneratorPage() {
   if (!teacherId) {
     redirect('/auth/login')
   }
+
+  const records = await prisma.caseImageRecord.findMany({
+    where: { teacherId },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  })
 
   return (
     <div className="animate-fade-in">
@@ -29,7 +39,9 @@ export default async function CaseImageGeneratorPage() {
         </p>
       </div>
 
-      <CaseImageGeneratorClient />
+      <CaseImageGeneratorClient
+        initialRecords={records.map((record) => serializeCaseImageRecord(record))}
+      />
     </div>
   )
 }
