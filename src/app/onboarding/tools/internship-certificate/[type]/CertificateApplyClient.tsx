@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   CERTIFICATE_TYPE_LABELS,
+  getTemplateFieldDefault,
   toChineseAmount,
   type CertificateTypeKey,
   type TemplateFieldDef,
@@ -40,13 +41,6 @@ type TemplateSummary = {
   defaultCompanyId: string | null
 }
 
-const CERTIFICATE_TYPES: CertificateTypeKey[] = ['INTERNSHIP', 'LABOR_CONFIRMATION']
-
-const TYPE_DESCRIPTIONS: Record<CertificateTypeKey, string> = {
-  INTERNSHIP: '实习实践期间参与 AI 伴学项目的证明文件',
-  LABOR_CONFIRMATION: 'AI 伴学项目劳务服务完成情况及费用确认文件',
-}
-
 function formatDateTime(value: string) {
   return new Intl.DateTimeFormat('zh-CN', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(value))
 }
@@ -55,14 +49,15 @@ function statusLabel(status: Draft['status']) {
   return { PROCESSING: '生成中', COMPLETED: '待审核', ISSUED: '已开具', REJECTED: '已打回', FAILED: '生成失败' }[status]
 }
 
-export default function InternshipCertificateClient({ teacherId, initialName, initialGender, initialDrafts, templates }: {
+export default function CertificateApplyClient({ teacherId, certificateType, initialName, initialGender, initialIdentity, initialDrafts, templates }: {
   teacherId: string
+  certificateType: CertificateTypeKey
   initialName: string
   initialGender: string
+  initialIdentity: { name: string | null; gender: string | null; idCard: string | null }
   initialDrafts: Draft[]
   templates: TemplateSummary[]
 }) {
-  const [certType, setCertType] = useState<CertificateTypeKey | null>(null)
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummary | null>(null)
   const [companyId, setCompanyId] = useState<string | null>(null)
   const [customMode, setCustomMode] = useState(false)
@@ -77,11 +72,6 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
 
   const processingDraft = useMemo(() => records.find((record) => record.status === 'PROCESSING') ?? null, [records])
 
-  const typeTemplates = useMemo(
-    () => (certType ? templates.filter((template) => template.type === certType) : []),
-    [templates, certType]
-  )
-
   useEffect(() => {
     if (!processingDraft) return
     const timer = window.setInterval(async () => {
@@ -93,13 +83,21 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
     return () => window.clearInterval(timer)
   }, [processingDraft?.id])
 
+  // 表单预填优先级：历史申请身份信息 > 老师账号资料 > 字段配置的默认值 > 空
   const initValues = (template: TemplateSummary) => {
     const next: Record<string, string> = {}
     for (const field of template.fields) {
-      if (field.key === 'name') next.name = initialName
-      if (field.key === 'gender' && (!initialGender || !field.options || field.options.includes(initialGender))) {
-        next.gender = initialGender
+      const defaultValue = getTemplateFieldDefault(field)
+      if (defaultValue && next[field.key] === undefined) next[field.key] = defaultValue
+      if (field.key === 'name') {
+        const name = initialIdentity.name || initialName
+        if (name) next.name = name
       }
+      if (field.key === 'gender') {
+        const gender = initialIdentity.gender || initialGender
+        if (gender && (!field.options || field.options.includes(gender))) next.gender = gender
+      }
+      if (field.key === 'idCard' && initialIdentity.idCard) next.idCard = initialIdentity.idCard
     }
     setValues(next)
   }
@@ -122,14 +120,6 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
   }
 
   const backToSource = () => {
-    setSelectedTemplate(null)
-    setCustomMode(false)
-    setError('')
-    setCompanyId(null)
-  }
-
-  const backToType = () => {
-    setCertType(null)
     setSelectedTemplate(null)
     setCustomMode(false)
     setError('')
@@ -199,7 +189,6 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
     event.preventDefault()
     setError('')
     if (processingDraft) return setError('已有草稿正在生成，请完成后再提交新的申请')
-    if (!certType) return setError('请先选择证明类型')
     if (selectedTemplate) {
       const validationError = validateForm()
       if (validationError) return setError(validationError)
@@ -209,8 +198,8 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
     setSubmitting(true)
     try {
       const body = selectedTemplate
-        ? { certificateType: certType, templateId: selectedTemplate.id, companyId, data: values }
-        : { certificateType: certType, templateMode: 'CUSTOM', pdfKey }
+        ? { certificateType, templateId: selectedTemplate.id, companyId, data: values }
+        : { certificateType, templateMode: 'CUSTOM', pdfKey }
       const response = await fetch('/api/tools/internship-certificate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       const data = await response.json() as { draft?: Draft; error?: string }
       if (!response.ok || !data.draft) {
@@ -289,46 +278,33 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
       {processingDraft && <div className="card flex items-center gap-4"><div className="h-8 w-8 shrink-0 animate-spin rounded-full border-4 border-indigo-200 border-t-indigo-600" /><div><h2 className="font-semibold text-gray-900">PDF 处理中</h2><p className="mt-1 text-sm text-gray-500">生成完成前暂不能提交新的申请。</p></div></div>}
 
       <div className={processingDraft ? 'pointer-events-none opacity-60' : ''}>
-        {/* 第一步：选择证明类型 */}
-        {!certType && (
+        {/* 第一步：选择系统模板或自定义上传 */}
+        {!selectedTemplate && !customMode && (
           <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {CERTIFICATE_TYPES.map((type) => (
-              <button key={type} type="button" onClick={() => setCertType(type)} className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-indigo-300">
-                <div className="font-semibold text-gray-900">{CERTIFICATE_TYPE_LABELS[type]}</div>
-                <p className="mt-1 text-xs text-gray-500">{TYPE_DESCRIPTIONS[type]}</p>
+            {templates.map((template) => (
+              <button key={template.id} type="button" onClick={() => chooseTemplate(template)} className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-indigo-300">
+                <div className="font-semibold text-gray-900">{template.name}</div>
+                <p className="mt-1 text-xs text-gray-500">系统模板 · 填写信息后生成「{template.title}」PDF 草稿</p>
               </button>
             ))}
+            <button type="button" onClick={chooseCustom} className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-indigo-300">
+              <div className="font-semibold text-gray-900">自定义模板</div>
+              <p className="mt-1 text-xs text-gray-500">上传已获授权的 PDF 草稿模板</p>
+            </button>
           </div>
         )}
-
-        {/* 第二步：选择系统模板或自定义上传 */}
-        {certType && !selectedTemplate && !customMode && (
-          <>
-            <button type="button" onClick={backToType} className="mb-3 text-sm text-gray-500 hover:text-gray-700">← 重新选择证明类型</button>
-            <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {typeTemplates.map((template) => (
-                <button key={template.id} type="button" onClick={() => chooseTemplate(template)} className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-indigo-300">
-                  <div className="font-semibold text-gray-900">{template.name}</div>
-                  <p className="mt-1 text-xs text-gray-500">系统模板 · 填写信息后生成「{template.title}」PDF 草稿</p>
-                </button>
-              ))}
-              <button type="button" onClick={chooseCustom} className="rounded-xl border-2 border-gray-200 bg-white p-4 text-left transition-colors hover:border-indigo-300">
-                <div className="font-semibold text-gray-900">自定义模板</div>
-                <p className="mt-1 text-xs text-gray-500">上传已获授权的 PDF 草稿模板</p>
-              </button>
-            </div>
-            {typeTemplates.length === 0 && <p className="mb-4 text-sm text-gray-500">该类型暂无系统模板，可选择自定义上传。</p>}
-          </>
+        {!selectedTemplate && !customMode && templates.length === 0 && (
+          <p className="mb-4 text-sm text-gray-500">该类型暂无系统模板，可选择自定义上传。</p>
         )}
 
-        {/* 第三步：填写表单或上传 PDF */}
+        {/* 第二步：填写表单或上传 PDF */}
         {(selectedTemplate || customMode) && (
           <>
             <button type="button" onClick={backToSource} className="mb-3 text-sm text-gray-500 hover:text-gray-700">← 重新选择模板</button>
             <form onSubmit={submit} className="card space-y-5">
               {selectedTemplate && (
                 <div className="rounded-lg bg-indigo-50 px-4 py-3 text-sm text-indigo-900">
-                  {CERTIFICATE_TYPE_LABELS[certType!]} · {selectedTemplate.name}
+                  {CERTIFICATE_TYPE_LABELS[certificateType]} · {selectedTemplate.name}
                 </div>
               )}
               {selectedTemplate ? (
@@ -365,8 +341,8 @@ export default function InternshipCertificateClient({ teacherId, initialName, in
       </div>
 
       <div className="card">
-        <h2 className="mb-4 text-lg font-semibold text-gray-900">申请记录</h2>
-        {records.length === 0 ? <p className="text-sm text-gray-500">暂时没有申请记录。</p> : <div className="space-y-3">{records.map((record) => <div key={record.id} className="rounded-lg border border-gray-200 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><span className="font-medium text-gray-900">{CERTIFICATE_TYPE_LABELS[record.certificateType] ?? '证明申请'} · {record.templateMode === 'SYSTEM' ? record.templateName ?? '系统模板' : '自定义上传'}</span><span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{statusLabel(record.status)}</span></div><span className="text-xs text-gray-500">{formatDateTime(record.createdAt)}</span></div>{record.startDate && record.endDate && <p className="mt-2 text-sm text-gray-600">起止日期：{record.startDate} 至 {record.endDate}</p>}{record.status === 'FAILED' && <p className="mt-2 text-sm text-red-600">{record.errorMsg || '生成失败，请重新提交。'}</p>}{record.status === 'REJECTED' && <p className="mt-2 text-sm text-amber-700">打回原因：{record.rejectionReason || '请联系管理员了解详情。'}</p>}{record.status === 'ISSUED' && record.downloadUrl && <a href={record.downloadUrl} download className="mt-3 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">下载 PDF</a>}</div>)}</div>}
+        <h2 className="mb-4 text-lg font-semibold text-gray-900">{CERTIFICATE_TYPE_LABELS[certificateType]}申请记录</h2>
+        {records.length === 0 ? <p className="text-sm text-gray-500">暂时没有申请记录。</p> : <div className="space-y-3">{records.map((record) => <div key={record.id} className="rounded-lg border border-gray-200 p-4"><div className="flex flex-wrap items-center justify-between gap-2"><div><span className="font-medium text-gray-900">{record.templateMode === 'SYSTEM' ? record.templateName ?? '系统模板' : '自定义上传'}</span><span className="ml-2 rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-700">{statusLabel(record.status)}</span></div><span className="text-xs text-gray-500">{formatDateTime(record.createdAt)}</span></div>{record.startDate && record.endDate && <p className="mt-2 text-sm text-gray-600">起止日期：{record.startDate} 至 {record.endDate}</p>}{record.status === 'FAILED' && <p className="mt-2 text-sm text-red-600">{record.errorMsg || '生成失败，请重新提交。'}</p>}{record.status === 'REJECTED' && <p className="mt-2 text-sm text-amber-700">打回原因：{record.rejectionReason || '请联系管理员了解详情。'}</p>}{record.status === 'ISSUED' && record.downloadUrl && <a href={record.downloadUrl} download className="mt-3 inline-flex rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">下载 PDF</a>}</div>)}</div>}
       </div>
     </div>
   )

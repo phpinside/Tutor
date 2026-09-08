@@ -68,8 +68,8 @@ const LABOR_CONFIRMATION_TEMPLATE = {
   fields: [
     { key: 'name', label: '姓名', type: 'text', required: true },
     { key: 'idCard', label: '身份证号码', type: 'text', required: true },
-    { key: 'startDate', label: '劳务开始日期', type: 'date', required: true },
-    { key: 'endDate', label: '劳务结束日期', type: 'date', required: true },
+    { key: 'startDate', label: '劳务开始日期', type: 'date', required: true, default: 'lastMonthStart' },
+    { key: 'endDate', label: '劳务结束日期', type: 'date', required: true, default: 'lastMonthEnd' },
     { key: 'projectName', label: '项目名称（选填）', type: 'text', placeholder: '如：AI伴学项目' },
     { key: 'amount', label: '劳务费金额（元）', type: 'amount', required: true },
   ],

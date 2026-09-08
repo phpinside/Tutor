@@ -16,6 +16,8 @@ export interface TemplateFieldDef {
   required?: boolean
   options?: string[]
   placeholder?: string
+  /** 默认值：日期字段支持相对日期令牌 today / lastMonthStart / lastMonthEnd，其它类型为字面量 */
+  default?: string
 }
 
 export interface CertificateTemplateConfig {
@@ -50,6 +52,35 @@ export function formatDateCN(date: Date): string {
   return `${year}年${month}月${day}日`
 }
 
+/** 日期输入框（type=date）使用的 YYYY-MM-DD 本地格式 */
+export function formatDateInputValue(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+/** 日期字段支持的相对日期默认值令牌 */
+export const DATE_DEFAULT_TOKENS = ['today', 'lastMonthStart', 'lastMonthEnd'] as const
+
+/** 计算字段默认值：日期字段按本地时区解析相对日期令牌，其它类型返回配置的字面量 */
+export function getTemplateFieldDefault(field: TemplateFieldDef, now: Date = new Date()): string {
+  if (!field.default) return ''
+  if (field.type === 'date') {
+    switch (field.default) {
+      case 'today':
+        return formatDateInputValue(now)
+      case 'lastMonthStart':
+        return formatDateInputValue(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+      case 'lastMonthEnd':
+        return formatDateInputValue(new Date(now.getFullYear(), now.getMonth(), 0))
+      default:
+        return ''
+    }
+  }
+  return field.default
+}
+
 /** 从模板 JSON 字段安全解析字符串 id 列表（用于可选单位等配置） */
 export function parseStringIdList(raw: unknown): string[] {
   if (!Array.isArray(raw)) return []
@@ -78,6 +109,7 @@ export function parseTemplateFields(raw: unknown): TemplateFieldDef[] {
       required: record.required === true,
       options: Array.isArray(record.options) ? record.options.filter((o): o is string => typeof o === 'string') : undefined,
       placeholder: typeof record.placeholder === 'string' ? record.placeholder : undefined,
+      default: typeof record.default === 'string' ? record.default : undefined,
     })
   }
   return result

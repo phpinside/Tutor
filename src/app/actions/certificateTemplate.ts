@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/admin-auth'
-import { RESERVED_FIELD_KEYS, type CertificateTypeKey, type TemplateFieldDef, type TemplateFieldType } from '@/lib/certificate-template'
+import { DATE_DEFAULT_TOKENS, RESERVED_FIELD_KEYS, type CertificateTypeKey, type TemplateFieldDef, type TemplateFieldType } from '@/lib/certificate-template'
 
 export interface CertificateTemplateInput {
   type: CertificateTypeKey
@@ -69,6 +69,13 @@ async function validateInput(input: CertificateTemplateInput): Promise<ValidateR
     if (field.type === 'select' && (!field.options || field.options.length === 0)) {
       return { ok: false, error: `下拉字段「${field.key}」至少需要一个选项` }
     }
+    const fieldDefault = typeof field.default === 'string' ? field.default.trim() : ''
+    if (fieldDefault) {
+      if (field.type !== 'date') return { ok: false, error: `字段「${field.key}」不支持默认值（仅日期字段支持）` }
+      if (!DATE_DEFAULT_TOKENS.includes(fieldDefault as (typeof DATE_DEFAULT_TOKENS)[number])) {
+        return { ok: false, error: `字段「${field.key}」默认值无效` }
+      }
+    }
   }
 
   return {
@@ -81,14 +88,18 @@ async function validateInput(input: CertificateTemplateInput): Promise<ValidateR
       companyIds,
       defaultCompanyId: input.defaultCompanyId ?? null,
       bodyText,
-      fields: fields.map((field) => ({
-        key: field.key,
-        label: field.label.trim(),
-        type: field.type,
-        required: field.required === true,
-        ...(field.type === 'select' ? { options: field.options } : {}),
-        ...(field.placeholder?.trim() ? { placeholder: field.placeholder.trim() } : {}),
-      })),
+      fields: fields.map((field) => {
+        const fieldDefault = typeof field.default === 'string' ? field.default.trim() : ''
+        return {
+          key: field.key,
+          label: field.label.trim(),
+          type: field.type,
+          required: field.required === true,
+          ...(field.type === 'select' ? { options: field.options } : {}),
+          ...(field.placeholder?.trim() ? { placeholder: field.placeholder.trim() } : {}),
+          ...(field.type === 'date' && fieldDefault ? { default: fieldDefault } : {}),
+        }
+      }),
       isActive: input.isActive === true,
       sortOrder: input.sortOrder,
     },

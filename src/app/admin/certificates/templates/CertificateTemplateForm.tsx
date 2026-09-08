@@ -281,6 +281,22 @@ export default function CertificateTemplateForm({ templateId, initial, companies
                       className="sm:col-span-12 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                     />
                   )}
+                  {field.type === 'date' && (
+                    <div className="sm:col-span-12 flex flex-wrap items-center gap-2">
+                      <label className="text-xs font-medium text-gray-500">默认日期</label>
+                      <select
+                        value={field.default ?? ''}
+                        onChange={(event) => updateField(index, { default: event.target.value || undefined })}
+                        className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+                      >
+                        <option value="">无（用户自行填写）</option>
+                        <option value="today">今天</option>
+                        <option value="lastMonthStart">上月首日</option>
+                        <option value="lastMonthEnd">上月末日</option>
+                      </select>
+                      <span className="text-xs text-gray-400">用户端打开表单时按当天日期自动计算，可修改</span>
+                    </div>
+                  )}
                   {field.key && RESERVED_FIELD_KEYS.includes(field.key) && (
                     <p className="sm:col-span-12 text-xs text-red-600">key「{field.key}」为系统保留占位符，请更换。</p>
                   )}
