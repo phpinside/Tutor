@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
+import CertificateSubNav from './CertificateSubNav'
 import InternshipCertificateManagementClient from './InternshipCertificateManagementClient'
 
 export const dynamic = 'force-dynamic'
@@ -24,10 +25,11 @@ export default async function InternshipCertificatesManagementPage() {
     redirect('/admin/login')
   }
 
-  const drafts = await prisma.internshipCertificateDraft.findMany({
+  const drafts = await prisma.certificateDraft.findMany({
     orderBy: { updatedAt: 'desc' },
     include: {
       teacher: { select: { id: true, name: true, phone: true } },
+      template: { select: { name: true } },
     },
   })
 
@@ -36,6 +38,10 @@ export default async function InternshipCertificatesManagementPage() {
     teacherId: draft.teacherId,
     teacherName: draft.teacher.name ?? '未填写',
     teacherPhone: draft.teacher.phone ?? '-',
+    certificateType: draft.certificateType as 'INTERNSHIP' | 'LABOR_CONFIRMATION',
+    templateName: draft.template?.name ?? null,
+    companyId: draft.companyId,
+    stampUrl: draft.stampKey ? generatePrivateUrl(draft.stampKey) : '/yishenger.png',
     name: draft.name,
     gender: draft.gender,
     startDate: draft.startDate?.toISOString().slice(0, 10) ?? null,
@@ -55,5 +61,10 @@ export default async function InternshipCertificatesManagementPage() {
         : null,
   }))
 
-  return <InternshipCertificateManagementClient initialDrafts={serialized} />
+  return (
+    <>
+      <CertificateSubNav active="drafts" />
+      <InternshipCertificateManagementClient initialDrafts={serialized} />
+    </>
+  )
 }

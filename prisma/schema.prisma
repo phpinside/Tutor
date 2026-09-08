@@ -221,7 +221,7 @@ model Teacher {
   learningPlannerApplication LearningPlannerApplication?
   defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
   plannerCheckRecords      PlannerCheckRecord[]
-  internshipCertificateDrafts InternshipCertificateDraft[]
+  certificateDrafts        CertificateDraft[]
   coachReview              CoachReview?
   tencentMeetingBookings   TencentMeetingBooking[]
   caseImageRecords         CaseImageRecord[]
@@ -441,8 +441,8 @@ enum PlannerCheckStatus {
   FAILED      // 失败
 }
 
-// 实习证明开具状态
-enum InternshipCertificateDraftStatus {
+// 证明开具状态
+enum CertificateDraftStatus {
   PROCESSING
   COMPLETED
   ISSUED
@@ -450,40 +450,89 @@ enum InternshipCertificateDraftStatus {
   FAILED
 }
 
-// 实习证明模板来源：系统默认模板（表单生成）或自定义模板（用户上传 PDF）
-enum InternshipCertificateTemplateMode {
+// 模板来源：系统模板（表单生成）或自定义模板（用户上传 PDF）
+enum CertificateTemplateMode {
   SYSTEM
   CUSTOM
 }
 
-// 实习证明申请（每位老师仅保留一条）
-model InternshipCertificateDraft {
-  id             String                           @id @default(cuid())
-  teacherId      String
-  name           String?
-  gender         String?
-  idCard         String?
-  startDate      DateTime?
-  endDate        DateTime?
-  companyName    String                           @default("北京一生二科技有限公司")
-  templateMode   InternshipCertificateTemplateMode @default(SYSTEM)
-  status         InternshipCertificateDraftStatus @default(PROCESSING)
-  pdfKey         String?
-  officialPdfKey String?
-  errorMsg       String?
-  rejectionReason String?
-  createdAt      DateTime                         @default(now())
-  completedAt    DateTime?
-  issuedAt       DateTime?
-  rejectedAt     DateTime?
-  updatedAt      DateTime                         @updatedAt
+// 证明类型：实习证明 / 劳务完成确认单
+enum CertificateType {
+  INTERNSHIP
+  LABOR_CONFIRMATION
+}
 
-  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+// 证明开具单位（落款名称 + 盖章图片）
+model CertificateCompany {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  stampKey  String? // 盖章图片七牛 key；为空时使用系统默认公章（public/yishenger.png）
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("certificate_companies")
+}
+
+// 证明模板（数据库可配置）：正文支持 {{字段}} 占位符，空行分段
+model CertificateTemplate {
+  id               String          @id @default(cuid())
+  type             CertificateType
+  name             String // 模板名称（展示用）
+  title            String // PDF 大标题
+  companyName      String          @default("北京一生二科技有限公司") // 兜底落款单位名称（未配置可选单位时使用）
+  companyIds       Json? // 可选落款单位 id 列表（多选）；空 = 仅用 companyName 兜底
+  defaultCompanyId String? // 默认落款单位（须在 companyIds 内）
+  bodyText         String          @db.Text
+  fields           Json // 表单字段定义 [{ key, label, type, required, options?, placeholder? }]
+  isActive         Boolean         @default(true)
+  sortOrder        Int             @default(0)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  drafts CertificateDraft[]
+
+  @@unique([type, name])
+  @@index([type, isActive])
+  @@map("certificate_templates")
+}
+
+// 证明申请（实习证明 / 劳务完成确认单），同一时间仅允许一条生成中
+model CertificateDraft {
+  id              String                   @id @default(cuid())
+  teacherId       String
+  certificateType CertificateType          @default(INTERNSHIP)
+  templateId      String?
+  companyId       String? // 用户所选开具单位 id（提交时快照）
+  stampKey        String? // 提交时快照的盖章图片七牛 key；为空 = 系统默认公章
+  name            String?
+  gender          String?
+  idCard          String?
+  startDate       DateTime?
+  endDate         DateTime?
+  extraData       Json? // 模板自定义字段的值（如金额、项目名称）
+  companyName     String                   @default("北京一生二科技有限公司")
+  templateMode    CertificateTemplateMode  @default(SYSTEM)
+  status          CertificateDraftStatus   @default(PROCESSING)
+  pdfKey          String?
+  officialPdfKey  String?
+  errorMsg        String?
+  rejectionReason String?
+  createdAt       DateTime                 @default(now())
+  completedAt     DateTime?
+  issuedAt        DateTime?
+  rejectedAt      DateTime?
+  updatedAt       DateTime                 @updatedAt
+
+  teacher  Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  template CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
 
   @@index([status])
   @@index([teacherId])
   @@index([createdAt])
-  @@map("internship_certificate_drafts")
+  @@index([certificateType])
+  @@map("certificate_drafts")
 }
 
 // 案例图片生成记录（老师端生成喜报案例图后自动保存）

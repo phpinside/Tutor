@@ -3,7 +3,8 @@
 import { useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { formatDateTime } from '@/lib/utils'
-import { rejectInternshipCertificate } from '@/app/actions/internshipCertificate'
+import { rejectCertificate } from '@/app/actions/certificate'
+import { CERTIFICATE_TYPE_LABELS, type CertificateTypeKey } from '@/lib/certificate-template'
 import StampPreviewModal, { preloadStampPreview } from './StampPreviewModal'
 
 type Draft = {
@@ -11,6 +12,10 @@ type Draft = {
   teacherId: string
   teacherName: string
   teacherPhone: string
+  certificateType: CertificateTypeKey
+  templateName: string | null
+  companyId: string | null
+  stampUrl: string
   name: string | null
   gender: string | null
   startDate: string | null
@@ -35,6 +40,7 @@ export default function InternshipCertificateManagementClient({
   const router = useRouter()
   const [searchTerm, setSearchTerm] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState('')
   const [actionError, setActionError] = useState('')
   const [previewDraft, setPreviewDraft] = useState<Draft | null>(null)
   const [rejectDraft, setRejectDraft] = useState<Draft | null>(null)
@@ -45,6 +51,7 @@ export default function InternshipCertificateManagementClient({
     const keyword = searchTerm.trim().toLowerCase()
     return initialDrafts.filter((draft) => {
       if (statusFilter && draft.status !== statusFilter) return false
+      if (typeFilter && draft.certificateType !== typeFilter) return false
       if (!keyword) return true
       return (
         draft.teacherName.toLowerCase().includes(keyword) ||
@@ -52,14 +59,14 @@ export default function InternshipCertificateManagementClient({
         (draft.teacherPhone ?? '').toLowerCase().includes(keyword)
       )
     })
-  }, [initialDrafts, searchTerm, statusFilter])
+  }, [initialDrafts, searchTerm, statusFilter, typeFilter])
 
   const handleReject = async () => {
     if (!rejectDraft) return
     setActionError('')
     setRejecting(true)
     try {
-      const result = await rejectInternshipCertificate(rejectDraft.id, rejectReason)
+      const result = await rejectCertificate(rejectDraft.id, rejectReason)
       if (!result.success) {
         setActionError(result.error || '打回失败，请稍后重试')
         setRejecting(false)
@@ -92,8 +99,8 @@ export default function InternshipCertificateManagementClient({
   return (
     <div>
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900 mb-2">实习证明管理</h1>
-        <p className="text-gray-600 mb-2">查看老师的实习证明申请，拖动公章开具后下载正式 PDF</p>
+        <h1 className="text-3xl font-bold text-gray-900 mb-2">证明开具</h1>
+        <p className="text-gray-600 mb-2">查看老师的实习证明 / 劳务完成确认单申请，拖动公章开具后下载正式 PDF</p>
       </div>
 
       {actionError && (
@@ -111,6 +118,16 @@ export default function InternshipCertificateManagementClient({
               className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
             />
             <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">全部类型</option>
+              {(Object.keys(CERTIFICATE_TYPE_LABELS) as CertificateTypeKey[]).map((type) => (
+                <option key={type} value={type}>{CERTIFICATE_TYPE_LABELS[type]}</option>
+              ))}
+            </select>
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
@@ -127,15 +144,15 @@ export default function InternshipCertificateManagementClient({
 
         <div className="overflow-x-auto">
           {filtered.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">暂无实习证明申请</div>
+            <div className="text-center py-12 text-gray-500">暂无证明申请</div>
           ) : (
             <table className="w-full">
               <thead className="bg-gray-50">
                 <tr>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">老师</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">模板</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">证明信息</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">实习时间</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">类型 / 模板</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">申请信息</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">起止日期</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">状态</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">申请时间</th>
                   <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">操作</th>
@@ -149,12 +166,15 @@ export default function InternshipCertificateManagementClient({
                       <div className="text-xs text-gray-500">{draft.teacherPhone}</div>
                     </td>
                     <td className="py-3 px-4 text-sm">
-                      {draft.templateMode === 'SYSTEM' ? '系统模板' : '自定义模板'}
+                      <div>{CERTIFICATE_TYPE_LABELS[draft.certificateType] ?? '证明申请'}</div>
+                      <div className="text-xs text-gray-500">
+                        {draft.templateMode === 'SYSTEM' ? draft.templateName ?? '系统模板' : '自定义上传'}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-sm">
                       {draft.templateMode === 'SYSTEM' && draft.name ? (
                         <>
-                          <div>{draft.name}（{draft.gender}）</div>
+                          <div>{draft.name}{draft.gender ? `（${draft.gender}）` : ''}</div>
                           <div className="text-xs text-gray-500">{draft.companyName}</div>
                         </>
                       ) : (
@@ -214,7 +234,8 @@ export default function InternshipCertificateManagementClient({
         <StampPreviewModal
           draftId={previewDraft.id}
           previewVersion={previewDraft.completedAt}
-          title={`开具实习证明 · ${previewDraft.name ?? previewDraft.teacherName}（${previewDraft.teacherName}）`}
+          title={`开具${CERTIFICATE_TYPE_LABELS[previewDraft.certificateType] ?? '证明'} · ${previewDraft.name ?? previewDraft.teacherName}（${previewDraft.teacherName}）`}
+          stampUrl={previewDraft.stampUrl}
           onClose={() => setPreviewDraft(null)}
           onIssued={() => {
             setPreviewDraft(null)

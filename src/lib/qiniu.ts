@@ -121,6 +121,11 @@ export function generateInternshipCertificateUploadPdfKey(
   return `uploads/internship-certificates/${teacherId}-upload-${Date.now()}${fileExt}`
 }
 
+/** 生成开具单位盖章图片的存储 key。 */
+export function generateCertificateStampKey(fileExt: string = '.png'): string {
+  return `uploads/certificate-stamps/${Date.now()}-${Math.random().toString(36).slice(2, 8)}${fileExt}`
+}
+
 /**
  * 生成案例喜报图片的存储 key。
  * 文件名段沿用"案例喜报-学生显示名-时间戳"风格，attname 强制下载时会作为默认文件名。

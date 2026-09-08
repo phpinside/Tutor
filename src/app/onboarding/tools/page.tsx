@@ -27,8 +27,8 @@ const TOOLS: Tool[] = [
   },
   {
     icon: '📄',
-    name: '实习证明开具',
-    description: '系统模板填写信息或上传自定义 PDF，单位开具后下载正式证明',
+    name: '证明开具',
+    description: '实习证明、劳务完成确认单在线申请：系统模板生成或上传自定义 PDF，开具后下载',
     href: '/onboarding/tools/internship-certificate',
     available: true,
   },

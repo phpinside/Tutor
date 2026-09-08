@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { issueInternshipCertificate } from '@/app/actions/internshipCertificate'
+import { issueCertificate } from '@/app/actions/certificate'
 
 type Props = {
   draftId: string
   previewVersion: string | null
   title: string
+  stampUrl: string // 本次开具使用的盖章图；默认系统公章
   onClose: () => void
   onIssued: () => void
 }
@@ -65,7 +66,7 @@ export function preloadStampPreview(draftId: string, previewVersion: string | nu
   void loadPreviewPdf(draftId, previewVersion).catch(() => undefined)
 }
 
-export default function StampPreviewModal({ draftId, previewVersion, title, onClose, onIssued }: Props) {
+export default function StampPreviewModal({ draftId, previewVersion, title, stampUrl, onClose, onIssued }: Props) {
   const canvasRefs = useRef<Array<HTMLCanvasElement | null>>([])
   const pageContainerRefs = useRef<Array<HTMLDivElement | null>>([])
   const [loading, setLoading] = useState(true)
@@ -184,7 +185,7 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
     setActionError('')
     setIssuing(true)
     try {
-      const result = await issueInternshipCertificate(draftId, {
+      const result = await issueCertificate(draftId, {
         x: stamp.left / metric.scale,
         y: stamp.top / metric.scale,
         width: stamp.width / metric.scale,
@@ -228,7 +229,7 @@ export default function StampPreviewModal({ draftId, previewVersion, title, onCl
                     <p className="mb-2 text-center text-xs text-gray-500">第 {index + 1} 页{index === stamp.page ? '（公章定位页）' : ''}</p>
                     <div ref={(node) => { pageContainerRefs.current[index] = node }} className="relative mx-auto w-fit select-none rounded border border-gray-300 bg-gray-50 shadow-sm">
                       <canvas ref={(node) => { canvasRefs.current[index] = node }} className="block" />
-                      {index === stamp.page && <img src="/yishenger.png" alt="公章" draggable={false} onPointerDown={onPointerDown} className="absolute cursor-move touch-none" style={{ left: stamp.left, top: stamp.top, width: stamp.width, height: stamp.width }} />}
+                      {index === stamp.page && <img src={stampUrl} alt="公章" draggable={false} onPointerDown={onPointerDown} className="absolute cursor-move touch-none" style={{ left: stamp.left, top: stamp.top, width: stamp.width, height: stamp.width }} />}
                     </div>
                   </div>
                 ))}

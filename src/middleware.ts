@@ -6,7 +6,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/admin/teachers': ['super_admin'],
   '/admin/referrals': ['super_admin'],
   '/admin/withdrawals': ['super_admin'],
-  '/admin/internship-certificates': ['super_admin'],
+  '/admin/certificates': ['super_admin'],
   '/admin/case-image-records': ['super_admin'],
   '/admin/tencent-meetings': ['super_admin'],
   '/admin/config': ['super_admin'],

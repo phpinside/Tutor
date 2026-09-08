@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
 
-/** 管理员预览实习证明基础 PDF（系统生成或用户上传，均存于 pdfKey），用于拖拽公章定位。 */
+/** 管理员预览证明基础 PDF（系统生成或用户上传，均存于 pdfKey），用于拖拽公章定位。 */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies()
   const adminSession = cookieStore.get('admin_session')
@@ -20,7 +20,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params
-  const draft = await prisma.internshipCertificateDraft.findUnique({
+  const draft = await prisma.certificateDraft.findUnique({
     where: { id },
     select: { status: true, pdfKey: true },
   })

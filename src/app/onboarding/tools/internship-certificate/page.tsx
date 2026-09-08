@@ -3,15 +3,27 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { prisma } from '@/lib/prisma'
 import InternshipCertificateClient from './InternshipCertificateClient'
-import { serializeDraft } from '@/lib/internship-certificate-service'
+import {
+  getActiveCertificateCompanies,
+  getActiveCertificateTemplates,
+  resolveTemplateCompanies,
+  serializeDraft,
+} from '@/lib/certificate-service'
 
 export default async function InternshipCertificatePage() {
   const teacherId = (await cookies()).get('teacherId')?.value
   if (!teacherId) redirect('/auth/login')
 
-  const [teacher, drafts] = await Promise.all([
+  const [teacher, drafts, templates, companies] = await Promise.all([
     prisma.teacher.findUnique({ where: { id: teacherId }, select: { name: true, gender: true } }),
-    prisma.internshipCertificateDraft.findMany({ where: { teacherId }, orderBy: { createdAt: 'desc' }, take: 20 }),
+    prisma.certificateDraft.findMany({
+      where: { teacherId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+      include: { template: { select: { name: true } } },
+    }),
+    getActiveCertificateTemplates(),
+    getActiveCertificateCompanies(),
   ])
   if (!teacher) redirect('/auth/login')
 
@@ -23,9 +35,9 @@ export default async function InternshipCertificatePage() {
         </Link>
         <div className="flex items-center gap-3 mb-2">
           <span className="text-3xl">📄</span>
-          <h1 className="text-2xl font-bold text-gray-900">实习证明草稿</h1>
+          <h1 className="text-2xl font-bold text-gray-900">证明开具</h1>
         </div>
-        <p className="text-gray-600">填写信息后生成带“草稿 / 待审核盖章”水印的 PDF，供单位审核使用。</p>
+        <p className="text-gray-600">实习证明、劳务完成确认单在线申请：系统模板填写信息生成，或上传自定义 PDF，单位审核盖章后下载正式文件。</p>
       </div>
 
       <InternshipCertificateClient
@@ -33,6 +45,18 @@ export default async function InternshipCertificatePage() {
         initialName={teacher.name ?? ''}
         initialGender={teacher.gender ?? ''}
         initialDrafts={drafts.map(serializeDraft)}
+        templates={templates.map((template) => {
+          const options = resolveTemplateCompanies(template, companies)
+          return {
+            id: template.id,
+            type: template.type,
+            name: template.name,
+            title: template.title,
+            fields: template.fields,
+            companies: options.map((option) => ({ id: option.id, name: option.name })),
+            defaultCompanyId: options[0]?.id ?? null,
+          }
+        })}
       />
     </div>
   )
