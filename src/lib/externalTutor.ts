@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/prisma'
-import { COACH_REVIEW_FALLBACK_POOL } from '@/lib/coachReviewConfig'
 
 // 复用现有 cron 已验证的接口配置
 const TUTOR_INFO_API_URL =
@@ -167,46 +166,48 @@ type FallbackPoolEntry = {
   weight: number
 }
 
-// 读取并校验加权随机兜底运营池（来自配置文件 src/lib/coachReviewConfig.ts）
-// "*" 通配符 = 全部启用运营等权；具体手机号须为已启用运营，否则忽略
+// 读取加权随机兜底运营池（来自 SystemConfig 表，key = COACH_REVIEW_FALLBACK_POOL）
+// 默认：全部启用运营等权（weight=1）；管理员可通过 /admin/config/coach-review-pool 页面
+// 调整各运营权重，weight=0 表示将该运营排除出随机分配池。
 export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]> {
   try {
-    // 通配模式："*" 表示全部启用运营，权重为该值（忽略其它具体手机号）
-    const wildcardWeight = COACH_REVIEW_FALLBACK_POOL['*']
-    if (typeof wildcardWeight === 'number' && wildcardWeight > 0) {
-      const operators = await prisma.operator.findMany({
-        where: { isEnabled: true },
-        select: { id: true, phone: true },
-        orderBy: { phone: 'asc' },
-      })
-      return operators.map((o) => ({
-        phone: o.phone,
-        operatorId: o.id,
-        weight: wildcardWeight,
-      }))
-    }
-
-    // 显式模式：手机号 -> 权重
-    const entries = Object.entries(COACH_REVIEW_FALLBACK_POOL).filter(
-      ([p, w]) => p !== '*' && typeof w === 'number' && w > 0
-    )
-    if (entries.length === 0) return []
-
-    const phones = entries.map(([p]) => p)
     const operators = await prisma.operator.findMany({
-      where: { phone: { in: phones }, isEnabled: true },
+      where: { isEnabled: true },
       select: { id: true, phone: true },
+      orderBy: { phone: 'asc' },
     })
-    const operatorIdByPhone = new Map(operators.map((o) => [o.phone, o.id]))
+
+    if (operators.length === 0) return []
+
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: 'COACH_REVIEW_FALLBACK_POOL' },
+    })
+
+    let weightMap: Record<string, number> = {}
+    if (config?.value) {
+      try {
+        const parsed = JSON.parse(config.value)
+        if (parsed && typeof parsed === 'object') {
+          for (const [k, v] of Object.entries(parsed)) {
+            const num = Number(v)
+            if (Number.isFinite(num)) {
+              weightMap[k] = num
+            }
+          }
+        }
+      } catch {
+        // JSON 解析失败时使用默认权重
+      }
+    }
 
     const pool: FallbackPoolEntry[] = []
-    for (const [phone, weight] of entries) {
-      const operatorId = operatorIdByPhone.get(phone)
-      if (!operatorId) continue // 非合法 / 未启用运营手机号 → 丢弃
-      pool.push({ phone, operatorId, weight })
+    for (const op of operators) {
+      const weight = Object.hasOwn(weightMap, op.id) ? weightMap[op.id] : 1
+      if (weight > 0) {
+        pool.push({ phone: op.phone, operatorId: op.id, weight })
+      }
     }
-    // 按手机号排序，保证 seededWeightedPick 不受配置键顺序影响
-    pool.sort((a, b) => (a.phone < b.phone ? -1 : a.phone > b.phone ? 1 : 0))
+    // operators 已按 phone 排序，保证 seededWeightedPick 结果稳定
     return pool
   } catch (error) {
     console.error('读取加权随机兜底运营池失败:', error)

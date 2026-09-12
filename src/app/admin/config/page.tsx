@@ -19,6 +19,39 @@ export default async function AdminConfigPage() {
         </p>
       </div>
 
+      {/* 其他配置入口 */}
+      <div className="mb-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-4">
+          其他配置
+        </h2>
+        <div className="grid gap-4 md:grid-cols-2">
+          <Link
+            href="/admin/config/coach-review-pool"
+            className="card hover:shadow-md transition-shadow flex items-center gap-4 p-5"
+          >
+            <span className="text-3xl">🎲</span>
+            <div>
+              <h3 className="font-semibold text-gray-900">教练初审随机分配池</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                配置教练随机分配学管的权重比例（0 = 关闭该运营分配）
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/admin/config/rewards"
+            className="card hover:shadow-md transition-shadow flex items-center gap-4 p-5"
+          >
+            <span className="text-3xl">💰</span>
+            <div>
+              <h3 className="font-semibold text-gray-900">邀请奖励配置</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                设置直接邀请和间接邀请的奖励金额
+              </p>
+            </div>
+          </Link>
+        </div>
+      </div>
+
       {/* 二维码配置区域 */}
       <div className="mb-8">
         <h2 className="text-xl font-semibold text-gray-900 mb-4">
