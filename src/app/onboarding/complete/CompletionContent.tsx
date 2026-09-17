@@ -143,7 +143,7 @@ export default function CompletionContent({
               </div>
 
               <div className="text-left max-w-xl mx-auto space-y-3 text-gray-600 text-base leading-relaxed">
-                <p>我们已经收到您的资料，预计将在3个工作日内完成审核，请您耐心等待。</p>
+                <p>我们已经收到您的资料，预计将在7个工作日内完成审核，请您耐心等待。</p>
                 <p>
                   审核通过后，您将正式解锁「
                   <span className="text-primary-600 font-semibold">{subjectLabel}伴学教练</span>

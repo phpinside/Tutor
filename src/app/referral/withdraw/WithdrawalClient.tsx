@@ -214,7 +214,7 @@ export default function WithdrawalClient({
         {/* 页面标题 */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">提现申请</h1>
-          <p className="text-gray-600">填写提现信息，我们将在3个工作日内完成转账</p>
+          <p className="text-gray-600">填写提现信息，我们将在10个工作日内完成转账</p>
         </div>
         
         {/* 收益概览 */}
@@ -495,7 +495,7 @@ export default function WithdrawalClient({
                   <div className="text-6xl mb-4">✅</div>
                   <h3 className="text-xl font-bold text-success-900 mb-2">提现申请已提交</h3>
                   <p className="text-success-800 mb-4">
-                    已收到您的提现申请，预计 3 个工作日内完成转账。
+                    已收到您的提现申请，预计10个工作日内完成转账。
                   </p>
                   <p className="text-sm text-success-700 mb-4">
                     如需核对信息或提现进度提醒，请添加杨老师微信（负责提现审核）
