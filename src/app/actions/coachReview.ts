@@ -266,7 +266,7 @@ async function markReferralStatus(
 
 export async function submitFirstReview(
   reviewId: string,
-  decision: 'APPROVED' | 'REJECTED',
+  decision: 'APPROVED' | 'REJECTED' | 'PERMANENTLY_REJECTED',
   note?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -324,6 +324,38 @@ export async function submitFirstReview(
         trimmedNote,
         operatorSession.name
       )
+    } else if (decision === 'PERMANENTLY_REJECTED') {
+      const trimmedNote = note?.trim()
+      if (!trimmedNote) {
+        return { success: false, error: '请填写拒绝理由' }
+      }
+
+      await prisma.$transaction([
+        prisma.coachReview.update({
+          where: { id: reviewId },
+          data: {
+            firstReviewVerdict: 'REJECTED',
+            firstReviewedBy: operatorSession.name,
+            firstReviewedAt: new Date(),
+            firstReviewNote: trimmedNote,
+            stage: 'PERMANENTLY_REJECTED',
+          },
+        }),
+        prisma.teacher.update({
+          where: { id: review.teacherId },
+          data: {
+            permanentlyRejectedAt: new Date(),
+            permanentlyRejectedBy: operatorSession.name,
+          },
+        }),
+      ])
+
+      await markReferralStatus(
+        review.teacherId,
+        'INVALID',
+        trimmedNote,
+        operatorSession.name
+      )
     } else {
       await prisma.coachReview.update({
         where: { id: reviewId },
@@ -350,7 +382,7 @@ export async function submitFirstReview(
 
 export async function submitFinalReview(
   reviewId: string,
-  decision: 'APPROVED' | 'REJECTED',
+  decision: 'APPROVED' | 'REJECTED' | 'PERMANENTLY_REJECTED',
   note?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
@@ -394,6 +426,41 @@ export async function submitFinalReview(
             : {}),
         },
       })
+
+      await markReferralStatus(
+        review.teacherId,
+        'INVALID',
+        trimmedNote,
+        adminSession.reviewerLabel
+      )
+    } else if (decision === 'PERMANENTLY_REJECTED') {
+      const trimmedNote = note?.trim()
+      if (!trimmedNote) {
+        return { success: false, error: '请填写拒绝理由' }
+      }
+
+      await prisma.$transaction([
+        prisma.coachReview.update({
+          where: { id: reviewId },
+          data: {
+            finalReviewVerdict: 'REJECTED',
+            finalReviewedBy: adminSession.reviewerLabel,
+            finalReviewedAt: new Date(),
+            finalReviewNote: trimmedNote,
+            stage: 'PERMANENTLY_REJECTED',
+            ...(review.firstReviewVerdict === 'PENDING'
+              ? { firstReviewVerdict: 'SKIPPED' as const }
+              : {}),
+          },
+        }),
+        prisma.teacher.update({
+          where: { id: review.teacherId },
+          data: {
+            permanentlyRejectedAt: new Date(),
+            permanentlyRejectedBy: adminSession.reviewerLabel,
+          },
+        }),
+      ])
 
       await markReferralStatus(
         review.teacherId,

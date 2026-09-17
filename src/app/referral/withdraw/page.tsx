@@ -21,6 +21,11 @@ export default async function WithdrawalPage() {
 
   const teacher = currentUserResult.teacher
 
+  // 已被永久拒绝入驻的老师：踢出会话并回到登录页
+  if (teacher.permanentlyRejectedAt) {
+    redirect('/api/auth/force-logout?next=%2Freferral%2Fwithdraw')
+  }
+
   // 获取提现信息
   const result = await getWithdrawalInfo(teacher.id)
 

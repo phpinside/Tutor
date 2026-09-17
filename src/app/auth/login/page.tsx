@@ -5,11 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { loginReferrer } from '@/app/actions/auth'
 import { sanitizeInput } from '@/lib/utils'
+import { PERMANENTLY_REJECTED_MESSAGE } from '@/lib/coachReviewShared'
 
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect') || '/onboarding'
+  const wasRejected = searchParams.get('rejected') === '1'
   
   const [formData, setFormData] = useState({
     phone: '',
@@ -17,7 +19,7 @@ function LoginForm() {
   })
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [isSubmitting, setIsSubmitting] = useState(false)
-  const [apiError, setApiError] = useState('')
+  const [apiError, setApiError] = useState(wasRejected ? PERMANENTLY_REJECTED_MESSAGE : '')
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {}

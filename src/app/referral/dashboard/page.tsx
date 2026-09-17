@@ -31,6 +31,11 @@ export default async function ReferralDashboardPage({
 
   const teacher = currentUserResult.teacher
 
+  // 已被永久拒绝入驻的老师：踢出会话并回到登录页
+  if (teacher.permanentlyRejectedAt) {
+    redirect('/api/auth/force-logout?next=%2Freferral%2Fdashboard')
+  }
+
   // 获取邀请数据
   const params = await searchParams
   const result = await getReferralDataByTeacherId(teacher.id, {

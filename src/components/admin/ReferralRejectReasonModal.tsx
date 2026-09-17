@@ -8,8 +8,12 @@ type ReferralRejectReasonModalProps = {
   onClose: () => void
   /** 返回 true 表示已成功处理，弹窗将关闭 */
   onConfirm: (reason: string) => Promise<boolean>
-  /** 打开时预填内容；不传则使用系统默认模板 */
+  /** 打开时预填内容；不传则使用系统默认模板；传空字符串则初始为空 */
   initialText?: string | null
+  /** 弹窗标题，默认「审核不通过理由」 */
+  title?: string
+  /** 标题下方的警示说明（如不可逆操作提示） */
+  warning?: string
 }
 
 export default function ReferralRejectReasonModal({
@@ -17,6 +21,8 @@ export default function ReferralRejectReasonModal({
   onClose,
   onConfirm,
   initialText,
+  title,
+  warning,
 }: ReferralRejectReasonModalProps) {
   const [text, setText] = useState(DEFAULT_REFERRAL_REJECT_REASON)
   const [submitting, setSubmitting] = useState(false)
@@ -24,7 +30,7 @@ export default function ReferralRejectReasonModal({
   useEffect(() => {
     if (!open) return
     setText(
-      initialText != null && initialText !== ''
+      initialText != null
         ? initialText.replace(/\r\n/g, '\n')
         : DEFAULT_REFERRAL_REJECT_REASON
     )
@@ -65,8 +71,13 @@ export default function ReferralRejectReasonModal({
           id="referral-reject-reason-title"
           className="text-lg font-semibold text-gray-900 px-4 py-3 border-b border-gray-200"
         >
-          审核不通过理由
+          {title || '审核不通过理由'}
         </h3>
+        {warning && (
+          <div className="mx-4 mt-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-800">
+            {warning}
+          </div>
+        )}
         <div className="p-4 flex-1 min-h-0 overflow-y-auto">
           <label htmlFor="referral-reject-reason" className="sr-only">
             不通过理由

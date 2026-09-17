@@ -1,3 +1,6 @@
+// 永久拒绝入驻提示（登录 / 注册 / 会话踢出共用）
+export const PERMANENTLY_REJECTED_MESSAGE = '经评估，您暂不符合入驻要求。感谢关注！'
+
 export type CoachReviewSnapshot = {
   id: string
   teacherId: string
@@ -19,7 +22,7 @@ export type CoachReviewSnapshot = {
 
 export type ReviewBadgeInfo = {
   text: string
-  variant: 'first' | 'final' | 'merged'
+  variant: 'first' | 'final' | 'merged' | 'rejected'
 }
 
 export function getReviewBadgeForViewer(
@@ -27,6 +30,11 @@ export function getReviewBadgeForViewer(
   viewer: { operatorId: string | null; isSuperAdmin: boolean }
 ): ReviewBadgeInfo | null {
   if (!review) return null
+
+  // 已永久拒绝：所有查看者可见
+  if (review.stage === 'PERMANENTLY_REJECTED') {
+    return { text: '已永久拒绝', variant: 'rejected' }
+  }
 
   // 待初审：两级流程，FIRST_REVIEW 阶段
   if (

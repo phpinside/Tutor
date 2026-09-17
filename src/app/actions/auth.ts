@@ -5,6 +5,7 @@ import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { ensureInviteCodes, createReferralRecord } from './teacher'
 import { sanitizeInput } from '@/lib/utils'
+import { PERMANENTLY_REJECTED_MESSAGE } from '@/lib/coachReviewShared'
 
 // 验证手机号格式
 function isValidPhone(phone: string): boolean {
@@ -79,6 +80,11 @@ export async function registerReferrer(formData: {
     })
 
     if (existingTeacher) {
+      // 永久拒绝入驻的手机号禁止重新注册
+      if (existingTeacher.permanentlyRejectedAt) {
+        return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
+      }
+
       // 如果已经设置了密码，说明已经注册过邀请人
       if (existingTeacher.password) {
         return { success: false, error: '该手机号已注册为邀请人，请直接登录' }
@@ -207,7 +213,8 @@ export async function loginReferrer(formData: {
         name: true,
         phone: true,
         password: true,
-        inviteCode: true
+        inviteCode: true,
+        permanentlyRejectedAt: true
       }
     })
 
@@ -224,6 +231,11 @@ export async function loginReferrer(formData: {
     const isPasswordValid = await bcrypt.compare(password, teacher.password)
     if (!isPasswordValid) {
       return { success: false, error: '手机号或密码错误' }
+    }
+
+    // 永久拒绝入驻的账号禁止登录
+    if (teacher.permanentlyRejectedAt) {
+      return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
     }
 
     // 确保有邀请码
@@ -281,7 +293,8 @@ export async function getCurrentReferrer() {
         id: true,
         name: true,
         phone: true,
-        inviteCode: true
+        inviteCode: true,
+        permanentlyRejectedAt: true
       }
     })
 
@@ -362,6 +375,11 @@ export async function registerTeacher(formData: {
     })
 
     if (existingTeacher) {
+      // 永久拒绝入驻的手机号禁止重新注册
+      if (existingTeacher.permanentlyRejectedAt) {
+        return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
+      }
+
       // 如果已经设置了密码，说明已经注册过
       if (existingTeacher.password) {
         return { success: false, error: '该手机号已注册，请直接登录' }
@@ -484,7 +502,8 @@ export async function loginTeacher(phone: string, password: string) {
         name: true,
         phone: true,
         password: true,
-        inviteCode: true
+        inviteCode: true,
+        permanentlyRejectedAt: true
       }
     })
 
@@ -501,6 +520,11 @@ export async function loginTeacher(phone: string, password: string) {
     const isPasswordValid = await bcrypt.compare(password, teacher.password)
     if (!isPasswordValid) {
       return { success: false, error: '手机号或密码错误' }
+    }
+
+    // 永久拒绝入驻的账号禁止登录
+    if (teacher.permanentlyRejectedAt) {
+      return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
     }
 
     // 确保有邀请码

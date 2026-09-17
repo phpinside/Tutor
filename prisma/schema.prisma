@@ -75,6 +75,7 @@ enum CoachReviewStage {
   FINAL_REVIEW // 待复审（初审已通过）
   APPROVED // 终审通过
   REJECTED // 已驳回，等待教练修改
+  PERMANENTLY_REJECTED // 已永久拒绝入驻（终态，不可返工）
 }
 
 // 单次审核结论
@@ -204,6 +205,10 @@ model Teacher {
   invitedById              String? // 邀请人ID
   teachingStatus           TeachingStatus @default(NOT_TAUGHT) // 授课状态
   defaultInviteeFollowUpId String? // 被邀请人默认跟进人（运营ID），仅对新注册有效
+
+  // 永久拒绝入驻；null = 未拒绝
+  permanentlyRejectedAt DateTime?
+  permanentlyRejectedBy String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

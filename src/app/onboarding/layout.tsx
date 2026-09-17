@@ -1,5 +1,7 @@
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
+import { prisma } from '@/lib/prisma'
 import ReferralEntryButton from '@/components/ui/ReferralEntryButton'
 import ToolsEntryButton from '@/components/ui/ToolsEntryButton'
 
@@ -10,6 +12,17 @@ export default async function OnboardingLayout({
 }) {
   const cookieStore = await cookies()
   const teacherId = cookieStore.get('teacherId')?.value
+
+  // 已被永久拒绝入驻的老师：交给登出接口清除会话并回到登录页
+  if (teacherId) {
+    const flagged = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { permanentlyRejectedAt: true },
+    })
+    if (flagged?.permanentlyRejectedAt) {
+      redirect('/api/auth/force-logout?next=%2Fonboarding')
+    }
+  }
   
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">

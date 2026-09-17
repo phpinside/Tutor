@@ -18,8 +18,7 @@ type Viewer = {
 }
 
 type RejectTarget =
-  | { type: 'first'; reviewId: string }
-  | { type: 'final'; reviewId: string }
+  | { type: 'first' | 'final'; reviewId: string; permanent: boolean }
   | null
 
 const STAGE_LABELS: Record<string, string> = {
@@ -27,6 +26,7 @@ const STAGE_LABELS: Record<string, string> = {
   FINAL_REVIEW: '待复审',
   APPROVED: '审核通过',
   REJECTED: '已驳回',
+  PERMANENTLY_REJECTED: '已永久拒绝',
 }
 
 const VERDICT_LABELS: Record<string, string> = {
@@ -100,10 +100,11 @@ export default function CoachReviewPanel({
     if (!rejectTarget) return false
     setIsLoading(true)
     setError(null)
+    const decision = rejectTarget.permanent ? 'PERMANENTLY_REJECTED' : 'REJECTED'
     const result =
       rejectTarget.type === 'first'
-        ? await submitFirstReview(rejectTarget.reviewId, 'REJECTED', reason)
-        : await submitFinalReview(rejectTarget.reviewId, 'REJECTED', reason)
+        ? await submitFirstReview(rejectTarget.reviewId, decision, reason)
+        : await submitFinalReview(rejectTarget.reviewId, decision, reason)
     setIsLoading(false)
     if (result.success) {
       router.refresh()
@@ -116,7 +117,7 @@ export default function CoachReviewPanel({
   const stageBadgeClass =
     review.stage === 'APPROVED'
       ? 'bg-success-100 text-success-800'
-      : review.stage === 'REJECTED'
+      : review.stage === 'REJECTED' || review.stage === 'PERMANENTLY_REJECTED'
         ? 'bg-red-100 text-red-800'
         : 'bg-amber-100 text-amber-800'
 
@@ -126,6 +127,13 @@ export default function CoachReviewPanel({
         open={rejectTarget !== null}
         onClose={() => setRejectTarget(null)}
         onConfirm={handleRejectConfirm}
+        title={rejectTarget?.permanent ? '永久拒绝入驻' : undefined}
+        warning={
+          rejectTarget?.permanent
+            ? '该操作不可逆：教练将被永久拒绝入驻，其手机号将无法登录或重新注册。请谨慎操作。'
+            : undefined
+        }
+        initialText={rejectTarget?.permanent ? '' : null}
       />
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
@@ -226,7 +234,7 @@ export default function CoachReviewPanel({
       </div>
 
       {/* 操作按钮 */}
-      {review.stage !== 'APPROVED' && review.stage !== 'REJECTED' && (canDoFirstReview || canDoFinalReview) && (
+      {review.stage !== 'APPROVED' && review.stage !== 'REJECTED' && review.stage !== 'PERMANENTLY_REJECTED' && (canDoFirstReview || canDoFinalReview) && (
         <div className="flex flex-col sm:flex-row gap-3">
           {canDoFirstReview && (
             <>
@@ -241,12 +249,22 @@ export default function CoachReviewPanel({
               <button
                 type="button"
                 onClick={() =>
-                  setRejectTarget({ type: 'first', reviewId: review.id })
+                  setRejectTarget({ type: 'first', reviewId: review.id, permanent: false })
                 }
                 disabled={isLoading}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors"
               >
                 初审驳回
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setRejectTarget({ type: 'first', reviewId: review.id, permanent: true })
+                }
+                disabled={isLoading}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                永久拒绝入驻
               </button>
             </>
           )}
@@ -263,12 +281,22 @@ export default function CoachReviewPanel({
               <button
                 type="button"
                 onClick={() =>
-                  setRejectTarget({ type: 'final', reviewId: review.id })
+                  setRejectTarget({ type: 'final', reviewId: review.id, permanent: false })
                 }
                 disabled={isLoading}
                 className="px-4 py-2 text-sm font-medium rounded-lg bg-red-100 text-red-700 hover:bg-red-200 disabled:opacity-50 transition-colors"
               >
                 {canShortcutFirstStage ? '直接终审驳回' : '复审驳回'}
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  setRejectTarget({ type: 'final', reviewId: review.id, permanent: true })
+                }
+                disabled={isLoading}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                永久拒绝入驻
               </button>
             </>
           )}
@@ -280,6 +308,15 @@ export default function CoachReviewPanel({
           <p className="font-medium text-amber-950 mb-1">已驳回，等待教练修改</p>
           <p className="text-amber-800">
             教练修改后将自动重新进入初审流程。
+          </p>
+        </div>
+      )}
+
+      {review.stage === 'PERMANENTLY_REJECTED' && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900">
+          <p className="font-medium text-red-950 mb-1">已永久拒绝入驻</p>
+          <p className="text-red-800">
+            该教练已被永久拒绝入驻，其手机号将无法登录或重新注册。此操作不可逆。
           </p>
         </div>
       )}

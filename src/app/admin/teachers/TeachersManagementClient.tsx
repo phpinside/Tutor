@@ -297,6 +297,7 @@ export default function TeachersManagementClient({
                   <option value="coach_first_review">待初审</option>
                   <option value="coach_final_review">待复审</option>
                   <option value="coach_merged_review">待超管审核</option>
+                  <option value="coach_permanently_rejected">已永久拒绝</option>
                 </>
               )}
               <option value="valid">有效邀请</option>
@@ -580,11 +581,13 @@ export default function TeachersManagementClient({
                               ? 'bg-blue-100 text-blue-700'
                               : badge.variant === 'final'
                                 ? 'bg-amber-100 text-amber-800'
-                                : 'bg-orange-100 text-orange-700'
+                                : badge.variant === 'rejected'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-orange-100 text-orange-700'
                           return (
                             <Link
                               href={`/admin/teachers/${teacher.id}`}
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeClass} animate-pulse`}
+                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${badgeClass} ${badge.variant !== 'rejected' ? 'animate-pulse' : ''}`}
                             >
                               {badge.text}
                             </Link>

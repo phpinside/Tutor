@@ -207,6 +207,13 @@ export default async function AdminTeachersPage({
         },
       ],
     })
+  } else if (inviteAudit === 'coach_permanently_rejected') {
+    // 已永久拒绝入驻
+    whereConditions.push({
+      coachReview: {
+        stage: CoachReviewStage.PERMANENTLY_REJECTED,
+      },
+    })
   } else if (inviteAudit === 'my_first_review' && viewer.operatorId) {
     // 待我初审（学管视角）
     whereConditions.push({
