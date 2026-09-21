@@ -9,8 +9,11 @@ import {
   type CertificateTemplateInput,
 } from '@/app/actions/certificateTemplate'
 import {
+  CERTIFICATE_DATE_MODE_LABELS,
+  CERTIFICATE_DATE_MODES,
   CERTIFICATE_TYPE_LABELS,
   RESERVED_FIELD_KEYS,
+  type CertificateDateMode,
   type CertificateTypeKey,
   type TemplateFieldDef,
   type TemplateFieldType,
@@ -29,7 +32,8 @@ const COMMON_PLACEHOLDERS = [
   { key: 'gender', desc: '性别（落专列）' },
   { key: 'idCard', desc: '身份证号（落专列）' },
   { key: 'startDate', desc: '开始日期，格式 2026年01月02日' },
-  { key: 'endDate', desc: '结束日期，同时用作落款日期' },
+  { key: 'endDate', desc: '结束日期' },
+  { key: 'date', desc: '落款日期（按下方「落款日期」配置生成）' },
   { key: 'companyName', desc: '落款单位名称（系统自动填充）' },
   { key: 'amountCapital', desc: '人民币大写金额（由 amount 字段自动换算）' },
 ]
@@ -52,6 +56,8 @@ export default function CertificateTemplateForm({ templateId, initial, companies
   const [defaultCompanyId, setDefaultCompanyId] = useState<string | null>(initial?.defaultCompanyId ?? null)
   const [bodyText, setBodyText] = useState(initial?.bodyText ?? '')
   const [fields, setFields] = useState<TemplateFieldDef[]>(initial?.fields ?? [])
+  const [dateMode, setDateMode] = useState<CertificateDateMode>(initial?.dateMode ?? 'END_DATE')
+  const [fixedDate, setFixedDate] = useState(initial?.fixedDate ?? '')
   const [isActive, setIsActive] = useState(initial?.isActive ?? true)
   const [sortOrder, setSortOrder] = useState(initial?.sortOrder ?? 0)
   const [saving, setSaving] = useState(false)
@@ -76,8 +82,12 @@ export default function CertificateTemplateForm({ templateId, initial, companies
   const handleSave = async (event: React.FormEvent) => {
     event.preventDefault()
     setError('')
+    if (dateMode === 'FIXED' && !fixedDate) {
+      setError('请选择有效的固定落款日期')
+      return
+    }
     setSaving(true)
-    const payload: CertificateTemplateInput = { type, name, title, companyName, companyIds, defaultCompanyId, bodyText, fields, isActive, sortOrder }
+    const payload: CertificateTemplateInput = { type, name, title, companyName, companyIds, defaultCompanyId, bodyText, fields, dateMode, fixedDate: dateMode === 'FIXED' ? fixedDate : null, isActive, sortOrder }
     try {
       const result = templateId
         ? await updateCertificateTemplate(templateId, payload)
@@ -97,12 +107,16 @@ export default function CertificateTemplateForm({ templateId, initial, companies
 
   const handlePreview = async () => {
     setError('')
+    if (dateMode === 'FIXED' && !fixedDate) {
+      setError('请选择有效的固定落款日期')
+      return
+    }
     setPreviewing(true)
     try {
       const response = await fetch('/api/admin/certificate-templates/preview', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, title, companyName, bodyText, fields }),
+        body: JSON.stringify({ type, title, companyName, bodyText, fields, dateMode, fixedDate: dateMode === 'FIXED' ? fixedDate : null }),
       })
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
@@ -212,6 +226,42 @@ export default function CertificateTemplateForm({ templateId, initial, companies
             )}
           </div>
 
+          <div className="rounded-lg border border-gray-200 p-4">
+            <h3 className="mb-1 text-sm font-semibold text-gray-900">落款日期（证明开具时间）</h3>
+            <p className="mb-3 text-xs text-gray-500">
+              决定 PDF 落款「日期：」与正文 <code className="rounded bg-gray-100 px-1">{'{{date}}'}</code> 的取值。
+              开具当天 / 上月首日 / 上月末日 以管理员实际盖章开具当天为准，预览与开具时会按当天重新渲染 PDF；固定日期对本模板的所有证明生效。
+            </p>
+            <div className="flex flex-wrap items-end gap-4">
+              <div className="w-full max-w-sm">
+                <label className="mb-1 block text-sm font-medium text-gray-700">取值方式</label>
+                <select
+                  value={dateMode}
+                  onChange={(event) => setDateMode(event.target.value as CertificateDateMode)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  {CERTIFICATE_DATE_MODES.map((mode) => (
+                    <option key={mode} value={mode}>{CERTIFICATE_DATE_MODE_LABELS[mode]}</option>
+                  ))}
+                </select>
+              </div>
+              {dateMode === 'FIXED' && (
+                <div>
+                  <label className="mb-1 block text-sm font-medium text-gray-700">固定日期 <span className="text-red-500">*</span></label>
+                  <input
+                    type="date"
+                    value={fixedDate}
+                    onChange={(event) => setFixedDate(event.target.value)}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              )}
+              {dateMode === 'END_DATE' && (
+                <p className="pb-2 text-xs text-gray-500">取表单「结束日期」字段（格式 2026年01月02日）；模板没有结束日期字段时按开具当天生成。</p>
+              )}
+            </div>
+          </div>
+
           <div>
             <label className="mb-1 block text-sm font-medium text-gray-700">正文内容 <span className="text-red-500">*</span></label>
             <textarea
@@ -221,7 +271,7 @@ export default function CertificateTemplateForm({ templateId, initial, companies
               className="w-full px-4 py-3 border border-gray-300 rounded-lg font-mono text-sm leading-relaxed focus:ring-2 focus:ring-primary-500"
               placeholder={'兹证明 {{name}}，性别：{{gender}}，身份证号：{{idCard}}。\n\n该人员于{{startDate}}至{{endDate}}期间……\n\n特此证明。'}
             />
-            <p className="mt-1 text-xs text-gray-500">空行分段；单换行为普通换行。落款块（单位名称 / （单位公章） / 日期）由系统固定生成，无需写在正文中。</p>
+            <p className="mt-1 text-xs text-gray-500">空行分段；单换行为普通换行。落款块（单位名称 / （单位公章） / 日期）由系统固定生成，日期取上方「落款日期」配置；如需自定义位置可在正文使用 <code className="rounded bg-gray-100 px-1">{'{{date}}'}</code>。</p>
           </div>
         </div>
 

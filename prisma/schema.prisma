@@ -491,6 +491,8 @@ model CertificateTemplate {
   defaultCompanyId String? // 默认落款单位（须在 companyIds 内）
   bodyText         String          @db.Text
   fields           Json // 表单字段定义 [{ key, label, type, required, options?, placeholder? }]
+  dateMode         String          @default("END_DATE") // 落款日期取值：END_DATE | TODAY | LAST_MONTH_START | LAST_MONTH_END | FIXED
+  fixedDate        String? // dateMode=FIXED 时的落款日期，YYYY-MM-DD
   isActive         Boolean         @default(true)
   sortOrder        Int             @default(0)
   createdAt        DateTime        @default(now())
@@ -517,6 +519,7 @@ model CertificateDraft {
   startDate       DateTime?
   endDate         DateTime?
   extraData       Json? // 模板自定义字段的值（如金额、项目名称）
+  templateSnapshot Json? // 提交时的模板配置快照（渲染用，避免开具前改模板导致串版）
   companyName     String                   @default("北京一生二科技有限公司")
   templateMode    CertificateTemplateMode  @default(SYSTEM)
   status          CertificateDraftStatus   @default(PROCESSING)

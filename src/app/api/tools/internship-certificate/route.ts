@@ -7,6 +7,7 @@ import {
   resolveTemplateCompanies,
   serializeDraft,
   serializeTemplateConfig,
+  toTemplateSnapshot,
 } from '@/lib/certificate-service'
 import { validateTemplateInput, type CertificateTypeKey } from '@/lib/certificate-template'
 
@@ -95,6 +96,8 @@ export async function POST(request: NextRequest) {
             extraData: validated.data.extraData,
             companyName: chosenCompany?.name ?? template.companyName,
             templateMode: 'SYSTEM',
+            // 提交时的模板快照：开具时按快照重新渲染，避免期间改模板导致串版
+            templateSnapshot: toTemplateSnapshot(config),
             status: 'PROCESSING',
           },
         })

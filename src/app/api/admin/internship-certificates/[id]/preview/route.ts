@@ -2,8 +2,13 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
+import { renderDraftPdf, parseTemplateSnapshot } from '@/lib/certificate-service'
 
-/** 管理员预览证明基础 PDF（系统生成或用户上传，均存于 pdfKey），用于拖拽公章定位。 */
+/**
+ * 管理员预览证明基础 PDF（系统生成或用户上传，均存于 pdfKey），用于拖拽公章定位。
+ * 带模板快照的草稿按快照在预览当天重新渲染，使落款日期与开具结果一致（开具当天等相对日期）；
+ * 自定义上传与无快照的历史草稿仍转发已生成的基础 PDF。
+ */
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const cookieStore = await cookies()
   const adminSession = cookieStore.get('admin_session')
@@ -20,10 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   const { id } = await params
-  const draft = await prisma.certificateDraft.findUnique({
-    where: { id },
-    select: { status: true, pdfKey: true },
-  })
+  const draft = await prisma.certificateDraft.findUnique({ where: { id } })
   if (!draft) {
     return NextResponse.json({ error: '申请记录不存在' }, { status: 404 })
   }
@@ -35,6 +37,20 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   }
 
   try {
+    const config = parseTemplateSnapshot(draft.templateSnapshot)
+    if (config) {
+      const pdf = await renderDraftPdf(draft, config, new Date())
+      return new NextResponse(new Uint8Array(pdf), {
+        status: 200,
+        headers: {
+          'Content-Type': 'application/pdf',
+          'Content-Disposition': 'inline; filename="internship-certificate-preview.pdf"',
+          // 落款日期随当天变化，不能沿用长缓存；版本号仍用于客户端预取去重
+          'Cache-Control': 'private, no-store',
+        },
+      })
+    }
+
     const url = generatePrivateUrl(draft.pdfKey)
     const res = await fetch(url, { signal: AbortSignal.timeout(15_000) })
     if (!res.ok) throw new Error('获取 PDF 失败')

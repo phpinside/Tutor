@@ -4,7 +4,17 @@ import { revalidatePath } from 'next/cache'
 import type { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/admin-auth'
-import { DATE_DEFAULT_TOKENS, RESERVED_FIELD_KEYS, type CertificateTypeKey, type TemplateFieldDef, type TemplateFieldType } from '@/lib/certificate-template'
+import {
+  CERTIFICATE_DATE_MODES,
+  DATE_DEFAULT_TOKENS,
+  RESERVED_FIELD_KEYS,
+  isValidDateInputValue,
+  parseCertificateDateMode,
+  type CertificateDateMode,
+  type CertificateTypeKey,
+  type TemplateFieldDef,
+  type TemplateFieldType,
+} from '@/lib/certificate-template'
 
 export interface CertificateTemplateInput {
   type: CertificateTypeKey
@@ -15,6 +25,8 @@ export interface CertificateTemplateInput {
   defaultCompanyId: string | null
   bodyText: string
   fields: TemplateFieldDef[]
+  dateMode: CertificateDateMode
+  fixedDate: string | null
   isActive: boolean
   sortOrder: number
 }
@@ -39,6 +51,14 @@ async function validateInput(input: CertificateTemplateInput): Promise<ValidateR
   if (!bodyText.trim()) return { ok: false, error: '请填写正文内容' }
   if (bodyText.length > 20000) return { ok: false, error: '正文内容过长' }
   if (!Number.isInteger(input.sortOrder) || input.sortOrder < 0) return { ok: false, error: '排序值无效' }
+
+  // 落款日期（证明开具时间）：取值方式白名单；固定日期必须为真实存在的 YYYY-MM-DD
+  const dateMode = parseCertificateDateMode(input.dateMode)
+  if (!CERTIFICATE_DATE_MODES.includes(dateMode)) return { ok: false, error: '落款日期取值方式无效' }
+  const fixedDate = typeof input.fixedDate === 'string' ? input.fixedDate.trim() : ''
+  if (dateMode === 'FIXED' && !isValidDateInputValue(fixedDate)) {
+    return { ok: false, error: '请选择有效的固定落款日期' }
+  }
 
   const companyIds = [...new Set(Array.isArray(input.companyIds) ? input.companyIds.filter((id) => typeof id === 'string' && id) : [])]
   if (input.defaultCompanyId && !companyIds.includes(input.defaultCompanyId)) {
@@ -100,6 +120,9 @@ async function validateInput(input: CertificateTemplateInput): Promise<ValidateR
           ...(field.type === 'date' && fieldDefault ? { default: fieldDefault } : {}),
         }
       }),
+      dateMode,
+      // 非固定日期模式不保留固定日期值，避免切换模式后残留脏数据
+      fixedDate: dateMode === 'FIXED' ? fixedDate : null,
       isActive: input.isActive === true,
       sortOrder: input.sortOrder,
     },

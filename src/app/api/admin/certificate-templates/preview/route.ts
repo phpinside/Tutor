@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { generateCertificatePdf } from '@/lib/certificate-pdf'
 import { isSuperAdmin } from '@/lib/admin-auth'
-import { buildSamplePlaceholderValues, parseTemplateFields, type CertificateTemplateConfig, type CertificateTypeKey } from '@/lib/certificate-template'
+import {
+  buildSamplePlaceholderValues,
+  isValidDateInputValue,
+  parseCertificateDateMode,
+  parseTemplateFields,
+  type CertificateTemplateConfig,
+  type CertificateTypeKey,
+} from '@/lib/certificate-template'
 
-/** 管理端模板预览：用示例数据把模板渲染为 PDF，供配置时检查版式与占位符。 */
+/** 管理端模板预览：用示例数据把模板渲染为 PDF，供配置时检查版式、落款日期与占位符。 */
 export async function POST(request: NextRequest) {
   if (!(await isSuperAdmin())) {
     return NextResponse.json({ error: '仅超级管理员可预览模板' }, { status: 403 })
@@ -19,6 +25,12 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: '请先完整填写标题、单位名称与正文' }, { status: 400 })
     }
 
+    const dateMode = parseCertificateDateMode(body.dateMode)
+    const fixedDate = typeof body.fixedDate === 'string' && isValidDateInputValue(body.fixedDate) ? body.fixedDate : null
+    if (dateMode === 'FIXED' && !fixedDate) {
+      return NextResponse.json({ error: '请先选择有效的固定落款日期' }, { status: 400 })
+    }
+
     const config: CertificateTemplateConfig = {
       id: 'preview',
       type: (body.type === 'LABOR_CONFIRMATION' ? 'LABOR_CONFIRMATION' : 'INTERNSHIP') as CertificateTypeKey,
@@ -29,6 +41,8 @@ export async function POST(request: NextRequest) {
       defaultCompanyId: null,
       bodyText,
       fields: parseTemplateFields(body.fields),
+      dateMode,
+      fixedDate,
       isActive: true,
       sortOrder: 0,
     }

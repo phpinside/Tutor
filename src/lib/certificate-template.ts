@@ -20,6 +20,9 @@ export interface TemplateFieldDef {
   default?: string
 }
 
+/** 落款日期（证明开具时间）取值方式 */
+export type CertificateDateMode = 'END_DATE' | 'TODAY' | 'LAST_MONTH_START' | 'LAST_MONTH_END' | 'FIXED'
+
 export interface CertificateTemplateConfig {
   id: string
   type: CertificateTypeKey
@@ -30,6 +33,8 @@ export interface CertificateTemplateConfig {
   defaultCompanyId: string | null
   bodyText: string
   fields: TemplateFieldDef[]
+  dateMode: CertificateDateMode
+  fixedDate: string | null
   isActive: boolean
   sortOrder: number
 }
@@ -79,6 +84,68 @@ export function getTemplateFieldDefault(field: TemplateFieldDef, now: Date = new
     }
   }
   return field.default
+}
+
+/** 校验 YYYY-MM-DD 且为真实存在的日历日期 */
+export function isValidDateInputValue(value: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const [year, month, day] = value.split('-').map(Number)
+  const date = new Date(year, month - 1, day)
+  return date.getFullYear() === year && date.getMonth() === month - 1 && date.getDate() === day
+}
+
+/** 'YYYY-MM-DD' → '2026年09月21日'；非法输入返回空串 */
+export function formatChineseDateFromInput(value: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return ''
+  const [year, month, day] = value.split('-')
+  return `${year}年${month}月${day}日`
+}
+
+/** 落款日期取值方式：模板管理端下拉与校验共用 */
+export const CERTIFICATE_DATE_MODES: CertificateDateMode[] = ['END_DATE', 'TODAY', 'LAST_MONTH_START', 'LAST_MONTH_END', 'FIXED']
+
+export const CERTIFICATE_DATE_MODE_LABELS: Record<CertificateDateMode, string> = {
+  END_DATE: '结束日期（表单填写）',
+  TODAY: '开具当天',
+  LAST_MONTH_START: '上月首日（相对开具当天）',
+  LAST_MONTH_END: '上月末日（相对开具当天）',
+  FIXED: '固定日期',
+}
+
+/** 解析落款日期取值方式；非白名单值一律回退 END_DATE（兼容迁移前的历史数据） */
+export function parseCertificateDateMode(raw: unknown): CertificateDateMode {
+  return typeof raw === 'string' && (CERTIFICATE_DATE_MODES as string[]).includes(raw)
+    ? (raw as CertificateDateMode)
+    : 'END_DATE'
+}
+
+/**
+ * 计算落款日期（证明开具时间），返回 YYYY-MM-DD；无法解析时回退开具当天。
+ * - END_DATE：表单结束日期（取 UTC 日期部分，与 serializeDraft 口径一致）；缺失时回退开具当天（保持历史兜底行为）
+ * - TODAY / LAST_MONTH_START / LAST_MONTH_END：按开具当天（本地时区年月日）计算，与日期字段默认值 token 语义一致
+ * - FIXED：模板固定日期；脏数据回退开具当天（保存时已校验，这里仅防御）
+ */
+export function resolveCertificateDateInput(
+  mode: CertificateDateMode,
+  fixedDate: string | null,
+  endDate: Date | null,
+  now: Date = new Date()
+): string {
+  switch (mode) {
+    case 'END_DATE':
+      return endDate && !Number.isNaN(endDate.getTime())
+        ? endDate.toISOString().slice(0, 10)
+        : formatDateInputValue(now)
+    case 'LAST_MONTH_START':
+      return formatDateInputValue(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+    case 'LAST_MONTH_END':
+      return formatDateInputValue(new Date(now.getFullYear(), now.getMonth(), 0))
+    case 'FIXED':
+      return fixedDate && isValidDateInputValue(fixedDate) ? fixedDate : formatDateInputValue(now)
+    case 'TODAY':
+    default:
+      return formatDateInputValue(now)
+  }
 }
 
 /** 从模板 JSON 字段安全解析字符串 id 列表（用于可选单位等配置） */
@@ -267,12 +334,17 @@ export function validateTemplateInput(
   return { ok: true, data }
 }
 
-/** 组装占位符值表：公共字段 + extraData + 金额大写 */
+/** 组装占位符值表：公共字段 + extraData + 金额大写 + 落款日期 {{date}} */
 export function buildPlaceholderValues(
-  template: Pick<CertificateTemplateConfig, 'companyName'>,
-  data: CertificateFieldData
+  template: Pick<CertificateTemplateConfig, 'companyName' | 'dateMode' | 'fixedDate'>,
+  data: CertificateFieldData,
+  now: Date = new Date()
 ): Record<string, string> {
   const values: Record<string, string> = { companyName: template.companyName }
+  // 落款日期由模板配置决定，同时可用于正文 {{date}} 与 PDF 落款行
+  values.date = formatChineseDateFromInput(
+    resolveCertificateDateInput(template.dateMode, template.fixedDate, data.endDate, now)
+  )
   if (data.name) values.name = data.name
   if (data.gender) values.gender = data.gender
   if (data.idCard) values.idCard = data.idCard
@@ -291,7 +363,7 @@ export function buildPlaceholderValues(
 }
 
 /** 管理端模板预览用的示例数据 */
-export function buildSamplePlaceholderValues(template: CertificateTemplateConfig): Record<string, string> {
+export function buildSamplePlaceholderValues(template: CertificateTemplateConfig, now: Date = new Date()): Record<string, string> {
   const values: Record<string, string> = { companyName: template.companyName }
   for (const field of template.fields) {
     switch (field.key) {
@@ -305,10 +377,10 @@ export function buildSamplePlaceholderValues(template: CertificateTemplateConfig
         values.idCard = '110101200001011234'
         break
       case 'startDate':
-        values.startDate = formatDateCN(new Date(Date.now() - 30 * 24 * 60 * 60 * 1000))
+        values.startDate = formatDateCN(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
         break
       case 'endDate':
-        values.endDate = formatDateCN(new Date())
+        values.endDate = formatDateCN(now)
         break
       case 'amount':
         values.amount = '3200.50'
@@ -318,5 +390,9 @@ export function buildSamplePlaceholderValues(template: CertificateTemplateConfig
         values[field.key] = field.placeholder || `示例${field.label}`
     }
   }
+  // 示例落款日期：END_DATE 模式跟随示例结束日期（无结束日期字段时同开具当天）
+  values.date = formatChineseDateFromInput(
+    resolveCertificateDateInput(template.dateMode, template.fixedDate, template.fields.some((field) => field.key === 'endDate') ? now : null, now)
+  )
   return values
 }

@@ -23,7 +23,8 @@ function formatDate(date: Date): string {
 /**
  * 按数据库模板配置生成证明 PDF（无公章草稿版）。
  * 正文按空行分段、单换行换行，占位符未配置时保留 {{key}} 原文，便于开卡前发现配置问题。
- * 落款块由代码固定渲染：单位名称左对齐，（单位公章）/ 日期 右对齐，日期取结束日期。
+ * 落款块由代码固定渲染：单位名称左对齐，（单位公章）/ 日期 右对齐；
+ * 日期取占位符值表里的 date（由模板「落款日期」配置在渲染时算出，见 resolveCertificateDateInput）。
  */
 export function generateCertificatePdf(
   template: Pick<CertificateTemplateConfig, 'title' | 'companyName' | 'bodyText'>,
@@ -58,7 +59,9 @@ export function generateCertificatePdf(
     doc.moveDown(1.6)
     doc.text('（单位公章）', { width: BODY_WIDTH, align: 'right' })
     doc.moveDown(1.0)
-    doc.text(`日期：${values.endDate || formatDate(new Date())}`, { width: BODY_WIDTH, align: 'right' })
+    // 落款日期由模板配置决定（结束日期 / 开具当天 / 上月首日 / 上月末日 / 固定日期）
+    const dateText = values.date ?? ''
+    if (dateText) doc.text(`日期：${dateText}`, { width: BODY_WIDTH, align: 'right' })
 
     doc.end()
   })

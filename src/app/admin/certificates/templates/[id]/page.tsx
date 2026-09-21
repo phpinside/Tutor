@@ -3,7 +3,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import CertificateSubNav from '../../CertificateSubNav'
 import CertificateTemplateForm from '../CertificateTemplateForm'
-import { parseStringIdList, parseTemplateFields, type CertificateTypeKey } from '@/lib/certificate-template'
+import { parseCertificateDateMode, parseStringIdList, parseTemplateFields, type CertificateTypeKey } from '@/lib/certificate-template'
 
 export const dynamic = 'force-dynamic'
 
@@ -61,6 +61,8 @@ export default async function CertificateTemplateEditPage({ params }: { params: 
           defaultCompanyId: template.defaultCompanyId,
           bodyText: template.bodyText,
           fields: parseTemplateFields(template.fields),
+          dateMode: parseCertificateDateMode(template.dateMode),
+          fixedDate: template.fixedDate,
           isActive: template.isActive,
           sortOrder: template.sortOrder,
         }}

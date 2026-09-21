@@ -11,8 +11,10 @@ import {
 import { generateCertificatePdf, generateInternshipCertificatePdf } from '@/lib/certificate-pdf'
 import {
   buildPlaceholderValues,
+  parseCertificateDateMode,
   parseStringIdList,
   parseTemplateFields,
+  type CertificateDateMode,
   type CertificateTemplateConfig,
   type CertificateTypeKey,
 } from '@/lib/certificate-template'
@@ -25,8 +27,8 @@ export interface CertificateCompanyOption {
   stampKey: string | null
 }
 
-/** 从 Prisma 模板记录构造纯配置对象 */
-export function serializeTemplateConfig(row: {
+/** Prisma 模板记录中参与配置构造的字段 */
+export type CertificateTemplateRow = {
   id: string
   type: CertificateTypeKey
   name: string
@@ -36,9 +38,14 @@ export function serializeTemplateConfig(row: {
   defaultCompanyId: string | null
   bodyText: string
   fields: Prisma.JsonValue
+  dateMode: string
+  fixedDate: string | null
   isActive: boolean
   sortOrder: number
-}): CertificateTemplateConfig {
+}
+
+/** 从 Prisma 模板记录构造纯配置对象 */
+export function serializeTemplateConfig(row: CertificateTemplateRow): CertificateTemplateConfig {
   return {
     id: row.id,
     type: row.type,
@@ -49,9 +56,105 @@ export function serializeTemplateConfig(row: {
     defaultCompanyId: row.defaultCompanyId,
     bodyText: row.bodyText,
     fields: parseTemplateFields(row.fields),
+    dateMode: parseCertificateDateMode(row.dateMode),
+    fixedDate: typeof row.fixedDate === 'string' && row.fixedDate ? row.fixedDate : null,
     isActive: row.isActive,
     sortOrder: row.sortOrder,
   }
+}
+
+/**
+ * 模板快照保留的渲染相关字段。快照用于开具时重新渲染，
+ * 其中 dateMode 为「开具当天 / 上月首日 / 上月末日」时按渲染时刻求值。
+ */
+const TEMPLATE_SNAPSHOT_KEYS = [
+  'id',
+  'type',
+  'name',
+  'title',
+  'companyName',
+  'companyIds',
+  'defaultCompanyId',
+  'bodyText',
+  'fields',
+  'dateMode',
+  'fixedDate',
+] as const
+
+/** 生成草稿的模板快照（仅存渲染相关字段，避免开具前改模板导致已提交草稿串版） */
+export function toTemplateSnapshot(config: CertificateTemplateConfig): Prisma.InputJsonValue {
+  const snapshot: Record<string, unknown> = {}
+  for (const key of TEMPLATE_SNAPSHOT_KEYS) snapshot[key] = config[key]
+  return snapshot as Prisma.InputJsonValue
+}
+
+/** 解析草稿上的模板快照；结构非法返回 null，调用方回退到当前模板记录 */
+export function parseTemplateSnapshot(raw: Prisma.JsonValue | null | undefined): CertificateTemplateConfig | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null
+  const record = raw as Record<string, unknown>
+  const required = ['id', 'name', 'title', 'bodyText'] as const
+  for (const key of required) {
+    if (typeof record[key] !== 'string' || !(record[key] as string)) return null
+  }
+  return {
+    id: record.id as string,
+    type: (record.type === 'LABOR_CONFIRMATION' ? 'LABOR_CONFIRMATION' : 'INTERNSHIP') as CertificateTypeKey,
+    name: record.name as string,
+    title: record.title as string,
+    companyName: typeof record.companyName === 'string' && record.companyName ? record.companyName : '',
+    companyIds: parseStringIdList(record.companyIds),
+    defaultCompanyId: typeof record.defaultCompanyId === 'string' ? record.defaultCompanyId : null,
+    bodyText: record.bodyText as string,
+    fields: parseTemplateFields(record.fields),
+    dateMode: parseCertificateDateMode(record.dateMode),
+    fixedDate: typeof record.fixedDate === 'string' && record.fixedDate ? record.fixedDate : null,
+    isActive: true,
+    sortOrder: 0,
+  }
+}
+
+/** 草稿渲染用的字段数据（公共字段 + 扩展数据 + 提交时快照的落款单位） */
+type DraftFieldData = {
+  name: string | null
+  gender: string | null
+  idCard: string | null
+  startDate: Date | null
+  endDate: Date | null
+  extraData: Prisma.JsonValue | null
+  companyName: string
+}
+
+/**
+ * 用模板配置渲染草稿 PDF：落款单位以草稿快照为准（用户可能自选单位），
+ * 落款日期按 now 由模板「落款日期」配置算出（开具当天等相对日期以此为准）。
+ */
+export async function renderDraftPdf(
+  draft: DraftFieldData,
+  config: CertificateTemplateConfig,
+  now: Date = new Date()
+): Promise<Buffer> {
+  const effectiveConfig = draft.companyName ? { ...config, companyName: draft.companyName } : config
+  const values = buildPlaceholderValues(
+    effectiveConfig,
+    {
+      name: draft.name,
+      gender: draft.gender,
+      idCard: draft.idCard,
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+      extraData: toStringRecord(draft.extraData),
+    },
+    now
+  )
+  return generateCertificatePdf(effectiveConfig, values)
+}
+
+/** 草稿的模板配置：优先用提交时的快照，缺失（历史草稿）回退当前模板记录 */
+export function resolveDraftTemplateConfig(draft: {
+  templateSnapshot: Prisma.JsonValue | null
+  template?: CertificateTemplateRow | null
+}): CertificateTemplateConfig | null {
+  return parseTemplateSnapshot(draft.templateSnapshot) ?? (draft.template ? serializeTemplateConfig(draft.template) : null)
 }
 
 /** 激活中的证明模板（按类型 + 排序），用户端选择使用，请求内缓存 */
@@ -123,6 +226,7 @@ type DraftWithTemplate = {
   startDate: Date | null
   endDate: Date | null
   extraData: Prisma.JsonValue | null
+  templateSnapshot: Prisma.JsonValue | null
   companyName: string
   templateMode: string
   status: string
@@ -180,19 +284,10 @@ export async function processCertificateDraft(id: string): Promise<void> {
 
   try {
     let pdf: Buffer
-    if (draft.template) {
-      const config = serializeTemplateConfig(draft.template)
-      // 落款单位以提交时快照为准（用户可能自选单位）
-      const effectiveConfig = draft.companyName ? { ...config, companyName: draft.companyName } : config
-      const values = buildPlaceholderValues(effectiveConfig, {
-        name: draft.name,
-        gender: draft.gender,
-        idCard: draft.idCard,
-        startDate: draft.startDate,
-        endDate: draft.endDate,
-        extraData: toStringRecord(draft.extraData),
-      })
-      pdf = await generateCertificatePdf(effectiveConfig, values)
+    const config = resolveDraftTemplateConfig(draft)
+    if (config) {
+      // 落款单位与落款日期分别以草稿快照、模板「落款日期」配置为准
+      pdf = await renderDraftPdf(draft, config, new Date())
     } else {
       if (!draft.name || !draft.gender || !draft.idCard || !draft.startDate || !draft.endDate) {
         throw new Error('申请信息不完整，无法生成证明')
@@ -238,6 +333,8 @@ export async function processCertificateDraft(id: string): Promise<void> {
 /**
  * 开具正式证明：在基础 PDF（系统生成或用户上传）上覆盖公章图片并上传。
  * 仅允许对待开具（COMPLETED）的申请执行。
+ * 带模板快照的草稿（本次改动后提交的系统模板申请）按快照在开具当天重新渲染，
+ * 落款日期因此取真正的开具日；自定义上传与无快照的历史草稿仍使用已生成的基础 PDF。
  */
 export async function issueCertificateDraft(
   id: string,
@@ -250,11 +347,16 @@ export async function issueCertificateDraft(
   if (!draft.pdfKey) return { success: false, error: '基础 PDF 缺失，无法开具' }
 
   try {
-    // 拉取基础 PDF
-    const baseUrl = generatePrivateUrl(draft.pdfKey)
-    const baseRes = await fetch(baseUrl)
-    if (!baseRes.ok) throw new Error('基础 PDF 获取失败')
-    const basePdf = Buffer.from(await baseRes.arrayBuffer())
+    // 基础 PDF：系统模板按草稿快照在开具当天重新渲染，其它情况沿用已上传的基础 PDF
+    const config = parseTemplateSnapshot(draft.templateSnapshot)
+    let basePdf: Buffer
+    if (config) {
+      basePdf = await renderDraftPdf(draft, config, new Date())
+    } else {
+      const baseRes = await fetch(generatePrivateUrl(draft.pdfKey))
+      if (!baseRes.ok) throw new Error('基础 PDF 获取失败')
+      basePdf = Buffer.from(await baseRes.arrayBuffer())
+    }
 
     // 盖章图：申请时快照的单位盖章图；无快照（历史申请/自定义上传）用系统默认公章
     let stampImage: Buffer | undefined
