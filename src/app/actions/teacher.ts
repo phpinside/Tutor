@@ -694,15 +694,13 @@ export async function getMyReferrals(teacherId: string) {
 // 更新邀请统计数据
 export async function updateReferralStats(teacherId: string) {
   try {
-    // 查询该教师的所有邀请记录（包含被邀请人的授课状态）
+    // 查询该教师的所有邀请记录（记录级授课奖励达标字段）
     const referrals = await prisma.referral.findMany({
       where: { referrerId: teacherId },
-      include: {
-        referred: {
-          select: {
-            teachingStatus: true
-          }
-        }
+      select: {
+        type: true,
+        status: true,
+        teachingCompletedAt: true
       }
     })
     
@@ -715,13 +713,13 @@ export async function updateReferralStats(teacherId: string) {
       directValid: direct.filter(r => r.status === 'VALID').length,
       directPending: direct.filter(r => r.status === 'PENDING').length,
       directInvalid: direct.filter(r => r.status === 'INVALID').length,
-      directTaught: direct.filter(r => r.referred.teachingStatus === 'TAUGHT').length,
+      directTaught: direct.filter(r => r.teachingCompletedAt).length,
       
       indirectTotal: indirect.length,
       indirectValid: indirect.filter(r => r.status === 'VALID').length,
       indirectPending: indirect.filter(r => r.status === 'PENDING').length,
       indirectInvalid: indirect.filter(r => r.status === 'INVALID').length,
-      indirectTaught: indirect.filter(r => r.referred.teachingStatus === 'TAUGHT').length,
+      indirectTaught: indirect.filter(r => r.teachingCompletedAt).length,
     }
     
     // 计算总收益（包含授课奖励）

@@ -107,6 +107,7 @@ export default function RewardsConfigClient({
               <li>• <strong>间接邀请：</strong>A邀请B，B邀请C注册并完成任务，A获得间接邀请奖励</li>
               <li>• 仅支持2级邀请（A→B→C），不支持更多层级</li>
               <li>• 间接邀请在直接邀请被审核为有效时自动生效</li>
+              <li>• 授课奖励门槛：自2026年10月1日起，被邀老师需完成20课时后邀请人方可获得授课奖励（直接/间接邀请相同）</li>
             </ul>
           </div>
 

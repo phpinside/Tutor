@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAllReferrals, markTeachingCompleted } from '@/app/actions/referral'
-import { prisma } from '@/lib/prisma'
+import { getTeachingHoursRequirement } from '@/lib/referralRewards'
 
 // 外部 API 配置
 const API_URL = process.env.EXTERNAL_TUTOR_API_URL || 'https://flowapi.chulu.net/v1/external/tutors/info'
@@ -81,8 +81,11 @@ async function checkAndMarkTeachingCompleted(): Promise<{
   const failed: string[] = []
   const insufficient: string[] = []
 
-  // 用于跟踪已处理的被邀请人，避免重复调用外部 API
-  const processedReferredIds = new Set<string>()
+  // 用于缓存被邀请人的外部 API 查询结果，避免同一被邀请人重复调用
+  const tutorInfoCache = new Map<string, Awaited<ReturnType<typeof getTutorInfo>>>()
+
+  // 当前适用的课时门槛（自 2026-10-01 起由 10 课时提高到 20 课时，直接/间接邀请相同）
+  const requiredHours = getTeachingHoursRequirement()
 
   try {
     let page = 1
@@ -93,7 +96,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
       const result = await getAllReferrals(
         {
           status: 'VALID',
-          teachingStatus: 'not_taught',
+          teachingCompleted: false,
         },
         page,
         pageSize
@@ -112,13 +115,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
       }
 
       for (const referral of referrals) {
-        // 跳过已处理的被邀请人
-        if (processedReferredIds.has(referral.referred.id)) {
-          continue
-        }
-
         processed++
-        processedReferredIds.add(referral.referred.id)
 
         const { referred } = referral
         if (!referred.phone) {
@@ -126,8 +123,15 @@ async function checkAndMarkTeachingCompleted(): Promise<{
           continue
         }
 
-        // 调用外部 API 获取课时信息
-        const tutorInfo = await getTutorInfo(referred.phone, referred.id)
+        // 直接邀请（一级）与间接邀请（二级）门槛相同，达标后各自的邀请记录分别标记
+        // 同一被邀请人只调用一次外部 API
+        let tutorInfo: Awaited<ReturnType<typeof getTutorInfo>> | undefined
+        if (tutorInfoCache.has(referred.id)) {
+          tutorInfo = tutorInfoCache.get(referred.id)
+        } else {
+          tutorInfo = await getTutorInfo(referred.phone, referred.id)
+          tutorInfoCache.set(referred.id, tutorInfo)
+        }
 
         if (!tutorInfo || !tutorInfo.success) {
           // API 调用失败，记录错误但不中断
@@ -137,40 +141,23 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         const regularLessonHours = tutorInfo.data?.regularLessonHours || 0
 
-        // 检查是否满足完成授课条件（>= 10课时）
-        if (regularLessonHours >= 10) {
-          // 找到该被邀请人的所有邀请记录（包括直接和间接）
-          const allReferrals = await prisma.referral.findMany({
-            where: {
-              referredId: referred.id,
-              status: 'VALID',
-            },
-            select: { id: true },
-          })
+        // 检查是否满足该记录类型的授课门槛
+        if (regularLessonHours >= requiredHours) {
+          const markResult = await markTeachingCompleted(
+            referral.id,
+            `系统检测：已完成${regularLessonHours}课时`,
+            '系统自动检测'
+          )
 
-         // 批量标记所有相关邀请记录
-          for (const r of allReferrals) {
-            
-            const markResult = await markTeachingCompleted(
-              r.id,
-              `系统检测：已完成${regularLessonHours}课时`,
-              '系统自动检测'
-            )
-
-            if (markResult.success) {
-
-              marked++
-              success.push(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}`)
-
-            } else {
-
-              failed.push(`邀请记录 ${r.id}: 标记授课完成失败 - ${markResult.error}`)
-            }
+          if (markResult.success) {
+            marked++
+            success.push(`已标记授课完成: ${referred.name}(${referred.phone}), 课时数: ${regularLessonHours}, ${referral.type === 'INDIRECT' ? '间接' : '直接'}邀请(要求${requiredHours}课时)`)
+          } else {
+            failed.push(`邀请记录 ${referral.id}: 标记授课完成失败 - ${markResult.error}`)
           }
-
         } else {
           // 课时不足，记录但不标记
-          insufficient.push(`课时不足: ${referred.name}(${referred.phone}), 当前课时: ${regularLessonHours}`)
+          insufficient.push(`课时不足: ${referred.name}(${referred.phone}), 当前课时: ${regularLessonHours}, 要求: ${requiredHours}课时(${referral.type === 'INDIRECT' ? '间接' : '直接'}邀请)`)
         }
       }
 

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { getCurrentReferrer } from '@/app/actions/auth'
 import { getReferralDataByTeacherId } from '@/app/actions/teacher'
 import ReferralDashboard from '@/components/referral/ReferralDashboard'
+import { isNewTeachingRuleEffective, shouldShowRuleUpdateNotice } from '@/lib/referralRewards'
 
 export default async function ReferralDashboardPage({
   searchParams
@@ -72,6 +73,8 @@ export default async function ReferralDashboardPage({
       inviteUrl={inviteUrl}
       pagination={data.pagination}
       filters={params}
+      showRuleUpdateNotice={shouldShowRuleUpdateNotice()}
+      teachingRuleEffective={isNewTeachingRuleEffective()}
     />
   )
 }

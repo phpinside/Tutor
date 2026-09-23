@@ -335,6 +335,7 @@ model Referral {
   lessonNote String? // 授课备注
   verifiedBy String? // 授课审核人
   verifiedAt DateTime? // 授课审核时间
+  teachingCompletedAt DateTime? // 授课奖励达标时间（直接/间接门槛相同，2026-10-01 起统一 20 课时；历史数据回填为 verifiedAt）
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

@@ -17,7 +17,8 @@ export type ReferralFilters = {
   taskProgress?: string // 任务进度 '0'-'6'
   completionStatus?: string // 完成状态: 'in_progress' | 'completed'
   rewardStatus?: string // 奖励状态: 'sent' | 'pending' | 'all'
-  teachingStatus?: string // 授课状态: 'taught' | 'not_taught'
+  teachingStatus?: string // 授课状态: 'taught' | 'not_taught'（老师级：是否已满足直接邀请课时门槛）
+  teachingCompleted?: boolean // 记录级授课奖励是否已达标（teachingCompletedAt 是否有值）
 }
 
 export type BatchAction = 
@@ -231,10 +232,17 @@ export async function getAllReferrals(filters?: ReferralFilters, page: number = 
     // 授课状态筛选
     if (filters?.teachingStatus) {
       whereConditions.push({
-        referred: { 
+        referred: {
           teachingStatus: filters.teachingStatus === 'taught' ? 'TAUGHT' : 'NOT_TAUGHT'
         }
       })
+    }
+
+    // 记录级授课奖励达标筛选
+    if (filters?.teachingCompleted === false) {
+      whereConditions.push({ teachingCompletedAt: null })
+    } else if (filters?.teachingCompleted === true) {
+      whereConditions.push({ teachingCompletedAt: { not: null } })
     }
     
     const where = whereConditions.length > 0 ? { AND: whereConditions } : {}
@@ -621,26 +629,29 @@ export async function markTeachingCompleted(
       return { success: false, error: '邀请记录不存在' }
     }
 
-    // 检查是否已经标记为授课完成
-    if (referral.referred.teachingStatus === 'TAUGHT') {
-      return { success: false, error: '该老师已标记为授课完成' }
+    // 检查该条邀请记录是否已标记授课完成（记录级幂等）
+    if (referral.teachingCompletedAt) {
+      return { success: false, error: '该邀请记录已标记为授课完成' }
     }
 
-    // 更新被邀请人的授课状态
-    await prisma.teacher.update({
-      where: { id: referral.referredId },
-      data: {
-        teachingStatus: 'TAUGHT'
-      }
-    })
+    // 更新被邀请人的授课状态（老师级标志表示已满足授课奖励课时门槛）
+    if (referral.referred.teachingStatus !== 'TAUGHT') {
+      await prisma.teacher.update({
+        where: { id: referral.referredId },
+        data: {
+          teachingStatus: 'TAUGHT'
+        }
+      })
+    }
 
-    // 更新邀请记录的授课备注
+    // 更新邀请记录的授课备注与达标时间
     await prisma.referral.update({
       where: { id: referralId },
       data: {
         lessonNote,
         verifiedBy: reviewedBy,
-        verifiedAt: new Date()
+        verifiedAt: new Date(),
+        teachingCompletedAt: new Date()
       }
     })
 

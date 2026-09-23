@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import dynamic from 'next/dynamic'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { formatName, formatPhone, formatDateTime } from '@/lib/utils'
+import { TEACHING_HOURS_NEW } from '@/lib/referralRewards'
 import { logoutReferrer } from '@/app/actions/auth'
 
 const PosterGenerator = dynamic(() => import('@/components/referral/PosterGenerator'), {
@@ -71,7 +72,9 @@ export default function ReferralDashboard({
   data,
   inviteUrl,
   pagination,
-  filters
+  filters,
+  showRuleUpdateNotice = false,
+  teachingRuleEffective = false
 }: {
   data: ReferralData
   inviteUrl: string
@@ -83,6 +86,8 @@ export default function ReferralDashboard({
     taskStatus?: string
     referralStatus?: string
   }
+  showRuleUpdateNotice?: boolean
+  teachingRuleEffective?: boolean
 }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -95,6 +100,9 @@ export default function ReferralDashboard({
   const [directPage, setDirectPage] = useState(1)
   const [indirectPage, setIndirectPage] = useState(1)
   const pageSize = 20
+
+  // 授课奖励达标条件描述：2026-10-01 前展示旧规则（10次授课），起展示新规则（20课时）
+  const teachingConditionText = teachingRuleEffective ? `完成${TEACHING_HOURS_NEW}课时` : '完成10次授课'
   
   // 计算分页数据
   const directTotalPages = Math.ceil(directReferrals.length / pageSize)
@@ -201,7 +209,17 @@ export default function ReferralDashboard({
               <h2 className="text-2xl font-bold text-amber-900">教师邀请入驻奖励计划</h2>
               <span className="text-3xl">💰</span>
             </div>
-            
+
+            {/* 规则更新公告（展示至 2026-12-31） */}
+            {showRuleUpdateNotice && (
+              <div className="mb-4 rounded-xl border border-orange-300 bg-orange-100/90 px-4 py-3">
+                <p className="text-sm font-semibold text-orange-900 text-center leading-relaxed">
+                  📢 <span className="underline decoration-2">2026年10月1日</span>起，奖励规则将更新：
+                  被邀老师正式开课并完成{TEACHING_HOURS_NEW}课时后，邀请人方可获得授课奖励（直接/间接邀请均适用）
+                </p>
+              </div>
+            )}
+
             <div className="space-y-4 text-left">
               {/* 一级邀请奖励（直接邀请） */}
               <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 shadow-sm">
@@ -221,7 +239,7 @@ export default function ReferralDashboard({
                   <div className="flex items-start gap-2">
                     <span className="text-green-500 flex-shrink-0">•</span>
                     <p className="text-gray-700">
-                      被邀老师(张老师)正式开课，并完成10次授课后，邀请人A可再获
+                      被邀老师(张老师)正式开课，并{teachingConditionText}后，邀请人A可再获
                       <span className="text-orange-600 font-bold"> {stats.directTeachingReward}元/人 </span>
                       奖励。
                     </p>
@@ -247,7 +265,7 @@ export default function ReferralDashboard({
                   <div className="flex items-start gap-2">
                     <span className="text-purple-500 flex-shrink-0">•</span>
                     <p className="text-gray-700">
-                      该新老师(李老师)正式开课，并完成10次授课后，原邀请人A可再获
+                      该新老师(李老师)正式开课，并{teachingConditionText}后，原邀请人A可再获
                       <span className="text-pink-600 font-bold"> {stats.indirectTeachingReward}元/人 </span>
                       奖励。
                     </p>

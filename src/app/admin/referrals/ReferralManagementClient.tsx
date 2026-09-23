@@ -14,6 +14,7 @@ type Referral = {
   rewardSent: boolean
   adminNote: string | null
   lessonNote: string | null
+  teachingCompletedAt: Date | null
   createdAt: Date
   referrer: {
     id: string
@@ -378,14 +379,17 @@ export default function ReferralManagementClient({
                     )}
                   </td>
                   <td className="py-3 px-4 text-sm">
-                    {referral.referred.teachingStatus === 'TAUGHT' ? (
+                    {referral.teachingCompletedAt ? (
                       <div className="group relative">
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800 cursor-help">
                           ✓ 已授课
                         </span>
-                        {referral.lessonNote && (
-                          <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2">
+                        {(referral.lessonNote || referral.teachingCompletedAt) && (
+                          <div className="hidden group-hover:block absolute z-10 w-64 p-2 bg-gray-900 text-white text-xs rounded shadow-lg -top-2 left-full ml-2 whitespace-pre-wrap">
                             {referral.lessonNote}
+                            {referral.teachingCompletedAt && (
+                              <div className="mt-1 text-gray-400">达标时间：{formatDateTime(referral.teachingCompletedAt)}</div>
+                            )}
                           </div>
                         )}
                       </div>
@@ -453,7 +457,7 @@ export default function ReferralManagementClient({
                           恢复有效
                         </button>
                       )}
-                      {referral.status === 'VALID' && referral.referred.teachingStatus === 'NOT_TAUGHT' && (
+                      {referral.status === 'VALID' && !referral.teachingCompletedAt && (
                         <button
                           onClick={() => handleMarkTeachingCompleted(referral.id)}
                           disabled={isLoading}
