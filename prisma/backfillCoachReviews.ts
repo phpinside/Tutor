@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client'
-import { resolveFirstReviewerWithFallback, REVIEW_ELIGIBLE_SINCE } from '../src/lib/externalTutor'
+import { resolveFirstReviewerUnified, REVIEW_ELIGIBLE_SINCE } from '../src/lib/externalTutor'
 
 const prisma = new PrismaClient()
 
@@ -54,7 +54,8 @@ async function main() {
     }
 
     const inviterPhone = directReferral.referrer?.phone ?? null
-    const resolved = await resolveFirstReviewerWithFallback(teacher.id, inviterPhone)
+    // 统一分配模型：优先使用跟进人（TeacherTeam）作为初审人
+    const resolved = await resolveFirstReviewerUnified(teacher.id, inviterPhone)
 
     await prisma.coachReview.create({
       data: {
@@ -65,6 +66,15 @@ async function main() {
         stage: 'FIRST_REVIEW',
       },
     })
+
+    // 统一分配模型：保持「跟进人 = 初审人」
+    if (resolved.operatorId) {
+      await prisma.teacherTeam.upsert({
+        where: { teacherId: teacher.id },
+        update: { operatorId: resolved.operatorId },
+        create: { teacherId: teacher.id, operatorId: resolved.operatorId },
+      })
+    }
 
     created++
     console.log(

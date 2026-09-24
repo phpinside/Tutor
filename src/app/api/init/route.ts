@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createReferralRecord } from '@/app/actions/teacher'
+import { assignFollowUpAtRegistration } from '@/lib/externalTutor'
 
 /**
  * 初始化路由 - 处理邀请关系绑定
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
           // 查找邀请人
           const referrer = await prisma.teacher.findUnique({
             where: { inviteCode: refCode.trim().toUpperCase() },
-            select: { id: true }
+            select: { id: true, phone: true }
           })
           
           if (referrer && referrer.id !== teacherId) {
@@ -47,6 +48,9 @@ export async function GET(request: NextRequest) {
             
             // 创建邀请记录（包括直接和间接邀请）
             await createReferralRecord(referrer.id, teacherId)
+
+            // 按统一分配模型归属跟进人
+            await assignFollowUpAtRegistration(teacherId, referrer.phone)
           }
         }
         

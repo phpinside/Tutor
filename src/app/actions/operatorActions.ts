@@ -190,7 +190,7 @@ export async function getOperatorProfile(operatorId: string) {
   })
 }
 
-// ——— 被邀请人默认跟进人 ———
+// ——— 运营搜索与跟进人调整（统一分配模型） ———
 
 export async function searchOperators(query: string) {
   if (!query.trim()) return { success: true as const, operators: [] }
@@ -209,20 +209,6 @@ export async function searchOperators(query: string) {
   })
 
   return { success: true as const, operators }
-}
-
-export async function setInviterDefaultFollowUpPerson(
-  inviterId: string,
-  operatorId: string | null
-) {
-  await prisma.teacher.update({
-    where: { id: inviterId },
-    data: { defaultInviteeFollowUpId: operatorId },
-  })
-
-  revalidatePath(`/admin/teachers/${inviterId}`)
-
-  return { success: true as const }
 }
 
 export async function updateTeacherFollower(
@@ -245,6 +231,17 @@ export async function updateTeacherFollower(
 
   try {
     if (operatorId) {
+      const operator = await prisma.operator.findUnique({
+        where: { id: operatorId },
+        select: { isEnabled: true },
+      })
+      if (!operator) {
+        return { success: false, error: '运营不存在' }
+      }
+      if (!operator.isEnabled) {
+        return { success: false, error: '该运营已禁用，无法指派为跟进人' }
+      }
+
       await prisma.teacherTeam.upsert({
         where: { teacherId },
         update: { operatorId },
@@ -255,6 +252,18 @@ export async function updateTeacherFollower(
         where: { teacherId },
       })
     }
+
+    // 统一分配模型：跟进人 = 初审人。
+    // 若该教练已有审核记录且初审尚未完成（首次创建或驳回后重新提交），
+    // 同步更新初审负责人；清除跟进人（operatorId=null）则变为合并审核。
+    await prisma.coachReview.updateMany({
+      where: {
+        teacherId,
+        stage: 'FIRST_REVIEW',
+        firstReviewVerdict: 'PENDING',
+      },
+      data: { firstReviewOperatorId: operatorId },
+    })
   } catch (error) {
     console.error('修改跟进人失败:', error)
     return { success: false, error: '操作失败，请重试' }

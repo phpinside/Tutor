@@ -37,6 +37,8 @@ export async function fetchTutorInfo(
     const response = await fetch(url.toString(), {
       method: 'GET',
       redirect: 'follow',
+      // 注册流程同步调用此接口，超时兜底避免外部接口异常阻塞注册
+      signal: AbortSignal.timeout(5000),
       headers: {
         'X-External-Token': TUTOR_API_TOKEN,
         Accept: '*/*',
@@ -139,6 +141,7 @@ export async function resolveFirstReviewer(
 }
 
 // 通过 Referral 表查找某教师的直接邀请人（返回邀请人 ID 与手机号）
+// Referral 记录缺失时回退到 Teacher.invitedById（兼容历史数据/创建失败的数据）
 async function findDirectInviter(
   teacherId: string
 ): Promise<{ inviterId: string; inviterPhone: string } | null> {
@@ -152,11 +155,28 @@ async function findDirectInviter(
       referrer: { select: { phone: true } },
     },
   })
-  if (!referral || !referral.referrer.phone) return null
-  return {
-    inviterId: referral.referrerId,
-    inviterPhone: referral.referrer.phone,
+  if (referral && referral.referrer.phone) {
+    return {
+      inviterId: referral.referrerId,
+      inviterPhone: referral.referrer.phone,
+    }
   }
+
+  const teacher = await prisma.teacher.findUnique({
+    where: { id: teacherId },
+    select: {
+      invitedById: true,
+      invitedBy: { select: { phone: true } },
+    },
+  })
+  if (teacher?.invitedById && teacher.invitedBy?.phone) {
+    return {
+      inviterId: teacher.invitedById,
+      inviterPhone: teacher.invitedBy.phone,
+    }
+  }
+
+  return null
 }
 
 // 加权随机兜底运营池条目
@@ -349,6 +369,47 @@ export async function resolveFirstReviewerWithFallback(
   }
 
   return resolved
+}
+
+// 统一分配模型解析：优先使用团队跟进人（TeacherTeam.operator）作为初审人，
+// 无跟进人或运营已禁用时回退到原 4 层解析（外部接口 → 邀请人链条 → 团队认领人 → 加权随机）。
+// 保证「跟进人 = 初审人」，避免运行期重新解析出与跟进人不一致的运营。
+export async function resolveFirstReviewerUnified(
+  teacherId: string,
+  inviterPhone: string | null
+): Promise<ResolveResult> {
+  const teamAssignment = await prisma.teacherTeam.findUnique({
+    where: { teacherId },
+    select: { operator: { select: { id: true, isEnabled: true } } },
+  })
+  if (teamAssignment?.operator?.isEnabled) {
+    return {
+      operatorId: teamAssignment.operator.id,
+      managerPhone: null,
+      source: 'team_assignment',
+    }
+  }
+  return resolveFirstReviewerWithFallback(teacherId, inviterPhone)
+}
+
+// 注册时按统一分配模型解析跟进人并创建 TeacherTeam。
+// 解析失败（如系统中无启用运营）不抛错、不阻断注册流程；此时教师暂无跟进人，
+// 可由运营在「团队人员管理」中认领，或在入驻完成时由 ensureCoachReview 兜底回填。
+export async function assignFollowUpAtRegistration(
+  teacherId: string,
+  inviterPhone: string | null
+): Promise<void> {
+  try {
+    const resolved = await resolveFirstReviewerUnified(teacherId, inviterPhone)
+    if (resolved.operatorId) {
+      await prisma.teacherTeam.createMany({
+        data: [{ teacherId, operatorId: resolved.operatorId }],
+        skipDuplicates: true,
+      })
+    }
+  } catch (error) {
+    console.error('注册时分配跟进人失败:', { teacherId, error })
+  }
 }
 
 export function isCoachReviewEligible(

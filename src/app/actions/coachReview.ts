@@ -5,7 +5,7 @@ import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import {
   isCoachReviewEligible,
-  resolveFirstReviewerWithFallback,
+  resolveFirstReviewerUnified,
 } from '@/lib/externalTutor'
 import { updateReferralStats } from './teacher'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
@@ -108,7 +108,9 @@ export async function ensureCoachReview(
     if (!directReferral) return { success: true, created: false }
 
     const inviterPhone = directReferral.referrer?.phone ?? null
-    const resolved = await resolveFirstReviewerWithFallback(teacherId, inviterPhone)
+    // 统一分配模型：优先使用注册时已确定的跟进人（TeacherTeam）作为初审人，
+    // 无跟进人或运营已禁用时才回退到完整解析链
+    const resolved = await resolveFirstReviewerUnified(teacherId, inviterPhone)
 
     await prisma.coachReview.create({
       data: {
@@ -120,11 +122,13 @@ export async function ensureCoachReview(
       },
     })
 
-    // 仅当无人跟进时，将跟进人设为初审负责人（已有跟进人则跳过）
+    // 统一分配模型：保持「跟进人 = 初审人」。
+    // 无跟进人时创建；已有跟进人但解析结果不同（原跟进运营已被禁用等）时覆盖。
     if (resolved.operatorId) {
-      await prisma.teacherTeam.createMany({
-        data: [{ teacherId, operatorId: resolved.operatorId }],
-        skipDuplicates: true,
+      await prisma.teacherTeam.upsert({
+        where: { teacherId },
+        update: { operatorId: resolved.operatorId },
+        create: { teacherId, operatorId: resolved.operatorId },
       })
     }
 

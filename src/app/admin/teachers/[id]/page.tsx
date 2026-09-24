@@ -6,7 +6,6 @@ import { notFound } from 'next/navigation'
 import { cookies } from 'next/headers'
 import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
-import SetInviteeDefaultFollowerModal from './SetInviteeDefaultFollowerModal'
 import TeacherInfoEditModal from './TeacherInfoEditModal'
 import ResetTeacherPasswordModal from './ResetTeacherPasswordModal'
 import TeacherPhoneRevealControl from './TeacherPhoneRevealControl'
@@ -85,9 +84,6 @@ export default async function TeacherDetailPage({
             },
           },
         },
-      },
-      defaultInviteeFollowUp: {
-        select: { id: true, name: true, phone: true },
       },
       teamAssignment: {
         include: {
@@ -181,12 +177,6 @@ export default async function TeacherDetailPage({
               <SetInviterModal
                 teacherId={teacher.id}
                 currentInviter={teacher.invitedBy}
-              />
-            )}
-            {viewerInfo.isSuperAdmin && (
-              <SetInviteeDefaultFollowerModal
-                teacherId={teacher.id}
-                currentDefaultFollowUp={teacher.defaultInviteeFollowUp}
               />
             )}
             <span className={`badge text-base ${

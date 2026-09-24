@@ -6,6 +6,7 @@ import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { sanitizeInput } from '@/lib/utils'
+import { assignFollowUpAtRegistration } from '@/lib/externalTutor'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
@@ -125,15 +126,15 @@ export async function registerAndCreateTeacher(formData: {
 
     // 查找邀请人
     let invitedById: string | null = null
-    let inviterDefaultFollowUpId: string | null = null
+    let inviterPhone: string | null = null
     if (referralCode) {
       const referrer = await prisma.teacher.findUnique({
         where: { inviteCode: referralCode.toUpperCase() },
-        select: { id: true, defaultInviteeFollowUpId: true }
+        select: { id: true, phone: true }
       })
       if (referrer) {
         invitedById = referrer.id
-        inviterDefaultFollowUpId = referrer.defaultInviteeFollowUpId
+        inviterPhone = referrer.phone
       }
     }
 
@@ -163,15 +164,10 @@ export async function registerAndCreateTeacher(formData: {
     // 生成邀请码和查看码
     await ensureInviteCodes(teacher.id)
 
-    // 如果有邀请人，创建邀请记录并自动归属跟进人
+    // 如果有邀请人，创建邀请记录并按统一分配模型归属跟进人
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
-      if (inviterDefaultFollowUpId) {
-        await prisma.teacherTeam.createMany({
-          data: [{ teacherId: teacher.id, operatorId: inviterDefaultFollowUpId }],
-          skipDuplicates: true,
-        })
-      }
+      await assignFollowUpAtRegistration(teacher.id, inviterPhone)
     }
 
     // 提交任务1（标记为已完成）

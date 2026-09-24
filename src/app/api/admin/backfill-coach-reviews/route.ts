@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import {
-  resolveFirstReviewerWithFallback,
+  resolveFirstReviewerUnified,
   REVIEW_ELIGIBLE_SINCE,
 } from '@/lib/externalTutor'
 
@@ -73,7 +73,8 @@ export async function POST(request: Request) {
       }
 
       const inviterPhone = directReferral.referrer?.phone ?? null
-      const resolved = await resolveFirstReviewerWithFallback(teacher.id, inviterPhone)
+      // 统一分配模型：优先使用跟进人（TeacherTeam）作为初审人
+      const resolved = await resolveFirstReviewerUnified(teacher.id, inviterPhone)
 
       await prisma.coachReview.create({
         data: {
@@ -84,6 +85,15 @@ export async function POST(request: Request) {
           stage: 'FIRST_REVIEW',
         },
       })
+
+      // 统一分配模型：保持「跟进人 = 初审人」
+      if (resolved.operatorId) {
+        await prisma.teacherTeam.upsert({
+          where: { teacherId: teacher.id },
+          update: { operatorId: resolved.operatorId },
+          create: { teacherId: teacher.id, operatorId: resolved.operatorId },
+        })
+      }
 
       pendingCreated++
       details.push({
