@@ -395,10 +395,11 @@ export async function resolveFirstReviewerUnified(
 // 注册时按统一分配模型解析跟进人并创建 TeacherTeam。
 // 解析失败（如系统中无启用运营）不抛错、不阻断注册流程；此时教师暂无跟进人，
 // 可由运营在「团队人员管理」中认领，或在入驻完成时由 ensureCoachReview 兜底回填。
+// 返回解析结果供调用方（含批量补齐脚本）报告；返回 null 表示执行出错。
 export async function assignFollowUpAtRegistration(
   teacherId: string,
   inviterPhone: string | null
-): Promise<void> {
+): Promise<ResolveResult | null> {
   try {
     const resolved = await resolveFirstReviewerUnified(teacherId, inviterPhone)
     if (resolved.operatorId) {
@@ -407,8 +408,10 @@ export async function assignFollowUpAtRegistration(
         skipDuplicates: true,
       })
     }
+    return resolved
   } catch (error) {
     console.error('注册时分配跟进人失败:', { teacherId, error })
+    return null
   }
 }
 
