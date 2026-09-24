@@ -8,8 +8,9 @@
  * 复用生产逻辑：src/lib/externalTutor.ts 的 resolveFirstReviewerUnified /
  * assignFollowUpAtRegistration（与注册路径完全一致，保证「跟进人 = 初审人」）。
  *
- * 数据库与外部接口配置自动读取项目根目录 .env（DATABASE_URL、
- * EXTERNAL_TUTOR_API_URL、EXTERNAL_TUTOR_API_TOKEN）。
+ * 数据库与外部接口配置：启动时显式加载 项目根目录/.env（或 prisma/.env），
+ * 读取 DATABASE_URL、EXTERNAL_TUTOR_API_URL、EXTERNAL_TUTOR_API_TOKEN；
+ * 已存在的进程环境变量优先（如 export 或 Docker 注入的变量不会被覆盖）。
  *
  * 用法：
  *   npx tsx prisma/preassignFollowUps.ts                          # 默认起始日期 2025-06-01，直接执行
@@ -18,6 +19,8 @@
  * =============================================================================
  */
 
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { PrismaClient } from '@prisma/client'
 import {
   assignFollowUpAtRegistration,
@@ -25,6 +28,36 @@ import {
   REVIEW_ELIGIBLE_SINCE,
   type ResolveResult,
 } from '../src/lib/externalTutor'
+
+// ——— 显式加载 .env ———
+// tsx 独立运行时不会像 Next.js 运行时那样自动读取 .env，需在此显式加载。
+// 依次查找 项目根目录/.env 与 prisma/.env；已存在的进程环境变量优先，不被覆盖。
+function loadEnvFile(filePath: string): boolean {
+  if (!existsSync(filePath)) return false
+  for (const rawLine of readFileSync(filePath, 'utf-8').split('\n')) {
+    const line = rawLine.trim()
+    if (!line || line.startsWith('#')) continue
+    const eq = line.indexOf('=')
+    if (eq <= 0) continue
+    const key = line.slice(0, eq).trim()
+    let value = line.slice(eq + 1).trim()
+    if (
+      (value.startsWith('"') && value.endsWith('"')) ||
+      (value.startsWith("'") && value.endsWith("'"))
+    ) {
+      value = value.slice(1, -1)
+    }
+    if (process.env[key] === undefined) {
+      process.env[key] = value
+    }
+  }
+  return true
+}
+
+const envLoadedFrom = [
+  resolve(process.cwd(), '.env'),
+  resolve(process.cwd(), 'prisma/.env'),
+].find((p) => loadEnvFile(p))
 
 const prisma = new PrismaClient()
 
@@ -54,6 +87,16 @@ async function main() {
   const { dryRun, startDate } = parseArgs()
 
   console.log('=== 教练跟进人批量预分配 ===')
+  if (envLoadedFrom) {
+    console.log(`已加载环境变量: ${envLoadedFrom}`)
+  } else if (!process.env.DATABASE_URL) {
+    console.error(
+      '错误: 未找到 DATABASE_URL 环境变量。\n' +
+        '请在项目根目录运行本脚本并确认存在 .env 文件（含 DATABASE_URL），\n' +
+        '或先执行 export DATABASE_URL="postgresql://..." 后重试。'
+    )
+    process.exit(1)
+  }
   console.log(`起始日期: ${startDate.toISOString().slice(0, 10)}`)
   console.log(`运行模式: ${dryRun ? '试运行（不写库）' : '正式执行'}`)
   if (!process.env.EXTERNAL_TUTOR_API_TOKEN) {
