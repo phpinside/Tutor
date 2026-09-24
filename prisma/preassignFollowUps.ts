@@ -91,18 +91,34 @@ function parseArgs() {
   const args = process.argv.slice(2)
   const dryRun = args.includes('--dry-run')
   const startArg = args.find((a) => a.startsWith('--start='))
-  const startDate = startArg ? new Date(startArg.split('=')[1]) : REVIEW_ELIGIBLE_SINCE
+  const startInput = startArg ? startArg.split('=')[1] : null
+
+  let startDate: Date
+  let startDateLabel: string
+  if (startInput) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(startInput)) {
+      console.error('错误：起始日期格式应为 YYYY-MM-DD')
+      process.exit(1)
+    }
+    // 按北京时间（UTC+8）解析日期零点，与业务口径一致（如 REVIEW_ELIGIBLE_SINCE）。
+    // 注意：new Date('YYYY-MM-DD') 会按 UTC 解析，导致日期边界偏移 8 小时，此处显式指定时区。
+    startDate = new Date(`${startInput}T00:00:00+08:00`)
+    startDateLabel = startInput
+  } else {
+    startDate = REVIEW_ELIGIBLE_SINCE
+    startDateLabel = '2025-06-01'
+  }
 
   if (Number.isNaN(startDate.getTime())) {
     console.error('错误：无效的起始日期，请使用 --start=YYYY-MM-DD 格式')
     process.exit(1)
   }
 
-  return { dryRun, startDate }
+  return { dryRun, startDate, startDateLabel }
 }
 
 async function main() {
-  const { dryRun, startDate } = parseArgs()
+  const { dryRun, startDate, startDateLabel } = parseArgs()
 
   console.log('=== 教练跟进人批量预分配 ===')
   if (envLoadedFrom.length > 0) {
@@ -117,7 +133,7 @@ async function main() {
     )
     process.exit(1)
   }
-  console.log(`起始日期: ${startDate.toISOString().slice(0, 10)}`)
+  console.log(`起始日期: ${startDateLabel}（北京时间，含当天；仅处理注册时间在此之后的教师）`)
   console.log(`运行模式: ${dryRun ? '试运行（不写库）' : '正式执行'}`)
   if (!process.env.EXTERNAL_TUTOR_API_TOKEN) {
     console.warn('警告: EXTERNAL_TUTOR_API_TOKEN 未设置，外部接口层级将跳过，直接走邀请人链条/随机兜底')
