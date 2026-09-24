@@ -392,27 +392,72 @@ export async function resolveFirstReviewerUnified(
   return resolveFirstReviewerWithFallback(teacherId, inviterPhone)
 }
 
-// 注册时按统一分配模型解析跟进人并创建 TeacherTeam。
-// 解析失败（如系统中无启用运营）不抛错、不阻断注册流程；此时教师暂无跟进人，
-// 可由运营在「团队人员管理」中认领，或在入驻完成时由 ensureCoachReview 兜底回填。
-// 返回解析结果供调用方（含批量补齐脚本）报告；返回 null 表示执行出错。
-export async function assignFollowUpAtRegistration(
+// 教师是否已填写真实姓名与电话（占位/未注册记录不参与跟进人分配）。
+// 占位特征（来自历史遗留数据）：phone 为 temp_* 前缀、name 为 未命名* 前缀或空值。
+export function isTeacherIdentifiable(
+  teacher: { name: string | null; phone: string | null } | null
+): boolean {
+  if (!teacher) return false
+  const { name, phone } = teacher
+  if (!name || !phone) return false
+  if (phone.startsWith('temp_')) return false
+  if (name.startsWith('未命名')) return false
+  return true
+}
+
+// 统一分配模型：邀请关系建立/变更时（注册填码、邀请链接绑定、管理员修改），
+// 以最新的邀请人信息为准重新解析跟进人并同步更新（跟进人 = 初审人）。
+// 解析优先级：新邀请人链路（是否运营/外部接口/邀请链）> 现有跟进人（保持）> 加权随机。
+// 注意此处不可用 resolveFirstReviewerUnified（跟进人优先会短路，导致无法按新邀请人重算）。
+// 无邀请人（inviterPhone=null）时跳过链路解析：已有跟进人则保留，否则随机兜底。
+// 仅对已填写真实姓名与电话的教师分配；解析未命中（系统中无启用运营）时保持现状。
+// 返回解析结果；返回 null 表示未分配（占位记录或执行出错）。
+export async function syncFollowUpWithInviter(
   teacherId: string,
   inviterPhone: string | null
 ): Promise<ResolveResult | null> {
   try {
-    const resolved = await resolveFirstReviewerUnified(teacherId, inviterPhone)
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { name: true, phone: true },
+    })
+    if (!isTeacherIdentifiable(teacher)) {
+      console.info('跳过跟进人分配：教师未填写真实姓名或电话', { teacherId })
+      return null
+    }
+
+    const resolved = await resolveFirstReviewerWithFallback(teacherId, inviterPhone)
     if (resolved.operatorId) {
-      await prisma.teacherTeam.createMany({
-        data: [{ teacherId, operatorId: resolved.operatorId }],
-        skipDuplicates: true,
+      await prisma.teacherTeam.upsert({
+        where: { teacherId },
+        update: { operatorId: resolved.operatorId },
+        create: { teacherId, operatorId: resolved.operatorId },
       })
+      await syncPendingFirstReviewer(teacherId, resolved.operatorId)
     }
     return resolved
   } catch (error) {
-    console.error('注册时分配跟进人失败:', { teacherId, error })
+    console.error('按最新邀请人同步跟进人失败:', { teacherId, error })
     return null
   }
+}
+
+// 统一分配模型：跟进人 = 初审人。跟进人发生变更后，
+// 同步待初审的 CoachReview 初审负责人（首次创建或驳回后重新提交的记录）。
+// 初审已完成（已出结论/已进入终审/已通过）的记录不受影响。
+// operatorId 为 null 表示清除跟进人（变为合并审核），仅在显式清除时使用。
+export async function syncPendingFirstReviewer(
+  teacherId: string,
+  operatorId: string | null
+): Promise<void> {
+  await prisma.coachReview.updateMany({
+    where: {
+      teacherId,
+      stage: 'FIRST_REVIEW',
+      firstReviewVerdict: 'PENDING',
+    },
+    data: { firstReviewOperatorId: operatorId },
+  })
 }
 
 export function isCoachReviewEligible(

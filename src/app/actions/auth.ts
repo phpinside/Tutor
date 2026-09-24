@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { ensureInviteCodes, createReferralRecord } from './teacher'
-import { assignFollowUpAtRegistration } from '@/lib/externalTutor'
+import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { sanitizeInput } from '@/lib/utils'
 import { PERMANENTLY_REJECTED_MESSAGE } from '@/lib/coachReviewShared'
 
@@ -107,12 +107,24 @@ export async function registerReferrer(formData: {
       // 生成邀请码
       await ensureInviteCodes(teacher.id)
       
-      // 如果建立了新的邀请关系，创建邀请记录并按统一分配模型归属跟进人
+      // 如果建立了新的邀请关系，创建邀请记录
       if (invitedById && !existingTeacher.invitedById) {
         await createReferralRecord(invitedById, teacher.id)
-        await assignFollowUpAtRegistration(teacher.id, inviterPhone)
       }
-      
+
+      // 注册/升级完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）。
+      // 以最终生效的邀请关系为准（此前经邀请链接绑定的优先，本次邀请码不改变已有关系）。
+      const effectiveInviterId = existingTeacher.invitedById ?? invitedById
+      let effectiveInviterPhone: string | null = null
+      if (effectiveInviterId) {
+        const boundInviter = await prisma.teacher.findUnique({
+          where: { id: effectiveInviterId },
+          select: { phone: true },
+        })
+        effectiveInviterPhone = boundInviter?.phone ?? null
+      }
+      await syncFollowUpWithInviter(teacher.id, effectiveInviterPhone)
+
       // 设置认证 cookie（统一使用 teacherId）
       const cookieStore = await cookies()
       cookieStore.set('teacherId', teacher.id, {
@@ -148,11 +160,13 @@ export async function registerReferrer(formData: {
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
 
-    // 如果有邀请人，创建邀请记录并按统一分配模型归属跟进人
+    // 如果有邀请人，创建邀请记录
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
-      await assignFollowUpAtRegistration(teacher.id, inviterPhone)
     }
+
+    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
+    await syncFollowUpWithInviter(teacher.id, inviterPhone)
 
     // 设置认证 cookie（统一使用 teacherId）
     const cookieStore = await cookies()
@@ -392,12 +406,24 @@ export async function registerTeacher(formData: {
       // 生成邀请码
       await ensureInviteCodes(teacher.id)
       
-      // 如果建立了新的邀请关系，创建邀请记录并按统一分配模型归属跟进人
+      // 如果建立了新的邀请关系，创建邀请记录
       if (invitedById && !existingTeacher.invitedById) {
         await createReferralRecord(invitedById, teacher.id)
-        await assignFollowUpAtRegistration(teacher.id, inviterPhone)
       }
-      
+
+      // 注册/升级完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）。
+      // 以最终生效的邀请关系为准（此前经邀请链接绑定的优先，本次邀请码不改变已有关系）。
+      const effectiveInviterId = existingTeacher.invitedById ?? invitedById
+      let effectiveInviterPhone: string | null = null
+      if (effectiveInviterId) {
+        const boundInviter = await prisma.teacher.findUnique({
+          where: { id: effectiveInviterId },
+          select: { phone: true },
+        })
+        effectiveInviterPhone = boundInviter?.phone ?? null
+      }
+      await syncFollowUpWithInviter(teacher.id, effectiveInviterPhone)
+
       // 设置认证 cookie
       const cookieStore = await cookies()
       cookieStore.set('teacherId', teacher.id, {
@@ -431,11 +457,13 @@ export async function registerTeacher(formData: {
     // 生成邀请码
     await ensureInviteCodes(teacher.id)
 
-    // 如果有邀请人，创建邀请记录并按统一分配模型归属跟进人
+    // 如果有邀请人，创建邀请记录
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
-      await assignFollowUpAtRegistration(teacher.id, inviterPhone)
     }
+
+    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
+    await syncFollowUpWithInviter(teacher.id, inviterPhone)
 
     // 设置认证 cookie
     const cookieStore = await cookies()

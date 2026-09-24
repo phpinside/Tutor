@@ -5,8 +5,12 @@
  *       既无 TeacherTeam（无跟进人）也无 CoachReview 的教师，
  *       按统一分配模型解析跟进人并创建 TeacherTeam，实现入驻期间的预分配。
  *
+ * 前置条件（name+phone 必填规则）：仅分配已填写真实姓名和电话的教师；
+ *       占位记录（temp_* 手机号 / 未命名* 姓名或空值）统计跳过、不做分配，
+ *       其正式分配在注册升级时由统一入口的守卫自动完成。
+ *
  * 复用生产逻辑：src/lib/externalTutor.ts 的 resolveFirstReviewerUnified /
- * assignFollowUpAtRegistration（与注册路径完全一致，保证「跟进人 = 初审人」）。
+ * syncFollowUpWithInviter（与注册/邀请变更路径完全一致，保证「跟进人 = 初审人」）。
  *
  * 数据库与外部接口配置：启动时显式加载 项目根目录/.env（或 prisma/.env），
  * 读取 DATABASE_URL、EXTERNAL_TUTOR_API_URL、EXTERNAL_TUTOR_API_TOKEN；
@@ -23,8 +27,9 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { PrismaClient } from '@prisma/client'
 import {
-  assignFollowUpAtRegistration,
+  syncFollowUpWithInviter,
   resolveFirstReviewerUnified,
+  isTeacherIdentifiable,
   REVIEW_ELIGIBLE_SINCE,
   type ResolveResult,
 } from '../src/lib/externalTutor'
@@ -118,7 +123,9 @@ async function main() {
     console.warn('警告: EXTERNAL_TUTOR_API_TOKEN 未设置，外部接口层级将跳过，直接走邀请人链条/随机兜底')
   }
 
-  // 查询候选教师：起始日期后注册 + 在入驻中 + 无跟进人 + 无审核记录
+  // 查询候选教师：起始日期后注册 + 在入驻中 + 无跟进人 + 无审核记录。
+  // 是否已填写真实姓名/电话（name+phone 必填规则）由 isTeacherIdentifiable 在循环内统一判定，
+  // 占位记录（temp_* 手机号 / 未命名* 姓名）仅统计跳过，不做分配。
   const candidates = await prisma.teacher.findMany({
     where: {
       createdAt: { gte: startDate },
@@ -144,14 +151,18 @@ async function main() {
   })
 
   // 附加信息：起始日期后已完成入驻但也无跟进人/审核记录的教师数量（仅提示，不在本脚本处理范围）
-  const completedMissing = await prisma.teacher.count({
+  const completedMissingTeachers = await prisma.teacher.findMany({
     where: {
       createdAt: { gte: startDate },
       status: 'COMPLETED',
       teamAssignment: { is: null },
       coachReview: { is: null },
     },
+    select: { name: true, phone: true },
   })
+  const completedMissing = completedMissingTeachers.filter((t) =>
+    isTeacherIdentifiable(t)
+  ).length
 
   // 运营名称映射（用于输出可读的分配结果）
   const operators = await prisma.operator.findMany({
@@ -174,8 +185,15 @@ async function main() {
 
   const summary: Record<string, number> = {}
   let failed = 0
+  let placeholderSkipped = 0
 
   for (const teacher of candidates) {
+    // name+phone 必填规则：未填写真实姓名/电话的占位记录不参与分配
+    if (!isTeacherIdentifiable(teacher)) {
+      placeholderSkipped++
+      continue
+    }
+
     // 与 findDirectInviter 一致：优先 Referral 表，回退 Teacher.invitedById
     const inviterPhone =
       teacher.referredReferrals[0]?.referrer?.phone ?? teacher.invitedBy?.phone ?? null
@@ -196,8 +214,8 @@ async function main() {
       continue
     }
 
-    // 正式执行：复用注册路径的生产逻辑（解析 + 创建 TeacherTeam，skipDuplicates 防并发冲突）
-    const resolved: ResolveResult | null = await assignFollowUpAtRegistration(
+    // 正式执行：复用生产逻辑（按最新邀请人解析 + upsert 同步跟进人与待初审审核记录）
+    const resolved: ResolveResult | null = await syncFollowUpWithInviter(
       teacher.id,
       inviterPhone
     )
@@ -218,7 +236,10 @@ async function main() {
   }
 
   console.log(`\n=== ${dryRun ? '试运行' : '预分配'}完成 ===`)
-  console.log(`处理总数: ${candidates.length}`)
+  console.log(`查询总数: ${candidates.length}`)
+  if (placeholderSkipped > 0) {
+    console.log(`  未填写姓名/电话（占位记录，不分配）: ${placeholderSkipped}`)
+  }
   for (const [source, count] of Object.entries(summary)) {
     console.log(`  ${SOURCE_LABELS[source] ?? source}: ${count}`)
   }

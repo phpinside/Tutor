@@ -6,7 +6,7 @@ import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
 import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { sanitizeInput } from '@/lib/utils'
-import { assignFollowUpAtRegistration } from '@/lib/externalTutor'
+import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
@@ -164,11 +164,13 @@ export async function registerAndCreateTeacher(formData: {
     // 生成邀请码和查看码
     await ensureInviteCodes(teacher.id)
 
-    // 如果有邀请人，创建邀请记录并按统一分配模型归属跟进人
+    // 如果有邀请人，创建邀请记录
     if (invitedById) {
       await createReferralRecord(invitedById, teacher.id)
-      await assignFollowUpAtRegistration(teacher.id, inviterPhone)
     }
+
+    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
+    await syncFollowUpWithInviter(teacher.id, inviterPhone)
 
     // 提交任务1（标记为已完成）
     await prisma.taskSubmission.create({
@@ -1589,7 +1591,7 @@ export async function setTeacherInviter(teacherId: string, inviterId: string) {
     // 验证邀请人存在
     const inviter = await prisma.teacher.findUnique({
       where: { id: inviterId },
-      select: { id: true, name: true }
+      select: { id: true, name: true, phone: true }
     })
     if (!inviter) {
       return { success: false, error: '邀请人不存在，请确认 ID 是否正确' }
@@ -1622,8 +1624,12 @@ export async function setTeacherInviter(teacherId: string, inviterId: string) {
     // 为新邀请人创建邀请记录（含间接邀请逻辑）
     await createReferralRecord(inviterId, teacherId)
 
+    // 统一分配模型：以最新邀请人信息为准，重新解析跟进人并同步更新（跟进人 = 初审人）
+    await syncFollowUpWithInviter(teacherId, inviter.phone)
+
     revalidatePath(`/admin/teachers/${teacherId}`)
     revalidatePath('/admin/referrals')
+    revalidatePath('/operator/team')
 
     return { success: true, inviterName: inviter.name || inviterId }
   } catch (error) {

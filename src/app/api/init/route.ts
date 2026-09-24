@@ -3,7 +3,7 @@ import { NextRequest } from 'next/server'
 import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { createReferralRecord } from '@/app/actions/teacher'
-import { assignFollowUpAtRegistration } from '@/lib/externalTutor'
+import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 
 /**
  * 初始化路由 - 处理邀请关系绑定
@@ -49,8 +49,9 @@ export async function GET(request: NextRequest) {
             // 创建邀请记录（包括直接和间接邀请）
             await createReferralRecord(referrer.id, teacherId)
 
-            // 按统一分配模型归属跟进人
-            await assignFollowUpAtRegistration(teacherId, referrer.phone)
+            // 统一分配模型：按最新邀请人信息解析跟进人并同步更新
+            // （若该教师此前已被随机分配过跟进人，此处会按新邀请人链路覆盖）
+            await syncFollowUpWithInviter(teacherId, referrer.phone)
           }
         }
         

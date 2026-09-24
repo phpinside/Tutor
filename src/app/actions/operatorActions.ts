@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
+import { syncPendingFirstReviewer } from '@/lib/externalTutor'
 
 // ——— 团队管理 ———
 
@@ -253,17 +254,9 @@ export async function updateTeacherFollower(
       })
     }
 
-    // 统一分配模型：跟进人 = 初审人。
-    // 若该教练已有审核记录且初审尚未完成（首次创建或驳回后重新提交），
-    // 同步更新初审负责人；清除跟进人（operatorId=null）则变为合并审核。
-    await prisma.coachReview.updateMany({
-      where: {
-        teacherId,
-        stage: 'FIRST_REVIEW',
-        firstReviewVerdict: 'PENDING',
-      },
-      data: { firstReviewOperatorId: operatorId },
-    })
+    // 统一分配模型：跟进人 = 初审人。同步待初审记录的初审负责人；
+    // 清除跟进人（operatorId=null）则变为合并审核。
+    await syncPendingFirstReviewer(teacherId, operatorId)
   } catch (error) {
     console.error('修改跟进人失败:', error)
     return { success: false, error: '操作失败，请重试' }
