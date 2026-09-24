@@ -31,21 +31,27 @@ import {
 
 // ——— 显式加载 .env ———
 // tsx 独立运行时不会像 Next.js 运行时那样自动读取 .env，需在此显式加载。
-// 依次查找 项目根目录/.env 与 prisma/.env；已存在的进程环境变量优先，不被覆盖。
+// 按 Next.js 的优先级顺序探测（先到先得，已存在的进程环境变量不被覆盖）：
+//   .env.production.local > .env.local > .env.production > .env > prisma/.env
 function loadEnvFile(filePath: string): boolean {
   if (!existsSync(filePath)) return false
   for (const rawLine of readFileSync(filePath, 'utf-8').split('\n')) {
-    const line = rawLine.trim()
+    let line = rawLine.trim()
     if (!line || line.startsWith('#')) continue
+    if (line.startsWith('export ')) line = line.slice(7).trim()
     const eq = line.indexOf('=')
     if (eq <= 0) continue
     const key = line.slice(0, eq).trim()
     let value = line.slice(eq + 1).trim()
-    if (
-      (value.startsWith('"') && value.endsWith('"')) ||
-      (value.startsWith("'") && value.endsWith("'"))
-    ) {
+    const quoted =
+      (value.startsWith('"') && value.endsWith('"') && value.length >= 2) ||
+      (value.startsWith("'") && value.endsWith("'") && value.length >= 2)
+    if (quoted) {
       value = value.slice(1, -1)
+    } else {
+      // 未加引号的值：去掉行内注释（value # comment）
+      const hash = value.indexOf(' #')
+      if (hash >= 0) value = value.slice(0, hash).trim()
     }
     if (process.env[key] === undefined) {
       process.env[key] = value
@@ -54,10 +60,17 @@ function loadEnvFile(filePath: string): boolean {
   return true
 }
 
-const envLoadedFrom = [
-  resolve(process.cwd(), '.env'),
-  resolve(process.cwd(), 'prisma/.env'),
-].find((p) => loadEnvFile(p))
+const envLoadedFrom: string[] = []
+for (const name of [
+  '.env.production.local',
+  '.env.local',
+  '.env.production',
+  '.env',
+  'prisma/.env',
+]) {
+  const p = resolve(process.cwd(), name)
+  if (loadEnvFile(p)) envLoadedFrom.push(p)
+}
 
 const prisma = new PrismaClient()
 
@@ -87,12 +100,14 @@ async function main() {
   const { dryRun, startDate } = parseArgs()
 
   console.log('=== 教练跟进人批量预分配 ===')
-  if (envLoadedFrom) {
-    console.log(`已加载环境变量: ${envLoadedFrom}`)
-  } else if (!process.env.DATABASE_URL) {
+  if (envLoadedFrom.length > 0) {
+    console.log(`已加载环境变量文件: ${envLoadedFrom.join(', ')}`)
+  }
+  if (!process.env.DATABASE_URL) {
     console.error(
       '错误: 未找到 DATABASE_URL 环境变量。\n' +
-        '请在项目根目录运行本脚本并确认存在 .env 文件（含 DATABASE_URL），\n' +
+        '已探测: .env.production.local / .env.local / .env.production / .env / prisma/.env（当前目录）\n' +
+        '请确认上述文件之一存在且包含 DATABASE_URL，\n' +
         '或先执行 export DATABASE_URL="postgresql://..." 后重试。'
     )
     process.exit(1)
