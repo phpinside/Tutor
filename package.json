@@ -13,7 +13,8 @@
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
     "db:seed": "tsx prisma/seed.ts",
-    "db:seed:templates": "tsx prisma/seedCertificateTemplates.ts"
+    "db:seed:templates": "tsx prisma/seedCertificateTemplates.ts",
+    "preassign": "tsx prisma/preassignFollowUps.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.0.0",
