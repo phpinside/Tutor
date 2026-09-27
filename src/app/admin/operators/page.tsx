@@ -14,8 +14,20 @@ const ROLE_BADGE_CLASSES: Record<string, string> = {
   OPERATOR: 'bg-amber-100 text-amber-700',
 }
 
-export default async function OperatorsPage() {
-  const operators = await getOperators()
+export default async function OperatorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ name?: string; phone?: string; role?: string; status?: string }>
+}) {
+  const params = await searchParams
+  const filters = {
+    name: params.name?.trim() || undefined,
+    phone: params.phone?.trim() || undefined,
+    role: params.role || undefined,
+    isEnabled:
+      params.status === 'enabled' ? true : params.status === 'disabled' ? false : undefined,
+  }
+  const operators = await getOperators(filters)
 
   return (
     <div>
@@ -23,7 +35,7 @@ export default async function OperatorsPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">学管 / 运营人员管理</h1>
           <p className="text-sm text-gray-500 mt-1">
-            共 {operators.length} 名人员 ·
+            共 {operators.length} 名人员{filters.name || filters.phone || filters.role || filters.isEnabled !== undefined ? '（筛选结果）' : ''} ·
             学管仅能查看自己管辖范围内的老师，运营可查看全部老师数据
           </p>
         </div>
@@ -34,6 +46,52 @@ export default async function OperatorsPage() {
           + 新增人员
         </Link>
       </div>
+
+      {/* 筛选栏 */}
+      <form method="get" className="card mb-6 p-4 grid gap-3 md:grid-cols-5 items-end">
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">姓名</label>
+          <input
+            name="name"
+            defaultValue={filters.name ?? ''}
+            placeholder="按姓名搜索"
+            className="input w-full"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">手机号</label>
+          <input
+            name="phone"
+            defaultValue={filters.phone ?? ''}
+            placeholder="按手机号搜索"
+            className="input w-full"
+          />
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">角色</label>
+          <select name="role" defaultValue={filters.role ?? ''} className="input w-full">
+            <option value="">全部角色</option>
+            <option value="LEARNER_MANAGER">学管</option>
+            <option value="OPERATOR">运营</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-xs font-medium text-gray-500 mb-1">状态</label>
+          <select name="status" defaultValue={params.status ?? ''} className="input w-full">
+            <option value="">全部状态</option>
+            <option value="enabled">启用</option>
+            <option value="disabled">禁用</option>
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button type="submit" className="btn-primary flex-1">
+            筛选
+          </button>
+          <Link href="/admin/operators" className="btn-secondary">
+            重置
+          </Link>
+        </div>
+      </form>
 
       {operators.length === 0 ? (
         <div className="card text-center py-16">

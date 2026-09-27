@@ -23,9 +23,28 @@ function normalizeRole(role: unknown): OperatorRoleValue {
     : 'LEARNER_MANAGER'
 }
 
-export async function getOperators() {
+export async function getOperators(filters?: {
+  name?: string
+  phone?: string
+  role?: string
+  isEnabled?: boolean
+}) {
   await assertSuperAdmin()
+
+  const whereConditions: Record<string, unknown>[] = []
+  const name = filters?.name?.trim()
+  const phone = filters?.phone?.trim()
+  const role = filters?.role && VALID_ROLES.includes(filters.role as OperatorRoleValue)
+    ? (filters.role as OperatorRoleValue)
+    : undefined
+
+  if (name) whereConditions.push({ name: { contains: name, mode: 'insensitive' } })
+  if (phone) whereConditions.push({ phone: { contains: phone } })
+  if (role) whereConditions.push({ role })
+  if (filters?.isEnabled !== undefined) whereConditions.push({ isEnabled: filters.isEnabled })
+
   return prisma.operator.findMany({
+    where: whereConditions.length > 0 ? { AND: whereConditions } : undefined,
     orderBy: { createdAt: 'desc' },
     select: {
       id: true,
