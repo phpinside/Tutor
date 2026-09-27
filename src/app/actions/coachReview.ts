@@ -582,8 +582,9 @@ export async function batchSubmitFinalReview(
   const results: { teacherId: string; ok: boolean; reason?: string }[] = []
 
   try {
+    // 批量复审仅限超管：运营即使获得复审权限，也只能逐条复审（批量通过/批量驳回风险高，不开放）
     const finalReviewSession = await getFinalReviewSession()
-    if (!finalReviewSession) {
+    if (!finalReviewSession || finalReviewSession.operatorId !== null) {
       return { success: false, results }
     }
     const reviewerLabel = finalReviewSession.reviewerLabel

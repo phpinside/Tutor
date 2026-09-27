@@ -92,7 +92,8 @@ export default function TeachersManagementClient({
   const [resetMsg, setResetMsg] = useState('')
 
   const batchableSet = new Set(batchableTeacherIds)
-  const showBatchColumn = viewer.canFinalReview && batchableTeacherIds.length > 0
+  // 批量复审列仅超管可见（运营即使获得复审权限也只能逐条复审）
+  const showBatchColumn = viewer.isSuperAdmin && batchableTeacherIds.length > 0
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchMsg, setBatchMsg] = useState('')
