@@ -23,6 +23,10 @@ export async function getCoachReviewPoolConfig(): Promise<{
   error?: string
 }> {
   try {
+    // 含运营手机号，仅超管可读
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可查看分配池配置' }
+    }
     const operators = await prisma.operator.findMany({
       orderBy: [{ isEnabled: 'desc' }, { name: 'asc' }],
       select: { id: true, name: true, phone: true, isEnabled: true },
@@ -68,6 +72,10 @@ export async function updateCoachReviewPoolConfig(
   weights: { operatorId: string; weight: number }[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可修改初审随机分配池' }
+    }
     for (const { weight } of weights) {
       if (weight < 0 || !Number.isFinite(weight)) {
         return { success: false, error: '权重无效，须为不小于 0 的数字' }

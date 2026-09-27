@@ -10,6 +10,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/admin/case-image-records': ['super_admin'],
   '/admin/tencent-meetings': ['super_admin'],
   '/admin/config': ['super_admin'],
+  '/admin/audit': ['super_admin'],
   '/admin/operators': ['super_admin'],
 }
 

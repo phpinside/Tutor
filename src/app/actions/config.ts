@@ -2,6 +2,15 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { isSuperAdmin } from '@/lib/admin-auth'
+
+/** 任务/阶段配置为超管专属；Server Action 可被直调，必须服务端二次校验 */
+async function assertSuperAdmin(): Promise<{ success: false; error: string } | null> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可管理系统配置' }
+  }
+  return null
+}
 
 // ==================== 任务配置管理 ====================
 
@@ -48,6 +57,9 @@ export async function createTaskConfig(data: {
   questions?: object[]
 }) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     const config = await prisma.taskConfig.create({
       data: {
         ...data,
@@ -82,6 +94,9 @@ export async function updateTaskConfig(id: string, data: {
   sortOrder?: number
 }) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     const updateData: any = { ...data }
     if (data.type) {
       updateData.type = data.type as any
@@ -104,6 +119,9 @@ export async function updateTaskConfig(id: string, data: {
 // 删除任务配置
 export async function deleteTaskConfig(id: string) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     await prisma.taskConfig.delete({
       where: { id }
     })
@@ -120,6 +138,9 @@ export async function deleteTaskConfig(id: string) {
 // 批量更新任务排序
 export async function updateTaskConfigOrders(updates: { id: string; sortOrder: number }[]) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     await prisma.$transaction(
       updates.map(({ id, sortOrder }) =>
         prisma.taskConfig.update({
@@ -163,6 +184,9 @@ export async function createPhaseConfig(data: {
   description: string
 }) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     const config = await prisma.phaseConfig.create({
       data
     })
@@ -185,6 +209,9 @@ export async function updatePhaseConfig(id: string, data: {
   isActive?: boolean
 }) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     const config = await prisma.phaseConfig.update({
       where: { id },
       data
@@ -202,6 +229,9 @@ export async function updatePhaseConfig(id: string, data: {
 // 删除阶段配置
 export async function deletePhaseConfig(id: string) {
   try {
+    // Server Action 可被直调，服务端二次校验（超管专属）
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     await prisma.phaseConfig.delete({
       where: { id }
     })

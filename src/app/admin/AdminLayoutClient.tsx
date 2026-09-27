@@ -19,6 +19,7 @@ const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/case-image-records', icon: '📊', label: '案例记录', roles: ['super_admin'] },
   { path: '/admin/tencent-meetings', icon: '🎥', label: '会议管理', roles: ['super_admin'] },
   { path: '/admin/config', icon: '⚙️', label: '系统配置', roles: ['super_admin'] },
+  { path: '/admin/audit', icon: '📋', label: '审计日志', roles: ['super_admin'] },
 ]
 
 export default function AdminLayoutClient({

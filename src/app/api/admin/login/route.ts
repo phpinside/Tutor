@@ -1,12 +1,23 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyAdminCredentials } from '@/lib/adminAuth'
+import { checkRateLimit, getClientIpFromForwarded } from '@/lib/rateLimit'
 
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json()
 
-    const account = verifyAdminCredentials(username, password)
+    // 登录限流（防爆破）：同一 IP+账号 15 分钟内最多 5 次
+    const ip = getClientIpFromForwarded(request.headers.get('x-forwarded-for'))
+    const rl = checkRateLimit(`login:admin:${ip}:${username || 'unknown'}`, 5, 15 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: `尝试次数过多，请 ${Math.ceil(rl.retryAfterSec / 60)} 分钟后再试` },
+        { status: 429 }
+      )
+    }
+
+    const account = await verifyAdminCredentials(username, password)
 
     if (account) {
       // 设置 cookie 标记已登录，包含角色信息

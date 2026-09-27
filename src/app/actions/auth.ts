@@ -7,6 +7,18 @@ import { ensureInviteCodes, createReferralRecord } from './teacher'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { sanitizeInput } from '@/lib/utils'
 import { PERMANENTLY_REJECTED_MESSAGE } from '@/lib/coachReviewShared'
+import { headers } from 'next/headers'
+import { checkRateLimit, getClientIpFromForwarded } from '@/lib/rateLimit'
+
+/** 登录限流：同一 IP+手机号 15 分钟内最多 5 次 */
+async function assertLoginRateLimit(scope: 'teacher' | 'referrer', phone: string): Promise<string | null> {
+  const ip = getClientIpFromForwarded((await headers()).get('x-forwarded-for'))
+  const rl = checkRateLimit(`login:${scope}:${ip}:${phone}`, 5, 15 * 60 * 1000)
+  if (!rl.allowed) {
+    return `尝试次数过多，请 ${Math.ceil(rl.retryAfterSec / 60)} 分钟后再试`
+  }
+  return null
+}
 
 // 验证手机号格式
 function isValidPhone(phone: string): boolean {
@@ -131,7 +143,7 @@ export async function registerReferrer(formData: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 365 // 365天
+        maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
       })
 
       return {
@@ -174,7 +186,7 @@ export async function registerReferrer(formData: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 365天
+      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
     })
 
     return {
@@ -203,6 +215,12 @@ export async function loginReferrer(formData: {
     }
     if (!password) {
       return { success: false, error: '请输入密码' }
+    }
+
+    // 登录限流（防爆破）
+    const rateLimitError = await assertLoginRateLimit('referrer', phone)
+    if (rateLimitError) {
+      return { success: false, error: rateLimitError }
     }
 
     // 验证手机号格式
@@ -254,7 +272,7 @@ export async function loginReferrer(formData: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 365天
+      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
     })
 
     return {
@@ -430,7 +448,7 @@ export async function registerTeacher(formData: {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 365 // 1年
+        maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
       })
 
       return {
@@ -471,7 +489,7 @@ export async function registerTeacher(formData: {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 1年
+      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
     })
 
     return {
@@ -496,6 +514,12 @@ export async function loginTeacher(phone: string, password: string) {
     }
     if (!password) {
       return { success: false, error: '请输入密码' }
+    }
+
+    // 登录限流（防爆破）
+    const rateLimitError = await assertLoginRateLimit('teacher', trimmedPhone)
+    if (rateLimitError) {
+      return { success: false, error: rateLimitError }
     }
 
     // 验证手机号格式
@@ -548,7 +572,7 @@ export async function loginTeacher(phone: string, password: string) {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 1年
+      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
     })
 
     return {

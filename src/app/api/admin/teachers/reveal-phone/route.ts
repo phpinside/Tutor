@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       if (!username || !password) {
         return NextResponse.json({ error: '请输入账号与密码' }, { status: 400 })
       }
-      const account = verifyAdminCredentials(username, password)
+      const account = await verifyAdminCredentials(username, password)
       if (!account) {
         return NextResponse.json({ error: '账号或密码错误' }, { status: 401 })
       }

@@ -2,6 +2,15 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { isSuperAdmin } from '@/lib/admin-auth'
+
+/** 奖励/系统配置直接涉及资金口径，写操作仅限超管（Server Action 可被直调，必须二次校验） */
+async function assertSuperAdmin(): Promise<{ success: false; error: string } | null> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可修改系统配置' }
+  }
+  return null
+}
 
 // 获取系统配置
 export async function getSystemConfig(key: string, defaultValue: number = 0): Promise<number> {
@@ -68,6 +77,8 @@ export async function getRewardConfigs() {
 // 更新系统配置
 export async function updateSystemConfig(key: string, value: number) {
   try {
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     await prisma.systemConfig.upsert({
       where: { key },
       create: {
@@ -96,6 +107,8 @@ export async function updateRewardConfigs(configs: {
   indirectTeachingReward?: number
 }) {
   try {
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     if (configs.directReward < 0 || configs.indirectReward < 0) {
       return { success: false, error: '奖励金额不能为负数' }
     }
@@ -136,6 +149,8 @@ export async function updateRewardConfigs(configs: {
 // 初始化默认配置
 export async function initializeDefaultConfigs() {
   try {
+    const denied = await assertSuperAdmin()
+    if (denied) return denied
     const defaultConfigs = [
       { key: 'DIRECT_REWARD', value: '10' },
       { key: 'INDIRECT_REWARD', value: '5' },
