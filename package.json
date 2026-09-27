@@ -12,6 +12,7 @@
     "db:push": "prisma db push",
     "db:migrate": "prisma migrate dev",
     "db:studio": "prisma studio",
+    "db:backup": "tsx prisma/backupDatabase.ts",
     "db:seed": "tsx prisma/seed.ts",
     "db:seed:templates": "tsx prisma/seedCertificateTemplates.ts",
     "preassign": "tsx prisma/preassignFollowUps.ts"

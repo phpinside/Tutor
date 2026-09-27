@@ -26,13 +26,17 @@ function getRequiredRoles(pathname: string): string[] | null {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // 运营人员可直接访问老师管理和共享腾讯会议路径
+  // 运营（学管）人员可直接访问老师管理和共享腾讯会议路径
+  // cookie 中的 role 仅为登录快照：旧会话无 role 字段则放行（兼容期），
+  // 服务端会以 DB 中的角色与白名单 scoping 做真正的鉴权。
   if (pathname.startsWith('/admin/teachers') || pathname.startsWith('/admin/tencent-meetings')) {
     const operatorSession = request.cookies.get('operator_session')
     if (operatorSession) {
       try {
         const data = JSON.parse(operatorSession.value)
-        if (data.operatorId) return NextResponse.next()
+        if (data.operatorId && (!data.role || data.role === 'LEARNER_MANAGER')) {
+          return NextResponse.next()
+        }
       } catch {}
     }
   }
@@ -123,7 +127,7 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*'],
+  matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*', '/onboarding/:path*'],
 }
 
 

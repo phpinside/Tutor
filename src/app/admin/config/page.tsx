@@ -1,4 +1,6 @@
 import { getAllTaskConfigs, getAllPhaseConfigs } from '@/app/actions/config'
+import { getScopeSettings } from '@/app/actions/learnerManagerScopeActions'
+import LearnerManagerScopeCard from './LearnerManagerScopeCard'
 import Link from 'next/link'
 import QRCodeUploader from '@/components/admin/QRCodeUploader'
 
@@ -7,6 +9,7 @@ export const dynamic = 'force-dynamic'
 export default async function AdminConfigPage() {
   const tasks = await getAllTaskConfigs()
   const phases = await getAllPhaseConfigs()
+  const scopeSettings = await getScopeSettings()
   
   return (
     <div>
@@ -17,6 +20,20 @@ export default async function AdminConfigPage() {
         <p className="text-gray-600">
           管理任务和阶段配置
         </p>
+      </div>
+
+      {/* 学管数据范围（灰度开关） */}
+      <div className="mb-8">
+        {scopeSettings.success ? (
+          <LearnerManagerScopeCard
+            initialEnabledIds={scopeSettings.data.enabledOperatorIds}
+            operators={scopeSettings.data.operators}
+          />
+        ) : (
+          <div className="card p-5 text-sm text-gray-500">
+            学管数据范围配置：{scopeSettings.error}
+          </div>
+        )}
       </div>
 
       {/* 其他配置入口 */}

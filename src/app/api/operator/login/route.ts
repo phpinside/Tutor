@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     const sessionData = JSON.stringify({
       operatorId: operator.id,
       name: operator.name,
-      role: 'operator',
+      role: operator.role, // 'LEARNER_MANAGER'（学管）；鉴权真源在 DB，此为快照
     })
 
     cookieStore.set('operator_session', sessionData, {

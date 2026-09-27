@@ -15,6 +15,7 @@ import TeacherDirectReferralReview from './TeacherDirectReferralReview'
 import CoachReviewPanel from './CoachReviewPanel'
 import OperatorPickerModal from './OperatorPickerModal'
 import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
+import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
@@ -97,6 +98,14 @@ export default async function TeacherDetailPage({
 
   if (!teacher) {
     notFound()
+  }
+
+  // 学管视角越权防护（灰度开关控制）：白名单外的老师一律 404
+  if (viewerInfo.id) {
+    const inScope = await isTeacherInScope(viewerInfo.id, id)
+    if (inScope === false) {
+      notFound()
+    }
   }
 
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([

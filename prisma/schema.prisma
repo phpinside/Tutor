@@ -105,15 +105,21 @@ enum TencentMeetingCreatorType {
   ADMIN
 }
 
+// 运营角色；当前仅学管一种，后续细分角色在此扩展
+enum OperatorRole {
+  LEARNER_MANAGER
+}
+
 // 运营人员
 model Operator {
-  id           String   @id @default(cuid())
+  id           String       @id @default(cuid())
   name         String
-  phone        String   @unique
-  password     String   // bcrypt 加密
-  isEnabled    Boolean  @default(true)  // 启用状态，false 则无法登录
-  wechatQrCode String?  // 微信二维码图片 URL
-  remarks      String?  // 备注
+  phone        String       @unique
+  password     String // bcrypt 加密
+  isEnabled    Boolean      @default(true) // 启用状态，false 则无法登录
+  role         OperatorRole @default(LEARNER_MANAGER) // 学管（存量运营迁移后统一为该值）
+  wechatQrCode String? // 微信二维码图片 URL
+  remarks      String? // 备注
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -145,8 +151,8 @@ model TeacherTeam {
 model TeacherRemark {
   id         String   @id @default(cuid())
   teacherId  String
-  operatorId String?  // 可空，允许管理员也能写备注
-  remarkBy   String   // 备注人姓名
+  operatorId String? // 可空，允许管理员也能写备注
+  remarkBy   String // 备注人姓名
   content    String
   createdAt  DateTime @default(now())
 
@@ -176,7 +182,7 @@ model Teacher {
 
   // 学科信息
   subjects       String[] // 可教学科列表，如 ["MATH","PHYSICS"]
-  primarySubject String?  // 最擅长学科，如 "PHYSICS"
+  primarySubject String? // 最擅长学科，如 "PHYSICS"
 
   // 教学能力 & 资质
   mathScore          Int? // 高考数学成绩
@@ -214,26 +220,27 @@ model Teacher {
   updatedAt DateTime @updatedAt
 
   // 关系
-  taskSubmissions          TaskSubmission[]
-  invitedBy                Teacher?         @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
-  invitedTeachers          Teacher[]        @relation("TeacherReferrals")
-  referrals                Referral[]       @relation("ReferrerReferrals")
-  referredReferrals        Referral[]       @relation("ReferredReferrals")
-  withdrawals              Withdrawal[]
-  referralStats            ReferralStats?
-  teamAssignment           TeacherTeam?
-  remarks                  TeacherRemark[]
+  taskSubmissions            TaskSubmission[]
+  invitedBy                  Teacher?                    @relation("TeacherReferrals", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitedTeachers            Teacher[]                   @relation("TeacherReferrals")
+  referrals                  Referral[]                  @relation("ReferrerReferrals")
+  referredReferrals          Referral[]                  @relation("ReferredReferrals")
+  withdrawals                Withdrawal[]
+  referralStats              ReferralStats?
+  teamAssignment             TeacherTeam?
+  remarks                    TeacherRemark[]
   learningPlannerApplication LearningPlannerApplication?
-  defaultInviteeFollowUp   Operator?        @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
-  plannerCheckRecords      PlannerCheckRecord[]
-  certificateDrafts        CertificateDraft[]
-  coachReview              CoachReview?
-  tencentMeetingBookings   TencentMeetingBooking[]
-  caseImageRecords         CaseImageRecord[]
+  defaultInviteeFollowUp     Operator?                   @relation("InviterDefaultFollowUp", fields: [defaultInviteeFollowUpId], references: [id], onDelete: SetNull)
+  plannerCheckRecords        PlannerCheckRecord[]
+  certificateDrafts          CertificateDraft[]
+  coachReview                CoachReview?
+  tencentMeetingBookings     TencentMeetingBooking[]
+  caseImageRecords           CaseImageRecord[]
 
   @@index([phone])
   @@index([currentTaskIndex])
   @@index([createdAt])
+  @@index([invitedById])
   @@map("teachers")
 }
 
@@ -332,9 +339,9 @@ model Referral {
   reviewedAt DateTime? // 审核时间
 
   // 授课相关
-  lessonNote String? // 授课备注
-  verifiedBy String? // 授课审核人
-  verifiedAt DateTime? // 授课审核时间
+  lessonNote          String? // 授课备注
+  verifiedBy          String? // 授课审核人
+  verifiedAt          DateTime? // 授课审核时间
   teachingCompletedAt DateTime? // 授课奖励达标时间（直接/间接门槛相同，2026-10-01 起统一 20 课时；历史数据回填为 verifiedAt）
 
   createdAt DateTime @default(now())
@@ -396,21 +403,21 @@ model LearningPlannerApplication {
   teacherId String                           @unique
   status    LearningPlannerApplicationStatus @default(PENDING)
 
-  studyPlanPdfUrl   String
-  studyPlanPdfName  String
+  studyPlanPdfUrl     String
+  studyPlanPdfName    String
   trialLessonVideoUrl String
-  statement         String
+  statement           String
 
-  approveCount      Int      @default(0)
-  rejectCount       Int      @default(0)
+  approveCount      Int     @default(0)
+  rejectCount       Int     @default(0)
   finalDecisionNote String?
 
-  submittedAt     DateTime @default(now())
+  submittedAt     DateTime  @default(now())
   finalReviewedAt DateTime?
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
-  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  teacher Teacher                 @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   reviews LearningPlannerReview[]
 
   @@index([status])
@@ -426,8 +433,8 @@ model LearningPlannerReview {
   decision      LearningPlannerReviewDecision
   reason        String?
   imageUrls     String[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime                      @default(now())
+  updatedAt     DateTime                      @updatedAt
 
   application LearningPlannerApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   operator    Operator                   @relation(fields: [operatorId], references: [id], onDelete: Cascade)
@@ -441,10 +448,10 @@ model LearningPlannerReview {
 
 // 规划书自查状态枚举
 enum PlannerCheckStatus {
-  PENDING     // 待处理
-  PROCESSING  // 分析中
-  COMPLETED   // 已完成
-  FAILED      // 失败
+  PENDING // 待处理
+  PROCESSING // 分析中
+  COMPLETED // 已完成
+  FAILED // 失败
 }
 
 // 证明开具状态
@@ -508,31 +515,31 @@ model CertificateTemplate {
 
 // 证明申请（实习证明 / 劳务完成确认单），同一时间仅允许一条生成中
 model CertificateDraft {
-  id              String                   @id @default(cuid())
-  teacherId       String
-  certificateType CertificateType          @default(INTERNSHIP)
-  templateId      String?
-  companyId       String? // 用户所选开具单位 id（提交时快照）
-  stampKey        String? // 提交时快照的盖章图片七牛 key；为空 = 系统默认公章
-  name            String?
-  gender          String?
-  idCard          String?
-  startDate       DateTime?
-  endDate         DateTime?
-  extraData       Json? // 模板自定义字段的值（如金额、项目名称）
+  id               String                  @id @default(cuid())
+  teacherId        String
+  certificateType  CertificateType         @default(INTERNSHIP)
+  templateId       String?
+  companyId        String? // 用户所选开具单位 id（提交时快照）
+  stampKey         String? // 提交时快照的盖章图片七牛 key；为空 = 系统默认公章
+  name             String?
+  gender           String?
+  idCard           String?
+  startDate        DateTime?
+  endDate          DateTime?
+  extraData        Json? // 模板自定义字段的值（如金额、项目名称）
   templateSnapshot Json? // 提交时的模板配置快照（渲染用，避免开具前改模板导致串版）
-  companyName     String                   @default("北京一生二科技有限公司")
-  templateMode    CertificateTemplateMode  @default(SYSTEM)
-  status          CertificateDraftStatus   @default(PROCESSING)
-  pdfKey          String?
-  officialPdfKey  String?
-  errorMsg        String?
-  rejectionReason String?
-  createdAt       DateTime                 @default(now())
-  completedAt     DateTime?
-  issuedAt        DateTime?
-  rejectedAt      DateTime?
-  updatedAt       DateTime                 @updatedAt
+  companyName      String                  @default("北京一生二科技有限公司")
+  templateMode     CertificateTemplateMode @default(SYSTEM)
+  status           CertificateDraftStatus  @default(PROCESSING)
+  pdfKey           String?
+  officialPdfKey   String?
+  errorMsg         String?
+  rejectionReason  String?
+  createdAt        DateTime                @default(now())
+  completedAt      DateTime?
+  issuedAt         DateTime?
+  rejectedAt       DateTime?
+  updatedAt        DateTime                @updatedAt
 
   teacher  Teacher              @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   template CertificateTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
@@ -546,20 +553,20 @@ model CertificateDraft {
 
 // 案例图片生成记录（老师端生成喜报案例图后自动保存）
 model CaseImageRecord {
-  id             String   @id @default(cuid())
+  id             String  @id @default(cuid())
   teacherId      String
-  templateId     String?  // 使用的模板 id
-  templateName   String?  // 使用的模板名称
-  studentRegion  String   // 学生地区
-  studentName    String   // 学生姓名
-  studentGrade   String   // 学生年级
-  scoreTitle     String   // 提分科目（数学喜报/物理喜报/化学喜报）
-  studyDuration  String   // 学习时长
-  scoreIncrease  String   // 提分分数
-  teamName       String   // 团队名
-  coachSignature String   // 教练署名
-  bottomNote     String?  // 提升策略简介
-  imageKey       String   // 案例图在七牛云上的存储 key
+  templateId     String? // 使用的模板 id
+  templateName   String? // 使用的模板名称
+  studentRegion  String // 学生地区
+  studentName    String // 学生姓名
+  studentGrade   String // 学生年级
+  scoreTitle     String // 提分科目（数学喜报/物理喜报/化学喜报）
+  studyDuration  String // 学习时长
+  scoreIncrease  String // 提分分数
+  teamName       String // 团队名
+  coachSignature String // 教练署名
+  bottomNote     String? // 提升策略简介
+  imageKey       String // 案例图在七牛云上的存储 key
 
   createdAt DateTime @default(now())
 
@@ -577,7 +584,7 @@ model PlannerCheckRecord {
   fileName      String
   extractedText String             @db.Text
   status        PlannerCheckStatus @default(PENDING)
-  result        String?            @db.Text  // JSON: { issues, suggestions }
+  result        String?            @db.Text // JSON: { issues, suggestions }
   errorMsg      String?
 
   createdAt DateTime @default(now())
@@ -623,29 +630,29 @@ model TencentMeetingBooking {
 
 // 教练两级审核记录
 model CoachReview {
-  id        String   @id @default(cuid())
-  teacherId String   @unique // 被审核教练，一人一条
+  id        String @id @default(cuid())
+  teacherId String @unique // 被审核教练，一人一条
 
   // 初审
-  firstReviewOperatorId String?                 // 初审运营ID；null = 合并审核（未走成两级）
+  firstReviewOperatorId String? // 初审运营ID；null = 合并审核（未走成两级）
   firstReviewVerdict    ReviewVerdict @default(PENDING)
-  firstReviewedBy       String?                 // 初审人标识（operatorId）
+  firstReviewedBy       String? // 初审人标识（operatorId）
   firstReviewedAt       DateTime?
-  firstReviewNote       String?      @db.Text
+  firstReviewNote       String?       @db.Text
 
   // 复审（固定由超管，无需指定 operatorId）
-  finalReviewVerdict    ReviewVerdict @default(PENDING)
-  finalReviewedBy       String?                 // 复审人标识
-  finalReviewedAt       DateTime?
-  finalReviewNote       String?      @db.Text
+  finalReviewVerdict ReviewVerdict @default(PENDING)
+  finalReviewedBy    String? // 复审人标识
+  finalReviewedAt    DateTime?
+  finalReviewNote    String?       @db.Text
 
   // 整体状态
-  stage       CoachReviewStage @default(FIRST_REVIEW)
-  attemptCount Int             @default(1)      // 返工轮次
+  stage        CoachReviewStage @default(FIRST_REVIEW)
+  attemptCount Int              @default(1) // 返工轮次
 
   // 学管解析记录
-  resolvedManagerPhone String?                  // API 返回的学管手机号
-  resolveSource        String?                  // 'api' | 'inviter_chain' | 'merged' | 'team_assignment' | 'random_assignment'
+  resolvedManagerPhone String? // API 返回的学管手机号
+  resolveSource        String? // 'api' | 'inviter_chain' | 'merged' | 'team_assignment' | 'random_assignment'
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -702,4 +709,22 @@ model ReferralStats {
 
   @@index([teacherId])
   @@map("referral_stats")
+}
+
+// 敏感操作审计日志（认领/移出团队/初审/重置密码/灰度开关变更等）
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorType  String // OPERATOR | ADMIN | SYSTEM
+  actorId    String // 操作者 ID（Operator.id 或 'super_admin'）
+  actorName  String? // 操作者姓名快照，便于排查
+  action     String // CLAIM_TEACHER | REMOVE_FROM_TEAM | RESET_TEACHER_PASSWORD | UPDATE_FIRST_REVIEWER | UPDATE_TEACHER_FOLLOWER | SCOPE_CONFIG_CHANGE 等
+  targetType String? // 操作对象类型，如 TEACHER / OPERATOR / SYSTEM_CONFIG
+  targetId   String? // 操作对象 ID
+  detail     Json? // 补充信息（如新旧值）
+  createdAt  DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([action, createdAt])
+  @@map("audit_logs")
 }

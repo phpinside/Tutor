@@ -4,8 +4,18 @@ import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
 import { sanitizeInput } from '@/lib/utils'
+import { isSuperAdmin } from '@/lib/admin-auth'
+import { recordAudit } from '@/lib/auditLog'
+
+/** 学管账号管理为超管专属；学管 session 直调 Server Action 时在此兜底 */
+async function assertSuperAdmin(): Promise<void> {
+  if (!(await isSuperAdmin())) {
+    throw new Error('仅超级管理员可管理学管账号')
+  }
+}
 
 export async function getOperators() {
+  await assertSuperAdmin()
   return prisma.operator.findMany({
     orderBy: { createdAt: 'desc' },
     select: {
@@ -21,6 +31,7 @@ export async function getOperators() {
 }
 
 export async function getOperatorById(id: string) {
+  await assertSuperAdmin()
   return prisma.operator.findUnique({
     where: { id },
     select: {
@@ -43,6 +54,11 @@ export async function createOperator(data: {
   isEnabled?: boolean
   remarks?: string
 }) {
+  try {
+    await assertSuperAdmin()
+  } catch (e) {
+    return { success: false as const, error: (e as Error).message }
+  }
   const name = sanitizeInput(data.name)
   const phone = sanitizeInput(data.phone)
   const remarks = data.remarks ? sanitizeInput(data.remarks) : undefined
@@ -75,6 +91,13 @@ export async function updateOperator(
     remarks?: string
   }
 ) {
+  try {
+    await assertSuperAdmin()
+  } catch (e) {
+    return { success: false as const, error: (e as Error).message }
+  }
+  const previous = await prisma.operator.findUnique({ where: { id }, select: { isEnabled: true } })
+
   await prisma.operator.update({
     where: { id },
     data: {
@@ -85,22 +108,60 @@ export async function updateOperator(
     },
   })
 
+  if (data.isEnabled !== undefined && previous && previous.isEnabled !== data.isEnabled) {
+    await recordAudit({
+      actorType: 'ADMIN',
+      actorId: 'super_admin',
+      actorName: '管理员',
+      action: data.isEnabled ? 'ENABLE_OPERATOR' : 'DISABLE_OPERATOR',
+      targetType: 'OPERATOR',
+      targetId: id,
+      detail: { from: previous.isEnabled, to: data.isEnabled },
+    })
+  }
+
   revalidatePath('/admin/operators')
   revalidatePath(`/admin/operators/${id}`)
-  return { success: true }
+  return { success: true as const }
 }
 
 export async function resetOperatorPassword(id: string, newPassword: string) {
+  try {
+    await assertSuperAdmin()
+  } catch (e) {
+    return { success: false as const, error: (e as Error).message }
+  }
   const hashedPassword = await bcrypt.hash(newPassword, 10)
   await prisma.operator.update({
     where: { id },
     data: { password: hashedPassword, updatedAt: new Date() },
   })
-  return { success: true }
+  await recordAudit({
+    actorType: 'ADMIN',
+    actorId: 'super_admin',
+    actorName: '管理员',
+    action: 'RESET_OPERATOR_PASSWORD',
+    targetType: 'OPERATOR',
+    targetId: id,
+  })
+  return { success: true as const }
 }
 
 export async function deleteOperator(id: string) {
+  try {
+    await assertSuperAdmin()
+  } catch (e) {
+    return { success: false as const, error: (e as Error).message }
+  }
   await prisma.operator.delete({ where: { id } })
+  await recordAudit({
+    actorType: 'ADMIN',
+    actorId: 'super_admin',
+    actorName: '管理员',
+    action: 'DELETE_OPERATOR',
+    targetType: 'OPERATOR',
+    targetId: id,
+  })
   revalidatePath('/admin/operators')
-  return { success: true }
+  return { success: true as const }
 }

@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { updateReferralStats } from './teacher'
+import { isSuperAdmin } from '@/lib/admin-auth'
 
 // 类型定义
 export type ReferralFilters = {
@@ -157,6 +158,10 @@ export async function resubmitDirectReferralAfterRejection(): Promise<
 // 管理员：获取所有邀请记录
 export async function getAllReferrals(filters?: ReferralFilters, page: number = 1, pageSize: number = 50) {
   try {
+    // 邀请管理为超管专属（学管无该页面，action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, referrals: [], stats: null, totalCount: 0, error: '仅超级管理员可查看邀请记录' }
+    }
     const whereConditions: any[] = []
     
     // 邀请状态
@@ -303,6 +308,10 @@ export async function getAllReferrals(filters?: ReferralFilters, page: number = 
 // 管理员：获取单个邀请记录详情
 export async function getReferralById(referralId: string) {
   try {
+    // 邀请详情为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, referral: null, error: '仅超级管理员可查看邀请详情' }
+    }
     const referral = await prisma.referral.findUnique({
       where: { id: referralId },
       include: {
@@ -383,6 +392,10 @@ export async function updateReferralStatus(
   reviewedBy?: string
 ) {
   try {
+    // 邀请状态审核为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, referral: null, error: '仅超级管理员可审核邀请' }
+    }
     // 更新主邀请记录
     const referral = await prisma.referral.update({
       where: { id: referralId },
@@ -450,6 +463,10 @@ export async function updateReferralStatus(
 // 管理员：标记奖励已发放
 export async function markRewardSent(referralId: string, reviewedBy?: string) {
   try {
+    // 奖励发放标记为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, referral: null, error: '仅超级管理员可标记奖励发放' }
+    }
     const referral = await prisma.referral.update({
       where: { id: referralId },
       data: {
@@ -477,6 +494,10 @@ export async function batchUpdateReferrals(
   reviewedBy?: string
 ) {
   try {
+    // 批量操作为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, count: 0, error: '仅超级管理员可批量操作' }
+    }
     let updateData: any = {
       reviewedBy,
       reviewedAt: new Date()
@@ -571,6 +592,10 @@ export async function batchUpdateReferrals(
 // 管理员：获取邀请统计概览
 export async function getReferralOverview() {
   try {
+    // 邀请统计为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, stats: null, error: '仅超级管理员可查看邀请统计' }
+    }
     const allReferrals = await prisma.referral.findMany({
       include: {
         referred: {
@@ -607,6 +632,10 @@ export async function markTeachingCompleted(
   reviewedBy?: string
 ) {
   try {
+    // 授课达标确认为超管专属（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可确认授课达标' }
+    }
     // 验证必填字段
     if (!lessonNote?.trim()) {
       return { success: false, error: '请填写授课备注' }

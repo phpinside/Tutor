@@ -3,6 +3,7 @@ import { CoachReviewStage, ReferralStatus, ReferralType, TeacherStatus } from '@
 import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
 import { getCoachReviewsForTeachers } from '@/app/actions/coachReview'
+import { getScopedTeacherFilter } from '@/lib/learnerManagerScope'
 
 export const dynamic = 'force-dynamic'
 
@@ -290,6 +291,15 @@ export default async function AdminTeachersPage({
     }
   }
   
+  // 学管数据范围收敛（灰度开关控制；未启用时返回 null，保持现状全量可见）
+  // 白名单条件叠加后，搜索/筛选/分页均只在白名单内生效——搜不到白名单外的人且不报错
+  if (viewer.operatorId) {
+    const scopedFilter = await getScopedTeacherFilter(viewer.operatorId)
+    if (scopedFilter) {
+      whereConditions.push(scopedFilter)
+    }
+  }
+
   // 构建查询条件
   const whereClause = {
     status: {

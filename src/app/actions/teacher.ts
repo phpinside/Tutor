@@ -7,6 +7,9 @@ import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { sanitizeInput } from '@/lib/utils'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
+import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import { recordAudit } from '@/lib/auditLog'
+import { isSuperAdmin } from '@/lib/admin-auth'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
@@ -1309,6 +1312,10 @@ export async function getAllWithdrawals(filters?: {
   endDate?: string
   search?: string
 }) {
+  // 提现管理为超管专属（学管无该页面，action 层兜底）
+  if (!(await isSuperAdmin())) {
+    return { success: false as const, withdrawals: [], error: '仅超级管理员可查看提现记录' }
+  }
   try {
     const where: any = {}
     
@@ -1488,22 +1495,31 @@ export async function resetTeacherPassword(teacherId: string, newPassword: strin
       return { success: false, error: '密码至少 6 位' }
     }
 
-    // 验证权限：super_admin 或运营人员均可操作
+    // 验证权限：super_admin 可重置任意老师；学管仅可重置可见白名单内老师
+    //（灰度开关关闭时保持现状：任意运营可重置）
     const cookieStore = await cookies()
     const adminSession = cookieStore.get('admin_session')
     const operatorSession = cookieStore.get('operator_session')
 
-    let authorized = false
+    let actor: { type: 'ADMIN' | 'OPERATOR'; id: string; name: string | null } | null = null
     if (adminSession) {
       const sessionData = JSON.parse(adminSession.value)
-      if (sessionData.role === 'super_admin') authorized = true
+      if (sessionData.role === 'super_admin') {
+        actor = { type: 'ADMIN', id: 'super_admin', name: '管理员' }
+      }
     }
-    if (!authorized && operatorSession) {
+    if (!actor && operatorSession) {
       const sessionData = JSON.parse(operatorSession.value)
-      if (sessionData.operatorId) authorized = true
+      if (sessionData.operatorId) {
+        const inScope = await isTeacherInScope(sessionData.operatorId, teacherId)
+        // null = 该学管未启用灰度（保持现状允许）；false = 不在白名单，拒绝
+        if (inScope !== false) {
+          actor = { type: 'OPERATOR', id: sessionData.operatorId, name: sessionData.name ?? null }
+        }
+      }
     }
 
-    if (!authorized) {
+    if (!actor) {
       return { success: false, error: '无权限执行此操作' }
     }
 
@@ -1524,6 +1540,15 @@ export async function resetTeacherPassword(teacherId: string, newPassword: strin
       data: { password: hashedPassword }
     })
 
+    await recordAudit({
+      actorType: actor.type,
+      actorId: actor.id,
+      actorName: actor.name,
+      action: 'RESET_TEACHER_PASSWORD',
+      targetType: 'TEACHER',
+      targetId: teacherId,
+    })
+
     revalidatePath('/admin/teachers')
     
     return { 
@@ -1539,6 +1564,10 @@ export async function resetTeacherPassword(teacherId: string, newPassword: strin
 // 管理员搜索教师（按名字或 ID，用于设置邀请人弹窗）
 export async function searchTeachersForInviter(query: string, excludeId?: string) {
   try {
+    // 设置邀请人为超管能力（SetInviterModal 仅超管可见，action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false as const, teachers: [], error: '仅超级管理员可操作' }
+    }
     const trimmed = query.trim()
     if (!trimmed) {
       return { success: true, teachers: [] }
@@ -1571,6 +1600,10 @@ export async function searchTeachersForInviter(query: string, excludeId?: string
 // 管理员设置教师的邀请人
 export async function setTeacherInviter(teacherId: string, inviterId: string) {
   try {
+    // 改邀请人为超管能力（action 层兜底）
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可操作' }
+    }
     if (!teacherId || !inviterId) {
       return { success: false, error: '参数不完整' }
     }

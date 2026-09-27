@@ -121,7 +121,7 @@ export default function TeamManagementClient({
   }
 
   const handleRemove = async (teacherId: string, teacherName: string | null) => {
-    if (!confirm(`确定将「${teacherName || '该老师'}」从团队中移除？`)) return
+    if (!confirm(`确定将「${teacherName || '该老师'}」移出你的团队？\n移出后该老师将脱离你的可见范围（除非仍是你邀请的或分配给你初审的）。`)) return
     await removeTeacherFromTeam(operatorId, teacherId)
     startTransition(() => router.refresh())
   }
@@ -323,6 +323,9 @@ export default function TeamManagementClient({
             </div>
 
             <div className="p-6">
+              <p className="mb-3 text-xs text-gray-500">
+                认领范围：仅显示当前无跟进人的老师；认领成功后该老师将纳入你的管理范围。手机号已脱敏展示。
+              </p>
               {addMessage && (
                 <div
                   className={`mb-4 p-3 rounded-lg text-sm ${
