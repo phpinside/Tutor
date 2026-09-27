@@ -118,6 +118,13 @@ export default function TeamManagementClient({
     setTaskIndex('')
     setStartDate('')
     setEndDate('')
+    setSchool('')
+    setGender('')
+    setGaokaoProvince('')
+    setSubject('')
+    setScoreMin('')
+    setStatus('')
+    setInviterSearch('')
     router.push('/operator/team')
   }
 

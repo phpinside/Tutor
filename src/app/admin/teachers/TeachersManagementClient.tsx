@@ -234,6 +234,8 @@ export default function TeachersManagementClient({
     setMathScoreMin('')
     setMathScoreMax('')
     setSubject('')
+    setGender('')
+    setGaokaoProvince('')
     router.push('/admin/teachers')
   }
   

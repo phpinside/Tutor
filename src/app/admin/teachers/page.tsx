@@ -421,7 +421,9 @@ export default async function AdminTeachersPage({
           ageMax,
           mathScoreMin,
           mathScoreMax,
-          subject
+          subject,
+          gender,
+          gaokaoProvince
         }}
         pagination={pagination}
         canResetTeacherPassword={canResetTeacherPassword}
