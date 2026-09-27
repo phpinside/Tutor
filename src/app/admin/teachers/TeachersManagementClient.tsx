@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
 import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
+import { usePersistedFilters, clearPersistedFilters } from '@/lib/hooks/usePersistedFilters'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import { resetTeacherPassword } from '@/app/actions/teacher'
 import { batchSubmitFinalReview } from '@/app/actions/coachReview'
@@ -196,6 +197,43 @@ export default function TeachersManagementClient({
     }
   }
 
+  // 筛选项持久化：回退/跳转返回时保持（URL 优先，sessionStorage 兜底未应用项）
+  usePersistedFilters(
+    'admin-teacher-filters',
+    {
+      search: searchTerm,
+      taskIndex,
+      startDate,
+      endDate,
+      teamStatus,
+      inviteAudit,
+      inviterSearch,
+      ageMin,
+      ageMax,
+      mathScoreMin,
+      mathScoreMax,
+      subject,
+      gender,
+      gaokaoProvince,
+    },
+    {
+      search: setSearchTerm,
+      taskIndex: setTaskIndex,
+      startDate: setStartDate,
+      endDate: setEndDate,
+      teamStatus: setTeamStatus,
+      inviteAudit: setInviteAudit,
+      inviterSearch: setInviterSearch,
+      ageMin: setAgeMin,
+      ageMax: setAgeMax,
+      mathScoreMin: setMathScoreMin,
+      mathScoreMax: setMathScoreMax,
+      subject: setSubject,
+      gender: setGender,
+      gaokaoProvince: setGaokaoProvince,
+    }
+  )
+
   const appendListFilterParams = (params: URLSearchParams) => {
     if (searchTerm) params.set('search', searchTerm)
     if (taskIndex) params.set('taskIndex', taskIndex)
@@ -236,6 +274,7 @@ export default function TeachersManagementClient({
     setSubject('')
     setGender('')
     setGaokaoProvince('')
+    clearPersistedFilters('admin-teacher-filters')
     router.push('/admin/teachers')
   }
   

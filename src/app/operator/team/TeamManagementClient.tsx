@@ -4,6 +4,7 @@ import { useState, useTransition, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { getTeacherStatusText, formatDateTime, formatPhone } from '@/lib/utils'
+import { usePersistedFilters, clearPersistedFilters } from '@/lib/hooks/usePersistedFilters'
 import {
   addTeacherToTeam,
   removeTeacherFromTeam,
@@ -97,6 +98,37 @@ export default function TeamManagementClient({
   const [searching, setSearching] = useState(false)
   const [addMessage, setAddMessage] = useState('')
 
+  // 筛选项持久化：回退/跳转返回时保持（URL 优先，sessionStorage 兜底未应用项）
+  usePersistedFilters(
+    'team-filters',
+    {
+      search: searchTerm,
+      taskIndex,
+      startDate,
+      endDate,
+      school,
+      gender,
+      gaokaoProvince,
+      subject,
+      scoreMin,
+      status,
+      inviterSearch,
+    },
+    {
+      search: setSearchTerm,
+      taskIndex: setTaskIndex,
+      startDate: setStartDate,
+      endDate: setEndDate,
+      school: setSchool,
+      gender: setGender,
+      gaokaoProvince: setGaokaoProvince,
+      subject: setSubject,
+      scoreMin: setScoreMin,
+      status: setStatus,
+      inviterSearch: setInviterSearch,
+    }
+  )
+
   const handleApplyFilters = () => {
     const params = new URLSearchParams()
     if (searchTerm) params.set('search', searchTerm)
@@ -125,6 +157,7 @@ export default function TeamManagementClient({
     setScoreMin('')
     setStatus('')
     setInviterSearch('')
+    clearPersistedFilters('team-filters')
     router.push('/operator/team')
   }
 
