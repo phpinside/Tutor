@@ -105,9 +105,12 @@ enum TencentMeetingCreatorType {
   ADMIN
 }
 
-// 运营角色；当前仅学管一种，后续细分角色在此扩展
+// 运营侧角色
+// LEARNER_MANAGER 学管：数据可见范围收敛为白名单（已归属/分配初审/本人邀请，受灰度开关控制）
+// OPERATOR 运营：保持完整可见范围（老师管理全量、认领搜索全库等）
 enum OperatorRole {
   LEARNER_MANAGER
+  OPERATOR
 }
 
 // 运营人员

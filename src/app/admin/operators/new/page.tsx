@@ -11,6 +11,7 @@ export default function NewOperatorPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [isEnabled, setIsEnabled] = useState(true)
+  const [role, setRole] = useState<'LEARNER_MANAGER' | 'OPERATOR'>('LEARNER_MANAGER')
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -22,6 +23,7 @@ export default function NewOperatorPage() {
       name: sanitizeInput((form.elements.namedItem('name') as HTMLInputElement).value),
       phone: sanitizeInput((form.elements.namedItem('phone') as HTMLInputElement).value),
       password: (form.elements.namedItem('password') as HTMLInputElement).value,
+      role,
       isEnabled,
       remarks: sanitizeInput((form.elements.namedItem('remarks') as HTMLTextAreaElement).value) || undefined,
     }
@@ -54,7 +56,7 @@ export default function NewOperatorPage() {
       </Link>
 
       <div className="card">
-        <h1 className="text-xl font-bold text-gray-900 mb-6">新增运营人员</h1>
+        <h1 className="text-xl font-bold text-gray-900 mb-6">新增学管 / 运营人员</h1>
 
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
@@ -103,6 +105,48 @@ export default function NewOperatorPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              角色 <span className="text-red-500">*</span>
+            </label>
+            <div className="space-y-2">
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                role === 'LEARNER_MANAGER' ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="role"
+                  checked={role === 'LEARNER_MANAGER'}
+                  onChange={() => setRole('LEARNER_MANAGER')}
+                  className="mt-1 w-4 h-4 text-primary-600"
+                />
+                <span>
+                  <span className="text-sm font-medium text-gray-900">学管</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    仅能查看自己管辖范围内的老师（已归属跟进、分配初审、本人邀请）；认领搜索仅显示无归属老师
+                  </span>
+                </span>
+              </label>
+              <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
+                role === 'OPERATOR' ? 'border-primary-400 bg-primary-50' : 'border-gray-200 hover:border-gray-300'
+              }`}>
+                <input
+                  type="radio"
+                  name="role"
+                  checked={role === 'OPERATOR'}
+                  onChange={() => setRole('OPERATOR')}
+                  className="mt-1 w-4 h-4 text-primary-600"
+                />
+                <span>
+                  <span className="text-sm font-medium text-gray-900">运营</span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    可查看全部老师数据与全库搜索（完整可见范围）
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">启用状态</label>
             <div className="flex gap-4">
               <label className="flex items-center gap-2 cursor-pointer">
@@ -142,7 +186,7 @@ export default function NewOperatorPage() {
               disabled={loading}
               className="btn-primary flex-1"
             >
-              {loading ? '创建中...' : '创建运营人员'}
+              {loading ? '创建中...' : '创建'}
             </button>
             <Link href="/admin/operators" className="btn-secondary flex-1 text-center">
               取消

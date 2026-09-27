@@ -14,6 +14,15 @@ async function assertSuperAdmin(): Promise<void> {
   }
 }
 
+const VALID_ROLES = ['LEARNER_MANAGER', 'OPERATOR'] as const
+type OperatorRoleValue = (typeof VALID_ROLES)[number]
+
+function normalizeRole(role: unknown): OperatorRoleValue {
+  return VALID_ROLES.includes(role as OperatorRoleValue)
+    ? (role as OperatorRoleValue)
+    : 'LEARNER_MANAGER'
+}
+
 export async function getOperators() {
   await assertSuperAdmin()
   return prisma.operator.findMany({
@@ -22,6 +31,7 @@ export async function getOperators() {
       id: true,
       name: true,
       phone: true,
+      role: true,
       isEnabled: true,
       remarks: true,
       createdAt: true,
@@ -38,6 +48,7 @@ export async function getOperatorById(id: string) {
       id: true,
       name: true,
       phone: true,
+      role: true,
       isEnabled: true,
       remarks: true,
       createdAt: true,
@@ -51,6 +62,7 @@ export async function createOperator(data: {
   name: string
   phone: string
   password: string
+  role?: 'LEARNER_MANAGER' | 'OPERATOR'
   isEnabled?: boolean
   remarks?: string
 }) {
@@ -62,6 +74,7 @@ export async function createOperator(data: {
   const name = sanitizeInput(data.name)
   const phone = sanitizeInput(data.phone)
   const remarks = data.remarks ? sanitizeInput(data.remarks) : undefined
+  const role = normalizeRole(data.role)
 
   const exists = await prisma.operator.findUnique({ where: { phone } })
   if (exists) {
@@ -74,9 +87,20 @@ export async function createOperator(data: {
       name,
       phone,
       password: hashedPassword,
+      role,
       isEnabled: data.isEnabled ?? true,
       remarks: remarks || null,
     },
+  })
+
+  await recordAudit({
+    actorType: 'ADMIN',
+    actorId: 'super_admin',
+    actorName: '管理员',
+    action: 'CREATE_OPERATOR',
+    targetType: 'OPERATOR',
+    targetId: operator.id,
+    detail: { name, phone, role, isEnabled: data.isEnabled ?? true },
   })
 
   revalidatePath('/admin/operators')
@@ -87,6 +111,7 @@ export async function updateOperator(
   id: string,
   data: {
     name?: string
+    role?: 'LEARNER_MANAGER' | 'OPERATOR'
     isEnabled?: boolean
     remarks?: string
   }
@@ -96,12 +121,17 @@ export async function updateOperator(
   } catch (e) {
     return { success: false as const, error: (e as Error).message }
   }
-  const previous = await prisma.operator.findUnique({ where: { id }, select: { isEnabled: true } })
+  const previous = await prisma.operator.findUnique({
+    where: { id },
+    select: { isEnabled: true, role: true },
+  })
+  const role = data.role !== undefined ? normalizeRole(data.role) : undefined
 
   await prisma.operator.update({
     where: { id },
     data: {
       ...(data.name !== undefined && { name: data.name }),
+      ...(role !== undefined && { role }),
       ...(data.isEnabled !== undefined && { isEnabled: data.isEnabled }),
       ...(data.remarks !== undefined && { remarks: data.remarks }),
       updatedAt: new Date(),
@@ -117,6 +147,18 @@ export async function updateOperator(
       targetType: 'OPERATOR',
       targetId: id,
       detail: { from: previous.isEnabled, to: data.isEnabled },
+    })
+  }
+
+  if (role !== undefined && previous && previous.role !== role) {
+    await recordAudit({
+      actorType: 'ADMIN',
+      actorId: 'super_admin',
+      actorName: '管理员',
+      action: 'CHANGE_OPERATOR_ROLE',
+      targetType: 'OPERATOR',
+      targetId: id,
+      detail: { from: previous.role, to: role },
     })
   }
 

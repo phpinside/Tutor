@@ -35,8 +35,14 @@ export const getLearnerManagerScopeConfig = cache(async (): Promise<string[]> =>
   }
 })
 
-/** 该学管是否启用白名单 scoping */
+/** 该学管是否启用白名单 scoping（仅 LEARNER_MANAGER 角色可启用；OPERATOR 运营角色永远保持全量） */
 export const isScopingEnabledFor = cache(async (operatorId: string): Promise<boolean> => {
+  const operator = await prisma.operator.findUnique({
+    where: { id: operatorId },
+    select: { role: true },
+  })
+  if (!operator || operator.role !== 'LEARNER_MANAGER') return false
+
   const list = await getLearnerManagerScopeConfig()
   if (list.length === 0) return false
   return list.includes('*') || list.includes(operatorId)

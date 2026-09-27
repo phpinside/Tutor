@@ -8,8 +8,14 @@ interface OperatorData {
   id: string
   name: string
   phone: string
+  role: string
   isEnabled: boolean
   remarks: string | null
+}
+
+const ROLE_LABELS: Record<string, string> = {
+  LEARNER_MANAGER: '学管',
+  OPERATOR: '运营',
 }
 
 export default function OperatorEditForm({ operator }: { operator: OperatorData }) {
@@ -22,6 +28,9 @@ export default function OperatorEditForm({ operator }: { operator: OperatorData 
   const [showPwdSection, setShowPwdSection] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [isEnabled, setIsEnabled] = useState(operator.isEnabled)
+  const [role, setRole] = useState<'LEARNER_MANAGER' | 'OPERATOR'>(
+    operator.role === 'OPERATOR' ? 'OPERATOR' : 'LEARNER_MANAGER'
+  )
 
   async function handleUpdate(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -31,12 +40,17 @@ export default function OperatorEditForm({ operator }: { operator: OperatorData 
     const form = e.currentTarget
     const data = {
       name: (form.elements.namedItem('name') as HTMLInputElement).value.trim(),
+      role,
       isEnabled,
       remarks: (form.elements.namedItem('remarks') as HTMLTextAreaElement).value.trim() || undefined,
     }
 
-    await updateOperator(operator.id, data)
-    setMessage('保存成功')
+    const result = await updateOperator(operator.id, data)
+    if (result.success) {
+      setMessage('保存成功')
+    } else {
+      setMessage(`保存失败：${result.error ?? '请重试'}`)
+    }
     setLoading(false)
   }
 
@@ -85,6 +99,35 @@ export default function OperatorEditForm({ operator }: { operator: OperatorData 
             className="input w-full bg-gray-50 text-gray-400 cursor-not-allowed"
           />
           <p className="text-xs text-gray-400 mt-1">手机号不可修改</p>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">角色</label>
+          <div className="flex gap-4">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                checked={role === 'LEARNER_MANAGER'}
+                onChange={() => setRole('LEARNER_MANAGER')}
+                className="w-4 h-4 text-primary-600"
+              />
+              <span className="text-sm text-gray-700">学管（仅见管辖范围）</span>
+            </label>
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="radio"
+                name="role"
+                checked={role === 'OPERATOR'}
+                onChange={() => setRole('OPERATOR')}
+                className="w-4 h-4 text-primary-600"
+              />
+              <span className="text-sm text-gray-700">运营（全量可见）</span>
+            </label>
+          </div>
+          <p className="text-xs text-gray-400 mt-1">
+            当前角色：{ROLE_LABELS[operator.role] ?? operator.role}；角色变更即时生效（该账号下次请求起按新角色执行）
+          </p>
         </div>
 
         <div>

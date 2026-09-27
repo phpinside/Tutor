@@ -4,6 +4,16 @@ import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
 
+const ROLE_LABELS: Record<string, string> = {
+  LEARNER_MANAGER: '学管',
+  OPERATOR: '运营',
+}
+
+const ROLE_BADGE_CLASSES: Record<string, string> = {
+  LEARNER_MANAGER: 'bg-blue-100 text-blue-700',
+  OPERATOR: 'bg-amber-100 text-amber-700',
+}
+
 export default async function OperatorsPage() {
   const operators = await getOperators()
 
@@ -11,14 +21,17 @@ export default async function OperatorsPage() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">运营人员管理</h1>
-          <p className="text-sm text-gray-500 mt-1">共 {operators.length} 名运营人员</p>
+          <h1 className="text-2xl font-bold text-gray-900">学管 / 运营人员管理</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            共 {operators.length} 名人员 ·
+            学管仅能查看自己管辖范围内的老师，运营可查看全部老师数据
+          </p>
         </div>
         <Link
           href="/admin/operators/new"
           className="btn-primary"
         >
-          + 新增运营人员
+          + 新增人员
         </Link>
       </div>
 
@@ -36,6 +49,7 @@ export default async function OperatorsPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">姓名</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-600">角色</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">手机号</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">状态</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-600">团队人数</th>
@@ -48,6 +62,13 @@ export default async function OperatorsPage() {
               {operators.map((op) => (
                 <tr key={op.id} className="hover:bg-gray-50 transition-colors">
                   <td className="px-4 py-3 font-medium text-gray-900">{op.name}</td>
+                  <td className="px-4 py-3">
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                      ROLE_BADGE_CLASSES[op.role] ?? 'bg-gray-100 text-gray-500'
+                    }`}>
+                      {ROLE_LABELS[op.role] ?? op.role}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-gray-600">{op.phone}</td>
                   <td className="px-4 py-3">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${

@@ -16,6 +16,7 @@ import CoachReviewPanel from './CoachReviewPanel'
 import OperatorPickerModal from './OperatorPickerModal'
 import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import NoPermission from '@/components/admin/NoPermission'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
@@ -100,11 +101,31 @@ export default async function TeacherDetailPage({
     notFound()
   }
 
-  // 学管视角越权防护（灰度开关控制）：白名单外的老师一律 404
+  // 学管视角越权防护（灰度开关控制）：白名单外的老师展示友好无权限页（而非 404）
   if (viewerInfo.id) {
     const inScope = await isTeacherInScope(viewerInfo.id, id)
     if (inScope === false) {
-      notFound()
+      return (
+        <div>
+          <Link
+            href="/admin/teachers"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+            返回列表
+          </Link>
+          <NoPermission
+            title="无权限查看该老师"
+            description={
+              '该老师不在你的管辖范围内。\n' +
+              '学管仅能查看：已归属你跟进的、分配给你初审的、你本人邀请的老师。\n' +
+              '如确认需要查看该老师，请联系超级管理员调整归属关系。'
+            }
+          />
+        </div>
+      )
     }
   }
 

@@ -26,19 +26,29 @@ function getRequiredRoles(pathname: string): string[] | null {
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname
 
-  // 运营（学管）人员可直接访问老师管理和共享腾讯会议路径
+  // 学管 / 运营可访问老师管理与腾讯会议路径
   // cookie 中的 role 仅为登录快照：旧会话无 role 字段则放行（兼容期），
   // 服务端会以 DB 中的角色与白名单 scoping 做真正的鉴权。
-  if (pathname.startsWith('/admin/teachers') || pathname.startsWith('/admin/tencent-meetings')) {
-    const operatorSession = request.cookies.get('operator_session')
-    if (operatorSession) {
-      try {
-        const data = JSON.parse(operatorSession.value)
-        if (data.operatorId && (!data.role || data.role === 'LEARNER_MANAGER')) {
+  const operatorSession = request.cookies.get('operator_session')
+  let operatorId: string | null = null
+  if (operatorSession) {
+    try {
+      const data = JSON.parse(operatorSession.value)
+      if (data.operatorId && (!data.role || data.role === 'LEARNER_MANAGER' || data.role === 'OPERATOR')) {
+        operatorId = data.operatorId as string
+        if (
+          pathname.startsWith('/admin/teachers') ||
+          pathname.startsWith('/admin/tencent-meetings')
+        ) {
           return NextResponse.next()
         }
-      } catch {}
-    }
+      }
+    } catch {}
+  }
+
+  // 已登录的学管/运营访问超管专属页面时，重定向回自己的工作台（比跳登录页更友好）
+  if (operatorId && pathname.startsWith('/admin')) {
+    return NextResponse.redirect(new URL('/operator/team', request.url))
   }
 
   // 检查管理后台路径
