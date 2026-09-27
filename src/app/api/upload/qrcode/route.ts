@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { uploadToQiniu, generateQRCodeKey, refreshCdnCache } from '@/lib/qiniu'
+import { canManageWechatGroupQr } from '@/lib/wechatGroupQrAuth'
 
 export async function POST(request: NextRequest) {
   try {
+    // 鉴权：超管始终可配；运营仅在「运营复审权限」开关开启时可配；学管不可配
+    if (!(await canManageWechatGroupQr())) {
+      return NextResponse.json(
+        { error: '无权限：微信群二维码配置未开放' },
+        { status: 403 }
+      )
+    }
+
     const formData = await request.formData()
     const file = formData.get('file') as File | null
 

@@ -19,13 +19,25 @@ const MENU_ITEMS: MenuItem[] = [
 export default function OperatorLayoutClient({
   children,
   operatorName,
+  canManageGroupQr = false,
 }: {
   children: React.ReactNode
   operatorName: string
+  /** 「运营复审权限」开关开启时为 true；此时展示「微信群二维码」配置入口 */
+  canManageGroupQr?: boolean
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  // 开关开启时，在「资料设置」前插入微信群二维码入口；关闭时完全隐藏
+  const menuItems = canManageGroupQr
+    ? [
+        ...MENU_ITEMS.slice(0, MENU_ITEMS.length - 1),
+        { path: '/operator/qrcode', label: '微信群二维码' },
+        MENU_ITEMS[MENU_ITEMS.length - 1],
+      ]
+    : MENU_ITEMS
 
   const isActive = (path: string) => {
     const [itemPath, itemQuery] = path.split('?')
@@ -71,7 +83,7 @@ export default function OperatorLayoutClient({
             </div>
 
             <nav className="flex items-center gap-6">
-              {MENU_ITEMS.map((item) => (
+              {menuItems.map((item) => (
                 <a key={item.path} href={item.path} className={navLinkClass(item.path)}>
                   {item.label}
                 </a>

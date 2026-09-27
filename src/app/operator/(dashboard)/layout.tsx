@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import OperatorLayoutClient from '../OperatorLayoutClient'
+import { canManageWechatGroupQr } from '@/lib/wechatGroupQrAuth'
 
 async function getOperatorSession() {
   const cookieStore = await cookies()
@@ -24,5 +25,12 @@ export default async function OperatorDashboardLayout({
     redirect('/operator/login')
   }
 
-  return <OperatorLayoutClient operatorName={session.name}>{children}</OperatorLayoutClient>
+  // 「微信群二维码」配置能力随「运营复审权限」开关联动
+  const canManageGroupQr = await canManageWechatGroupQr()
+
+  return (
+    <OperatorLayoutClient operatorName={session.name} canManageGroupQr={canManageGroupQr}>
+      {children}
+    </OperatorLayoutClient>
+  )
 }
