@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import { useRouter } from 'next/navigation'
 import { submitTask } from '@/app/actions/task'
 import { updateTeacherInfo } from '@/app/actions/teacher'
@@ -37,6 +38,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     school: teacher.school || '',
     graduationYear: teacher.graduationYear || '',
     identity: teacher.identity || '',
+    gaokaoProvince: (teacher as { gaokaoProvince?: string }).gaokaoProvince || '',
 
     // 学科信息
     subjects: (teacher.subjects as string[]) ?? [] as string[],
@@ -98,6 +100,11 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       return
     }
 
+    if (!formData.gaokaoProvince) {
+      alert('请选择参加高考的省份')
+      return
+    }
+
     if (formData.subjects.length === 0) {
       alert('请至少选择一个可教学科')
       return
@@ -142,7 +149,8 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
         studentTypes: (formData.studentTypes as string[]).join(','),
         physicsScore: formData.physicsScore,
         chemistryScore: formData.chemistryScore,
-        scienceCompetition: formData.scienceCompetition
+        scienceCompetition: formData.scienceCompetition,
+        gaokaoProvince: formData.gaokaoProvince
       }
       
       // 更新老师信息
@@ -338,9 +346,32 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               </label>
             </div>
           </div>
+
+          {/* 参加高考的省份 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              参加高考的省份 <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={formData.gaokaoProvince}
+              onChange={(e) => handleChange('gaokaoProvince', e.target.value)}
+              className="input"
+              required
+            >
+              <option value="">请选择省份</option>
+              {GAOKAO_PROVINCE_OPTIONS.map((province) => (
+                <option key={province} value={province}>
+                  {province}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">
+              用于学管与运营按省份筛选老师；如在海外参加高考或情况特殊，请选择「其它」
+            </p>
+          </div>
         </div>
       </div>
-      
+
       {/* 二、教学能力 & 资质 */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">

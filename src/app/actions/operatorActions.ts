@@ -34,6 +34,13 @@ export async function getOperatorTeam(
     taskIndex?: string
     startDate?: string
     endDate?: string
+    school?: string
+    gender?: string
+    gaokaoProvince?: string
+    subject?: string
+    scoreMin?: string
+    status?: string
+    inviterSearch?: string
   }
 ) {
   // 会话一致性校验：学管只能查看自己的团队（防伪造直调读取他人团队）
@@ -69,6 +76,62 @@ export async function getOperatorTeam(
   if (filters?.endDate) {
     whereConditions.push({
       teacher: { createdAt: { lte: new Date(filters.endDate + 'T23:59:59') } },
+    })
+  }
+
+  // 学校（模糊）
+  if (filters?.school?.trim()) {
+    whereConditions.push({
+      teacher: { school: { contains: filters.school.trim(), mode: 'insensitive' } },
+    })
+  }
+
+  // 性别
+  if (filters?.gender) {
+    whereConditions.push({ teacher: { gender: filters.gender } })
+  }
+
+  // 高考省份
+  if (filters?.gaokaoProvince) {
+    whereConditions.push({ teacher: { gaokaoProvince: filters.gaokaoProvince } })
+  }
+
+  // 可教科目
+  if (filters?.subject) {
+    whereConditions.push({ teacher: { subjects: { has: filters.subject } } })
+  }
+
+  // 分数下限：任一科高考成绩 ≥ 该值
+  const scoreMin = parseInt(filters?.scoreMin || '', 10)
+  if (Number.isFinite(scoreMin)) {
+    whereConditions.push({
+      teacher: {
+        OR: [
+          { mathScore: { gte: scoreMin } },
+          { physicsScore: { gte: scoreMin } },
+          { chemistryScore: { gte: scoreMin } },
+        ],
+      },
+    })
+  }
+
+  // 状态
+  if (filters?.status) {
+    whereConditions.push({ teacher: { status: filters.status } })
+  }
+
+  // 邀请人（姓名/手机号模糊）
+  if (filters?.inviterSearch?.trim()) {
+    const kw = filters.inviterSearch.trim()
+    whereConditions.push({
+      teacher: {
+        invitedBy: {
+          OR: [
+            { name: { contains: kw, mode: 'insensitive' } },
+            { phone: { contains: kw } },
+          ],
+        },
+      },
     })
   }
 

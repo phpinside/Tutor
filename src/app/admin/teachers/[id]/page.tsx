@@ -256,6 +256,10 @@ export default async function TeacherDetailPage({
               <p className="text-gray-500 mb-1">身份</p>
               <p className="font-medium text-gray-900">{teacher.identity || '未填写'}</p>
             </div>
+            <div>
+              <p className="text-gray-500 mb-1">高考省份</p>
+              <p className="font-medium text-gray-900">{teacher.gaokaoProvince || '未填写'}</p>
+            </div>
           </div>
         </div>
         

@@ -24,19 +24,45 @@ export default async function TeamPage({
     taskIndex?: string
     startDate?: string
     endDate?: string
+    school?: string
+    gender?: string
+    gaokaoProvince?: string
+    subject?: string
+    scoreMin?: string
+    status?: string
+    inviterSearch?: string
   }>
 }) {
   const session = await getOperatorSession()
   if (!session) redirect('/operator/login')
 
   const params = await searchParams
-  const { search, taskIndex, startDate, endDate } = params
+  const {
+    search,
+    taskIndex,
+    startDate,
+    endDate,
+    school,
+    gender,
+    gaokaoProvince,
+    subject,
+    scoreMin,
+    status,
+    inviterSearch,
+  } = params
 
   const teachers = await getOperatorTeam(session.operatorId, {
     search,
     taskIndex,
     startDate,
     endDate,
+    school,
+    gender,
+    gaokaoProvince,
+    subject,
+    scoreMin,
+    status,
+    inviterSearch,
   })
 
   return (
@@ -49,7 +75,7 @@ export default async function TeamPage({
       <TeamManagementClient
         operatorId={session.operatorId}
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate }}
+        initialFilters={{ search, taskIndex, startDate, endDate, school, gender, gaokaoProvince, subject, scoreMin, status, inviterSearch }}
       />
     </div>
   )

@@ -222,6 +222,7 @@ export async function updateTeacherInfo(teacherId: string, data: {
   school?: string
   graduationYear?: string
   identity?: string
+  gaokaoProvince?: string
 
   // 学科信息
   subjects?: string[]

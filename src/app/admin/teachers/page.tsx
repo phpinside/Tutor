@@ -78,6 +78,8 @@ export default async function AdminTeachersPage({
     mathScoreMin?: string
     mathScoreMax?: string
     subject?: string
+    gender?: string
+    gaokaoProvince?: string
   }>
 }) {
   // 解析筛选参数
@@ -94,7 +96,9 @@ export default async function AdminTeachersPage({
     ageMax,
     mathScoreMin,
     mathScoreMax,
-    subject
+    subject,
+    gender,
+    gaokaoProvince
   } = params
   
   const canResetTeacherPassword = await getCanResetTeacherPassword()
@@ -271,6 +275,16 @@ export default async function AdminTeachersPage({
     })
   }
 
+  // 性别筛选
+  if (gender) {
+    whereConditions.push({ gender })
+  }
+
+  // 高考省份筛选
+  if (gaokaoProvince) {
+    whereConditions.push({ gaokaoProvince })
+  }
+
   // 高考成绩区间（按所选学科映射字段）
   const scoreLo = parseQueryInt(mathScoreMin)
   const scoreHi = parseQueryInt(mathScoreMax)
@@ -329,6 +343,8 @@ export default async function AdminTeachersPage({
       name: true,
       phone: true,
       school: true,
+      gender: true,
+      gaokaoProvince: true,
       mathScore: true,
       physicsScore: true,
       chemistryScore: true,

@@ -32,6 +32,27 @@ type SearchResult = {
 
 const MAX_SCHOOL_DISPLAY_LENGTH = 10
 
+// 与新手引导表单口径一致
+const GAOKAO_PROVINCE_OPTIONS = [
+  '北京', '天津', '河北', '山西', '内蒙古', '辽宁', '吉林', '黑龙江',
+  '上海', '江苏', '浙江', '安徽', '福建', '江西', '山东',
+  '河南', '湖北', '湖南', '广东', '广西', '海南',
+  '重庆', '四川', '贵州', '云南', '西藏', '陕西', '甘肃', '青海', '宁夏', '新疆',
+  '香港', '澳门', '台湾', '其它',
+]
+
+const SUBJECT_OPTIONS = [
+  { value: 'MATH', label: '数学' },
+  { value: 'PHYSICS', label: '物理' },
+  { value: 'CHEMISTRY', label: '化学' },
+]
+
+const STATUS_OPTIONS = [
+  { value: 'IN_PROGRESS', label: '进行中' },
+  { value: 'COMPLETED', label: '已完成' },
+  { value: 'UNLOCKED', label: '已解锁' },
+]
+
 export default function TeamManagementClient({
   operatorId,
   initialTeachers,
@@ -44,6 +65,13 @@ export default function TeamManagementClient({
     taskIndex?: string
     startDate?: string
     endDate?: string
+    school?: string
+    gender?: string
+    gaokaoProvince?: string
+    subject?: string
+    scoreMin?: string
+    status?: string
+    inviterSearch?: string
   }
 }) {
   const router = useRouter()
@@ -54,6 +82,13 @@ export default function TeamManagementClient({
   const [taskIndex, setTaskIndex] = useState(initialFilters.taskIndex || '')
   const [startDate, setStartDate] = useState(initialFilters.startDate || '')
   const [endDate, setEndDate] = useState(initialFilters.endDate || '')
+  const [school, setSchool] = useState(initialFilters.school || '')
+  const [gender, setGender] = useState(initialFilters.gender || '')
+  const [gaokaoProvince, setGaokaoProvince] = useState(initialFilters.gaokaoProvince || '')
+  const [subject, setSubject] = useState(initialFilters.subject || '')
+  const [scoreMin, setScoreMin] = useState(initialFilters.scoreMin || '')
+  const [status, setStatus] = useState(initialFilters.status || '')
+  const [inviterSearch, setInviterSearch] = useState(initialFilters.inviterSearch || '')
 
   // 添加老师弹窗
   const [showAddModal, setShowAddModal] = useState(false)
@@ -68,6 +103,13 @@ export default function TeamManagementClient({
     if (taskIndex) params.set('taskIndex', taskIndex)
     if (startDate) params.set('startDate', startDate)
     if (endDate) params.set('endDate', endDate)
+    if (school) params.set('school', school)
+    if (gender) params.set('gender', gender)
+    if (gaokaoProvince) params.set('gaokaoProvince', gaokaoProvince)
+    if (subject) params.set('subject', subject)
+    if (scoreMin) params.set('scoreMin', scoreMin)
+    if (status) params.set('status', status)
+    if (inviterSearch) params.set('inviterSearch', inviterSearch)
     router.push(`/operator/team?${params.toString()}`)
   }
 
@@ -194,6 +236,79 @@ export default function TeamManagementClient({
             >
               筛选
             </button>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+            <input
+              type="text"
+              placeholder="学校"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <select
+              value={gender}
+              onChange={(e) => setGender(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">性别（全部）</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+            <select
+              value={gaokaoProvince}
+              onChange={(e) => setGaokaoProvince(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">高考省份（全部）</option>
+              {GAOKAO_PROVINCE_OPTIONS.map((province) => (
+                <option key={province} value={province}>
+                  {province}
+                </option>
+              ))}
+            </select>
+            <select
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">可教科目（全部）</option>
+              {SUBJECT_OPTIONS.map((subject) => (
+                <option key={subject.value} value={subject.value}>
+                  {subject.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="最低高考分"
+              value={scoreMin}
+              onChange={(e) => setScoreMin(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">状态（全部）</option>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status.value} value={status.value}>
+                  {status.label}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="邀请人姓名/手机号"
+              value={inviterSearch}
+              onChange={(e) => setInviterSearch(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
           </div>
         </div>
       </div>

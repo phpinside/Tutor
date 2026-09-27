@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { TOTAL_TASK_COUNT } from '@/lib/config'
+import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import { getTeacherStatusText, formatDateTime } from '@/lib/utils'
 import { resetTeacherPassword } from '@/app/actions/teacher'
 import { batchSubmitFinalReview } from '@/app/actions/coachReview'
@@ -24,6 +25,8 @@ type Teacher = {
   name: string | null
   phone: string
   school: string | null
+  gender: string | null
+  gaokaoProvince: string | null
   mathScore: number | null
   physicsScore: number | null
   chemistryScore: number | null
@@ -59,6 +62,8 @@ export default function TeachersManagementClient({
     mathScoreMin?: string
     mathScoreMax?: string
     subject?: string
+    gender?: string
+    gaokaoProvince?: string
   }
   pagination?: {
     currentPage: number
@@ -86,6 +91,8 @@ export default function TeachersManagementClient({
   const [mathScoreMin, setMathScoreMin] = useState(initialFilters.mathScoreMin || '')
   const [mathScoreMax, setMathScoreMax] = useState(initialFilters.mathScoreMax || '')
   const [subject, setSubject] = useState(initialFilters.subject || '')
+  const [gender, setGender] = useState(initialFilters.gender || '')
+  const [gaokaoProvince, setGaokaoProvince] = useState(initialFilters.gaokaoProvince || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
   const [resetPassword, setResetPassword] = useState('123456')
   const [resetLoading, setResetLoading] = useState(false)
@@ -202,6 +209,8 @@ export default function TeachersManagementClient({
     if (mathScoreMin.trim()) params.set('mathScoreMin', mathScoreMin.trim())
     if (mathScoreMax.trim()) params.set('mathScoreMax', mathScoreMax.trim())
     if (subject) params.set('subject', subject)
+    if (gender) params.set('gender', gender)
+    if (gaokaoProvince) params.set('gaokaoProvince', gaokaoProvince)
   }
 
   // 应用筛选
@@ -240,6 +249,14 @@ export default function TeachersManagementClient({
     if (teacher.primarySubject === 'PHYSICS') return teacher.physicsScore
     if (teacher.primarySubject === 'CHEMISTRY') return teacher.chemistryScore
     return teacher.mathScore
+  }
+
+  // 汇总总分：各科已填分数之和（至少一科有分才返回）
+  const getTeacherTotalScore = (teacher: Teacher): number | null => {
+    const scores = [teacher.mathScore, teacher.physicsScore, teacher.chemistryScore]
+      .filter((v): v is number => typeof v === 'number')
+    if (scores.length === 0) return null
+    return scores.reduce((a, b) => a + b, 0)
   }
 
   return (
@@ -423,6 +440,37 @@ export default function TeachersManagementClient({
               </div>
             </div>
           </div>
+
+          {/* 第四行：性别、高考省份 */}
+          <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+              <span className="text-sm text-gray-600 whitespace-nowrap">性别：</span>
+              <select
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              >
+                <option value="">性别（全部）</option>
+                <option value="男">男</option>
+                <option value="女">女</option>
+              </select>
+            </div>
+            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
+              <span className="text-sm text-gray-600 whitespace-nowrap">高考省份：</span>
+              <select
+                value={gaokaoProvince}
+                onChange={(e) => setGaokaoProvince(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              >
+                <option value="">省份（全部）</option>
+                {GAOKAO_PROVINCE_OPTIONS.map((province) => (
+                  <option key={province} value={province}>
+                    {province}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -476,6 +524,9 @@ export default function TeachersManagementClient({
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   姓名 / 学校 / 分数
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  省份 / 性别
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   状态 / 任务
@@ -532,12 +583,20 @@ export default function TeachersManagementClient({
                       {getTeacherScore(teacher) !== null
                         ? <span>{getTeacherScore(teacher)}分</span>
                         : <span className="text-gray-400">-</span>}
+                      {getTeacherTotalScore(teacher) !== null && (
+                        <span className="text-gray-400">总分{getTeacherTotalScore(teacher)}</span>
+                      )}
                       {teacher.primarySubject && (
                         <span className="text-gray-400">
                           ({SUBJECT_LABELS[teacher.primarySubject] ?? teacher.primarySubject})
                         </span>
                       )}
                     </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                    {teacher.gaokaoProvince || <span className="text-gray-400">-</span>}
+                    <span className="text-gray-400 mx-1">/</span>
+                    {teacher.gender || <span className="text-gray-400">-</span>}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <span className={`badge ${
