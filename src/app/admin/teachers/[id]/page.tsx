@@ -16,6 +16,7 @@ import CoachReviewPanel from './CoachReviewPanel'
 import OperatorPickerModal from './OperatorPickerModal'
 import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import { canPerformFinalReview } from '@/app/actions/coachReview'
 import NoPermission from '@/components/admin/NoPermission'
 import {
   getLearningPlannerStatusBadgeClass,
@@ -128,6 +129,9 @@ export default async function TeacherDetailPage({
       )
     }
   }
+
+  // 复审权限：超管始终可复审；运营角色在「运营复审权限」开关开启时可复审
+  const canFinalReview = await canPerformFinalReview()
 
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
@@ -781,6 +785,7 @@ export default async function TeacherDetailPage({
           viewer={{
             operatorId: viewerInfo.id,
             isSuperAdmin: viewerInfo.isSuperAdmin,
+            canFinalReview,
           }}
         />
       ) : canViewInviteAudit ? (

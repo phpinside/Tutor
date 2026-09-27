@@ -2,9 +2,12 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { isSuperAdmin } from '@/lib/admin-auth'
+import { recordAudit } from '@/lib/auditLog'
 
 const CONFIG_KEY = 'COACH_REVIEW_FALLBACK_POOL'
 const DEFAULT_WEIGHT = 1
+const OPERATOR_FINAL_REVIEW_KEY = 'OPERATOR_FINAL_REVIEW_ENABLED'
 
 export type PoolOperator = {
   id: string
@@ -90,4 +93,52 @@ export async function updateCoachReviewPoolConfig(
     console.error('更新教练审核分配池配置失败:', error)
     return { success: false, error: '保存配置失败' }
   }
+}
+
+/** 读取「运营复审权限」开关（默认关闭；value==='true' 才视为开启） */
+export async function getFinalReviewSwitch(): Promise<{
+  success: boolean
+  enabled?: boolean
+  error?: string
+}> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可查看复审权限配置' }
+  }
+  const config = await prisma.systemConfig.findUnique({
+    where: { key: OPERATOR_FINAL_REVIEW_KEY },
+  })
+  return { success: true, enabled: config?.value === 'true' }
+}
+
+export async function updateFinalReviewSwitch(
+  enabled: boolean
+): Promise<{ success: boolean; error?: string }> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可修改复审权限配置' }
+  }
+
+  const previous = await prisma.systemConfig.findUnique({
+    where: { key: OPERATOR_FINAL_REVIEW_KEY },
+  })
+  const nextValue = enabled ? 'true' : 'false'
+
+  await prisma.systemConfig.upsert({
+    where: { key: OPERATOR_FINAL_REVIEW_KEY },
+    create: { key: OPERATOR_FINAL_REVIEW_KEY, value: nextValue },
+    update: { value: nextValue },
+  })
+
+  await recordAudit({
+    actorType: 'ADMIN',
+    actorId: 'super_admin',
+    actorName: '管理员',
+    action: 'OPERATOR_FINAL_REVIEW_SWITCH',
+    targetType: 'SYSTEM_CONFIG',
+    targetId: OPERATOR_FINAL_REVIEW_KEY,
+    detail: { from: previous?.value ?? null, to: nextValue },
+  })
+
+  revalidatePath('/admin/config')
+  revalidatePath('/admin/teachers')
+  return { success: true }
 }

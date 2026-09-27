@@ -1,6 +1,8 @@
 import { getAllTaskConfigs, getAllPhaseConfigs } from '@/app/actions/config'
 import { getScopeSettings } from '@/app/actions/learnerManagerScopeActions'
+import { getFinalReviewSwitch } from '@/app/actions/coachReviewConfigActions'
 import LearnerManagerScopeCard from './LearnerManagerScopeCard'
+import FinalReviewPermissionCard from './FinalReviewPermissionCard'
 import Link from 'next/link'
 import QRCodeUploader from '@/components/admin/QRCodeUploader'
 
@@ -10,6 +12,7 @@ export default async function AdminConfigPage() {
   const tasks = await getAllTaskConfigs()
   const phases = await getAllPhaseConfigs()
   const scopeSettings = await getScopeSettings()
+  const finalReviewSwitch = await getFinalReviewSwitch()
   
   return (
     <div>
@@ -32,6 +35,17 @@ export default async function AdminConfigPage() {
         ) : (
           <div className="card p-5 text-sm text-gray-500">
             学管数据范围配置：{scopeSettings.error}
+          </div>
+        )}
+      </div>
+
+      {/* 运营复审权限开关 */}
+      <div className="mb-8">
+        {finalReviewSwitch.success ? (
+          <FinalReviewPermissionCard initialEnabled={finalReviewSwitch.enabled ?? false} />
+        ) : (
+          <div className="card p-5 text-sm text-gray-500">
+            运营复审权限配置：{finalReviewSwitch.error}
           </div>
         )}
       </div>

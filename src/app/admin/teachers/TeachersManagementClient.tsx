@@ -69,7 +69,7 @@ export default function TeachersManagementClient({
     hasPrevPage: boolean
   }
   canResetTeacherPassword: boolean
-  viewer: { operatorId: string | null; isSuperAdmin: boolean }
+  viewer: { operatorId: string | null; isSuperAdmin: boolean; canFinalReview: boolean }
   reviewMap: Record<string, unknown>
   batchableTeacherIds: string[]
 }) {
@@ -92,7 +92,7 @@ export default function TeachersManagementClient({
   const [resetMsg, setResetMsg] = useState('')
 
   const batchableSet = new Set(batchableTeacherIds)
-  const showBatchColumn = viewer.isSuperAdmin && batchableTeacherIds.length > 0
+  const showBatchColumn = viewer.canFinalReview && batchableTeacherIds.length > 0
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [batchLoading, setBatchLoading] = useState(false)
   const [batchMsg, setBatchMsg] = useState('')
@@ -299,6 +299,9 @@ export default function TeachersManagementClient({
                   <option value="coach_merged_review">待超管审核</option>
                   <option value="coach_permanently_rejected">已永久拒绝</option>
                 </>
+              )}
+              {viewer.canFinalReview && !viewer.isSuperAdmin && (
+                <option value="coach_final_review">待复审</option>
               )}
               <option value="valid">有效邀请</option>
               <option value="invalid">审核不通过</option>

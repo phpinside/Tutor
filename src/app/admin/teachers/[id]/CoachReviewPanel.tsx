@@ -15,6 +15,7 @@ import OperatorPickerModal from './OperatorPickerModal'
 type Viewer = {
   operatorId: string | null
   isSuperAdmin: boolean
+  canFinalReview: boolean
 }
 
 type RejectTarget =
@@ -59,7 +60,7 @@ export default function CoachReviewPanel({
     review.finalReviewVerdict === 'PENDING'
 
   const canDoFinalReview =
-    viewer.isSuperAdmin && review.finalReviewVerdict === 'PENDING'
+    viewer.canFinalReview && review.finalReviewVerdict === 'PENDING'
 
   const canShortcutFirstStage =
     canDoFinalReview &&

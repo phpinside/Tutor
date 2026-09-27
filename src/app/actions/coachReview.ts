@@ -8,7 +8,11 @@ import {
   resolveFirstReviewerUnified,
 } from '@/lib/externalTutor'
 import { updateReferralStats } from './teacher'
+import { recordAudit } from '@/lib/auditLog'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
+
+// 与 coachReviewConfigActions.ts 中的开关键保持一致（该文件为 "use server"，不可导出常量）
+const OPERATOR_FINAL_REVIEW_KEY = 'OPERATOR_FINAL_REVIEW_ENABLED'
 
 export type { CoachReviewSnapshot }
 
@@ -31,6 +35,60 @@ async function getOperatorSession() {
   } catch {
     return null
   }
+}
+
+/** 「运营复审权限」开关是否开启（value === 'true' 视为开启；缺省/异常一律关闭） */
+export async function isOperatorFinalReviewEnabled(): Promise<boolean> {
+  try {
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: OPERATOR_FINAL_REVIEW_KEY },
+    })
+    return config?.value === 'true'
+  } catch {
+    return false
+  }
+}
+
+/**
+ * 当前会话是否具备复审权限：
+ * - 超管：始终可以
+ * - 运营（role=OPERATOR，启用状态）：仅当「运营复审权限」开关开启时可以
+ * 学管（LEARNER_MANAGER）不具备复审权限。
+ */
+export async function canPerformFinalReview(): Promise<boolean> {
+  const adminSession = await getSuperAdminSession()
+  if (adminSession) return true
+
+  const operatorSession = await getOperatorSession()
+  if (!operatorSession) return false
+
+  const operator = await prisma.operator.findUnique({
+    where: { id: operatorSession.operatorId },
+    select: { role: true, isEnabled: true },
+  })
+  if (!operator || !operator.isEnabled || operator.role !== 'OPERATOR') return false
+
+  return isOperatorFinalReviewEnabled()
+}
+
+/** 复审执行身份：超管返回「超管」，获授权的运营返回其姓名；无权限返回 null */
+async function getFinalReviewSession(): Promise<{ reviewerLabel: string; operatorId: string | null } | null> {
+  const adminSession = await getSuperAdminSession()
+  if (adminSession) {
+    return { reviewerLabel: adminSession.reviewerLabel, operatorId: null }
+  }
+
+  const operatorSession = await getOperatorSession()
+  if (!operatorSession) return null
+
+  const operator = await prisma.operator.findUnique({
+    where: { id: operatorSession.operatorId },
+    select: { role: true, isEnabled: true },
+  })
+  if (!operator || !operator.isEnabled || operator.role !== 'OPERATOR') return null
+  if (!(await isOperatorFinalReviewEnabled())) return null
+
+  return { reviewerLabel: operatorSession.name, operatorId: operatorSession.operatorId }
 }
 
 async function getSuperAdminSession() {
@@ -390,10 +448,11 @@ export async function submitFinalReview(
   note?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const adminSession = await getSuperAdminSession()
-    if (!adminSession) {
-      return { success: false, error: '无权限，仅超管可复审' }
+    const finalReviewSession = await getFinalReviewSession()
+    if (!finalReviewSession) {
+      return { success: false, error: '无权限，复审仅限超管或已授权的运营' }
     }
+    const reviewerLabel = finalReviewSession.reviewerLabel
 
     const review = await prisma.coachReview.findUnique({
       where: { id: reviewId },
@@ -421,7 +480,7 @@ export async function submitFinalReview(
         where: { id: reviewId },
         data: {
           finalReviewVerdict: 'REJECTED',
-          finalReviewedBy: adminSession.reviewerLabel,
+          finalReviewedBy: reviewerLabel,
           finalReviewedAt: new Date(),
           finalReviewNote: trimmedNote,
           stage: 'REJECTED',
@@ -435,7 +494,7 @@ export async function submitFinalReview(
         review.teacherId,
         'INVALID',
         trimmedNote,
-        adminSession.reviewerLabel
+        reviewerLabel
       )
     } else if (decision === 'PERMANENTLY_REJECTED') {
       const trimmedNote = note?.trim()
@@ -448,7 +507,7 @@ export async function submitFinalReview(
           where: { id: reviewId },
           data: {
             finalReviewVerdict: 'REJECTED',
-            finalReviewedBy: adminSession.reviewerLabel,
+            finalReviewedBy: reviewerLabel,
             finalReviewedAt: new Date(),
             finalReviewNote: trimmedNote,
             stage: 'PERMANENTLY_REJECTED',
@@ -461,7 +520,7 @@ export async function submitFinalReview(
           where: { id: review.teacherId },
           data: {
             permanentlyRejectedAt: new Date(),
-            permanentlyRejectedBy: adminSession.reviewerLabel,
+            permanentlyRejectedBy: reviewerLabel,
           },
         }),
       ])
@@ -470,14 +529,14 @@ export async function submitFinalReview(
         review.teacherId,
         'INVALID',
         trimmedNote,
-        adminSession.reviewerLabel
+        reviewerLabel
       )
     } else {
       await prisma.coachReview.update({
         where: { id: reviewId },
         data: {
           finalReviewVerdict: 'APPROVED',
-          finalReviewedBy: adminSession.reviewerLabel,
+          finalReviewedBy: reviewerLabel,
           finalReviewedAt: new Date(),
           stage: 'APPROVED',
           ...(review.firstReviewVerdict === 'PENDING'
@@ -488,6 +547,16 @@ export async function submitFinalReview(
 
       await markReferralStatus(review.teacherId, 'VALID')
     }
+
+    await recordAudit({
+      actorType: finalReviewSession.operatorId ? 'OPERATOR' : 'ADMIN',
+      actorId: finalReviewSession.operatorId ?? 'super_admin',
+      actorName: finalReviewSession.operatorId ? reviewerLabel : '管理员',
+      action: 'FINAL_REVIEW',
+      targetType: 'TEACHER',
+      targetId: review.teacherId,
+      detail: { decision, fromStage: review.stage },
+    })
 
     revalidatePath('/admin/teachers')
     revalidatePath(`/admin/teachers/${review.teacherId}`)
@@ -513,10 +582,11 @@ export async function batchSubmitFinalReview(
   const results: { teacherId: string; ok: boolean; reason?: string }[] = []
 
   try {
-    const adminSession = await getSuperAdminSession()
-    if (!adminSession) {
+    const finalReviewSession = await getFinalReviewSession()
+    if (!finalReviewSession) {
       return { success: false, results }
     }
+    const reviewerLabel = finalReviewSession.reviewerLabel
 
     if (!teacherIds || teacherIds.length === 0) {
       return { success: false, results }
@@ -558,7 +628,7 @@ export async function batchSubmitFinalReview(
             where: { id: review.id },
             data: {
               finalReviewVerdict: 'APPROVED',
-              finalReviewedBy: adminSession.reviewerLabel,
+              finalReviewedBy: reviewerLabel,
               finalReviewedAt: new Date(),
               stage: 'APPROVED',
             },
@@ -569,7 +639,7 @@ export async function batchSubmitFinalReview(
             where: { id: review.id },
             data: {
               finalReviewVerdict: 'REJECTED',
-              finalReviewedBy: adminSession.reviewerLabel,
+              finalReviewedBy: reviewerLabel,
               finalReviewedAt: new Date(),
               finalReviewNote: trimmedNote!,
               stage: 'REJECTED',
@@ -579,9 +649,19 @@ export async function batchSubmitFinalReview(
             teacherId,
             'INVALID',
             trimmedNote,
-            adminSession.reviewerLabel
+            reviewerLabel
           )
         }
+
+        await recordAudit({
+          actorType: finalReviewSession.operatorId ? 'OPERATOR' : 'ADMIN',
+          actorId: finalReviewSession.operatorId ?? 'super_admin',
+          actorName: finalReviewSession.operatorId ? reviewerLabel : '管理员',
+          action: 'FINAL_REVIEW',
+          targetType: 'TEACHER',
+          targetId: teacherId,
+          detail: { decision: verdict, mode: 'batch' },
+        })
 
         results.push({ teacherId, ok: true })
       } catch (err) {

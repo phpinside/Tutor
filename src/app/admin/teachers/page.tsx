@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import TeachersManagementClient from './TeachersManagementClient'
 import { getCoachReviewsForTeachers } from '@/app/actions/coachReview'
 import { getScopedTeacherFilter } from '@/lib/learnerManagerScope'
+import { canPerformFinalReview } from '@/app/actions/coachReview'
 
 export const dynamic = 'force-dynamic'
 
@@ -98,6 +99,8 @@ export default async function AdminTeachersPage({
   
   const canResetTeacherPassword = await getCanResetTeacherPassword()
   const viewer = await getViewerInfo()
+  // 复审权限：超管始终可复审；运营角色在「运营复审权限」开关开启时可复审
+  const canFinalReview = await canPerformFinalReview()
   
   // 分页参数
   const currentPage = params.page ? parseInt(params.page) : 1
@@ -406,7 +409,7 @@ export default async function AdminTeachersPage({
         }}
         pagination={pagination}
         canResetTeacherPassword={canResetTeacherPassword}
-        viewer={viewer}
+        viewer={{ ...viewer, canFinalReview }}
         reviewMap={reviewData}
         batchableTeacherIds={batchableTeacherIds}
       />
