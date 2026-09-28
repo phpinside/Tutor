@@ -286,18 +286,13 @@ export default function TeachersManagementClient({
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
-  const getTeacherScore = (teacher: Teacher): number | null => {
-    if (teacher.primarySubject === 'PHYSICS') return teacher.physicsScore
-    if (teacher.primarySubject === 'CHEMISTRY') return teacher.chemistryScore
-    return teacher.mathScore
-  }
-
-  // 汇总总分：各科已填分数之和（至少一科有分才返回）
-  const getTeacherTotalScore = (teacher: Teacher): number | null => {
-    const scores = [teacher.mathScore, teacher.physicsScore, teacher.chemistryScore]
-      .filter((v): v is number => typeof v === 'number')
-    if (scores.length === 0) return null
-    return scores.reduce((a, b) => a + b, 0)
+  // 已填写的高考科目分数（数/理/化，仅展示有分的科目）
+  const scoreParts = (teacher: Teacher): { label: string; score: number }[] => {
+    const parts: { label: string; score: number }[] = []
+    if (teacher.mathScore != null) parts.push({ label: '数学', score: teacher.mathScore })
+    if (teacher.physicsScore != null) parts.push({ label: '物理', score: teacher.physicsScore })
+    if (teacher.chemistryScore != null) parts.push({ label: '化学', score: teacher.chemistryScore })
+    return parts
   }
 
   return (
@@ -623,16 +618,19 @@ export default function TeachersManagementClient({
                             : teacher.school)
                         : <span className="text-gray-400">-</span>}
                     </div>
-                    <div className="text-gray-500 text-xs mt-0.5 flex items-center gap-1">
-                      {getTeacherScore(teacher) !== null
-                        ? <span>{getTeacherScore(teacher)}分</span>
-                        : <span className="text-gray-400">-</span>}
-                      {getTeacherTotalScore(teacher) !== null && (
-                        <span className="text-gray-400">总分{getTeacherTotalScore(teacher)}</span>
+                    <div className="text-gray-500 text-xs mt-0.5 flex items-center gap-1 flex-wrap">
+                      {scoreParts(teacher).length > 0 ? (
+                        scoreParts(teacher).map((part) => (
+                          <span key={part.label}>
+                            {part.label} <span className="text-gray-700 font-medium">{part.score}</span>
+                          </span>
+                        ))
+                      ) : (
+                        <span className="text-gray-400">-</span>
                       )}
                       {teacher.primarySubject && (
                         <span className="text-gray-400">
-                          ({SUBJECT_LABELS[teacher.primarySubject] ?? teacher.primarySubject})
+                          最擅长({SUBJECT_LABELS[teacher.primarySubject] ?? teacher.primarySubject})
                         </span>
                       )}
                     </div>
