@@ -189,10 +189,13 @@ type FallbackPoolEntry = {
 // 读取加权随机兜底运营池（来自 SystemConfig 表，key = COACH_REVIEW_FALLBACK_POOL）
 // 默认：全部启用运营等权（weight=1）；管理员可通过 /admin/config/coach-review-pool 页面
 // 调整各运营权重，weight=0 表示将该运营排除出随机分配池。
-async function loadWeightedPool(configKey: string): Promise<FallbackPoolEntry[]> {
+async function loadWeightedPool(
+  configKey: string,
+  roleFilter?: 'LEARNER_MANAGER' | 'OPERATOR'
+): Promise<FallbackPoolEntry[]> {
   try {
     const operators = await prisma.operator.findMany({
-      where: { isEnabled: true },
+      where: { isEnabled: true, ...(roleFilter ? { role: roleFilter } : {}) },
       select: { id: true, phone: true },
       orderBy: { phone: 'asc' },
     })
@@ -240,9 +243,9 @@ export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]>
   return loadWeightedPool('COACH_REVIEW_FALLBACK_POOL')
 }
 
-/** 复审随机分配池（key = COACH_FINAL_REVIEW_POOL，管理员可设置各运营分配比例） */
+/** 复审随机分配池（key = COACH_FINAL_REVIEW_POOL）：仅运营（OPERATOR）角色参与，学管无复审权 */
 export async function getFinalReviewPool(): Promise<FallbackPoolEntry[]> {
-  return loadWeightedPool('COACH_FINAL_REVIEW_POOL')
+  return loadWeightedPool('COACH_FINAL_REVIEW_POOL', 'OPERATOR')
 }
 
 // 以 seed 确定性地按权重从池中挑选一个运营

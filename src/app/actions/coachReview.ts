@@ -96,8 +96,12 @@ async function getFinalReviewSession(
   })
   if (!operator || !operator.isEnabled) return null
 
-  // 被随机分配的复审人（学管或运营均可，仅限分配给本人的复审单）
-  if (review?.finalReviewOperatorId && review.finalReviewOperatorId === operatorSession.operatorId) {
+  // 被随机分配的复审人（仅运营角色；学管无复审权，分配池已排除，此处二次校验）
+  if (
+    operator.role === 'OPERATOR' &&
+    review?.finalReviewOperatorId &&
+    review.finalReviewOperatorId === operatorSession.operatorId
+  ) {
     return { reviewerLabel: operatorSession.name, operatorId: operatorSession.operatorId }
   }
 
@@ -109,7 +113,7 @@ async function getFinalReviewSession(
   return null
 }
 
-/** 初审通过进入复审时：按复审分配池比例随机指派复审运营（排除初审人本人；池空则留给超管） */
+/** 初审通过进入复审时：按复审分配池比例随机指派复审运营（仅运营角色，排除初审人本人；池空则留给超管） */
 async function pickFinalReviewer(
   teacherId: string,
   excludeOperatorId: string | null

@@ -80,7 +80,7 @@ export default function FinalReviewPoolClient({
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">🎯 教练复审随机分配池</h1>
         <p className="text-gray-600 mt-1">
-          教练通过初审进入复审后，按此比例在生效运营中随机指派一名复审人（自动排除初审人本人；未指派的历史单据仍由超管处理）。
+          教练通过初审进入复审后，按此比例在生效的「运营」角色账号中随机指派一名复审人（自动排除初审人本人；学管角色不参与复审分配；未指派的历史单据仍由超管处理）。
         </p>
       </div>
 
@@ -90,7 +90,7 @@ export default function FinalReviewPoolClient({
           <li>• 默认所有启用运营均纳入分配池，权重为 1（等概率分配）</li>
           <li>• 权重 &gt; 0 的运营按比例随机分配（如 A=5, B=3 → A 获得 5/8 概率）</li>
           <li>• 权重设为 <strong>0</strong> 表示将该运营<strong>排除出复审分配</strong></li>
-          <li>• 被指派的学管/运营在「老师管理 → 待我复审」中处理；超管始终可复审任意单据</li>
+          <li>• 被指派的运营在「老师管理 → 待我复审」中处理；学管无复审权；超管始终可复审任意单据</li>
         </ul>
       </div>
 
