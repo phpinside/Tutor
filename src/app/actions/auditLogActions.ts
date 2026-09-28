@@ -1,6 +1,5 @@
 'use server'
 
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'
@@ -65,17 +64,12 @@ export async function getTeacherChangeLogs(
 ): Promise<{ success: boolean; logs?: unknown[]; error?: string }> {
   let allowed = await isSuperAdmin()
 
+  // 仅学管 / 运营 / 超管可查看；老师本人不开放（防止自查敏感操作痕迹）
   if (!allowed) {
-    const cookieStore = await cookies()
-    const selfTeacherId = cookieStore.get('teacherId')?.value
-    if (selfTeacherId && selfTeacherId === teacherId) {
-      allowed = true
-    } else {
-      const session = await getOperatorSessionInfo()
-      if (session) {
-        const inScope = await isTeacherInScope(session.operatorId, teacherId)
-        allowed = inScope !== false
-      }
+    const session = await getOperatorSessionInfo()
+    if (session) {
+      const inScope = await isTeacherInScope(session.operatorId, teacherId)
+      allowed = inScope !== false
     }
   }
 
