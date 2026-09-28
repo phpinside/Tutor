@@ -230,6 +230,15 @@ export default async function AdminTeachersPage({
         stage: CoachReviewStage.FIRST_REVIEW,
       },
     })
+  } else if (inviteAudit === 'my_final_review' && viewer.operatorId) {
+    // 待我复审（随机指派给我的）
+    whereConditions.push({
+      coachReview: {
+        finalReviewOperatorId: viewer.operatorId,
+        stage: CoachReviewStage.FINAL_REVIEW,
+        finalReviewVerdict: 'PENDING',
+      },
+    })
   }
 
   // 注册时间区间

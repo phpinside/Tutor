@@ -6,6 +6,8 @@ import { prisma } from '@/lib/prisma'
 import {
   isCoachReviewEligible,
   resolveFirstReviewerUnified,
+  getFinalReviewPool,
+  seededWeightedPick,
 } from '@/lib/externalTutor'
 import { updateReferralStats } from './teacher'
 import { recordAudit } from '@/lib/auditLog'
@@ -71,8 +73,15 @@ export async function canPerformFinalReview(): Promise<boolean> {
   return isOperatorFinalReviewEnabled()
 }
 
-/** 复审执行身份：超管返回「超管」，获授权的运营返回其姓名；无权限返回 null */
-async function getFinalReviewSession(): Promise<{ reviewerLabel: string; operatorId: string | null } | null> {
+/**
+ * 复审执行身份。允许：
+ * - 超管（任意复审单）
+ * - 被随机分配为复审人的运营/学管（仅限该单）
+ * - 运营（OPERATOR）角色且「运营复审权限」开关开启（任意复审单，既有能力）
+ */
+async function getFinalReviewSession(
+  review?: { finalReviewOperatorId: string | null }
+): Promise<{ reviewerLabel: string; operatorId: string | null } | null> {
   const adminSession = await getSuperAdminSession()
   if (adminSession) {
     return { reviewerLabel: adminSession.reviewerLabel, operatorId: null }
@@ -85,10 +94,39 @@ async function getFinalReviewSession(): Promise<{ reviewerLabel: string; operato
     where: { id: operatorSession.operatorId },
     select: { role: true, isEnabled: true },
   })
-  if (!operator || !operator.isEnabled || operator.role !== 'OPERATOR') return null
-  if (!(await isOperatorFinalReviewEnabled())) return null
+  if (!operator || !operator.isEnabled) return null
 
-  return { reviewerLabel: operatorSession.name, operatorId: operatorSession.operatorId }
+  // 被随机分配的复审人（学管或运营均可，仅限分配给本人的复审单）
+  if (review?.finalReviewOperatorId && review.finalReviewOperatorId === operatorSession.operatorId) {
+    return { reviewerLabel: operatorSession.name, operatorId: operatorSession.operatorId }
+  }
+
+  // 既有能力：运营（OPERATOR）角色 + 复审开关开启 → 可复审全部
+  if (operator.role === 'OPERATOR' && (await isOperatorFinalReviewEnabled())) {
+    return { reviewerLabel: operatorSession.name, operatorId: operatorSession.operatorId }
+  }
+
+  return null
+}
+
+/** 初审通过进入复审时：按复审分配池比例随机指派复审运营（排除初审人本人；池空则留给超管） */
+async function pickFinalReviewer(
+  teacherId: string,
+  excludeOperatorId: string | null
+): Promise<string | null> {
+  try {
+    const pool = await getFinalReviewPool()
+    const candidates =
+      pool.length > 1 && excludeOperatorId
+        ? pool.filter((p) => p.operatorId !== excludeOperatorId)
+        : pool
+    if (candidates.length === 0) return null
+    const picked = seededWeightedPick(candidates, `${teacherId}:final`)
+    return picked?.operatorId ?? null
+  } catch (error) {
+    console.error('复审随机分配失败:', error)
+    return null
+  }
 }
 
 async function getSuperAdminSession() {
@@ -114,6 +152,7 @@ function toSnapshot(
     id: review.id,
     teacherId: review.teacherId,
     firstReviewOperatorId: review.firstReviewOperatorId,
+    finalReviewOperatorId: review.finalReviewOperatorId,
     firstReviewVerdict: review.firstReviewVerdict,
     firstReviewedBy: review.firstReviewedBy,
     firstReviewedAt: review.firstReviewedAt,
@@ -419,6 +458,11 @@ export async function submitFirstReview(
         operatorSession.name
       )
     } else {
+      // 初审通过 → 进入复审：按管理员配置的分配比例在生效运营中随机指派复审人（排除初审人本人）
+      const finalReviewOperatorId = await pickFinalReviewer(
+        review.teacherId,
+        review.firstReviewOperatorId
+      )
       await prisma.coachReview.update({
         where: { id: reviewId },
         data: {
@@ -426,6 +470,7 @@ export async function submitFirstReview(
           firstReviewedBy: operatorSession.name,
           firstReviewedAt: new Date(),
           stage: 'FINAL_REVIEW',
+          finalReviewOperatorId,
         },
       })
     }
@@ -448,12 +493,6 @@ export async function submitFinalReview(
   note?: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
-    const finalReviewSession = await getFinalReviewSession()
-    if (!finalReviewSession) {
-      return { success: false, error: '无权限，复审仅限超管或已授权的运营' }
-    }
-    const reviewerLabel = finalReviewSession.reviewerLabel
-
     const review = await prisma.coachReview.findUnique({
       where: { id: reviewId },
       select: {
@@ -462,8 +501,16 @@ export async function submitFinalReview(
         stage: true,
         firstReviewVerdict: true,
         finalReviewVerdict: true,
+        finalReviewOperatorId: true,
       },
     })
+
+    // 复审权限：超管 / 被随机分配的复审人 / 开关开启的运营角色
+    const finalReviewSession = await getFinalReviewSession(review ?? undefined)
+    if (!finalReviewSession) {
+      return { success: false, error: '无权限，复审仅限超管、被分配的复审人或已授权的运营' }
+    }
+    const reviewerLabel = finalReviewSession.reviewerLabel
 
     if (!review) return { success: false, error: '审核记录不存在' }
     if (review.finalReviewVerdict !== 'PENDING') {

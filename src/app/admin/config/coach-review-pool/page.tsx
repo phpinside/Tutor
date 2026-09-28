@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
-import { getCoachReviewPoolConfig } from '@/app/actions/coachReviewConfigActions'
+import { getCoachReviewPoolConfig, getFinalReviewPoolConfig } from '@/app/actions/coachReviewConfigActions'
 import CoachReviewPoolClient from './CoachReviewPoolClient'
+import FinalReviewPoolClient from './FinalReviewPoolClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,7 +14,7 @@ export default async function CoachReviewPoolPage() {
     redirect('/admin/login')
   }
 
-  const result = await getCoachReviewPoolConfig()
+  const [result, finalResult] = await Promise.all([getCoachReviewPoolConfig(), getFinalReviewPoolConfig()])
 
   if (!result.success || !result.operators) {
     return (
@@ -25,5 +26,10 @@ export default async function CoachReviewPoolPage() {
     )
   }
 
-  return <CoachReviewPoolClient operators={result.operators} />
+  return (
+    <div className="space-y-10">
+      <CoachReviewPoolClient operators={result.operators ?? []} />
+      <FinalReviewPoolClient operators={finalResult.operators ?? []} />
+    </div>
+  )
 }

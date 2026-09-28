@@ -349,7 +349,10 @@ export default function TeachersManagementClient({
             >
               <option value="">审核状态（全部）</option>
               {viewer.operatorId && !viewer.isSuperAdmin && (
-                <option value="my_first_review">待我初审</option>
+                <>
+                  <option value="my_first_review">待我初审</option>
+                  <option value="my_final_review">待我复审</option>
+                </>
               )}
               {viewer.isSuperAdmin && (
                 <>

@@ -1,82 +1,70 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
-import bcrypt from 'bcryptjs'
-import { verifyAdminCredentials } from '@/lib/adminAuth'
+import { isSuperAdminRequest, getOperatorSessionInfo } from '@/lib/operatorAuth'
+import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import { recordAudit } from '@/lib/auditLog'
 
+/**
+ * 揭示教练完整手机号。
+ * 权限：超管任意；运营/学管仅限自己可见范围（白名单）内的教练。
+ * 每次揭示均记录审计日志（谁/何时/看了哪位教练）。
+ */
 export async function POST(request: Request) {
   try {
     const body = await request.json()
     const teacherId = body.teacherId as string | undefined
-    const password = body.password as string | undefined
-    const username = body.username as string | undefined
 
     if (!teacherId || typeof teacherId !== 'string') {
       return NextResponse.json({ error: '参数错误' }, { status: 400 })
     }
 
-    const cookieStore = await cookies()
-    const operatorSession = cookieStore.get('operator_session')
-    const adminSession = cookieStore.get('admin_session')
+    let actorType: 'ADMIN' | 'OPERATOR'
+    let actorId: string
+    let actorName: string | null
 
-    if (operatorSession) {
-      let operatorId: string | null = null
-      try {
-        const data = JSON.parse(operatorSession.value)
-        if (data.operatorId) operatorId = data.operatorId as string
-      } catch {
+    if (await isSuperAdminRequest()) {
+      actorType = 'ADMIN'
+      actorId = 'super_admin'
+      actorName = '管理员'
+    } else {
+      const session = await getOperatorSessionInfo()
+      if (!session) {
         return NextResponse.json({ error: '未授权' }, { status: 401 })
-      }
-      if (!operatorId) {
-        return NextResponse.json({ error: '未授权' }, { status: 401 })
-      }
-      if (!password || typeof password !== 'string') {
-        return NextResponse.json({ error: '请输入密码' }, { status: 400 })
       }
       const operator = await prisma.operator.findUnique({
-        where: { id: operatorId },
+        where: { id: session.operatorId },
+        select: { role: true, isEnabled: true },
       })
       if (!operator || !operator.isEnabled) {
         return NextResponse.json({ error: '未授权' }, { status: 401 })
       }
-      const match = await bcrypt.compare(password, operator.password)
-      if (!match) {
-        return NextResponse.json({ error: '密码错误' }, { status: 401 })
+      const inScope = await isTeacherInScope(session.operatorId, teacherId)
+      if (inScope === false) {
+        return NextResponse.json({ error: '该老师不在你的可见范围内' }, { status: 403 })
       }
-      const teacher = await prisma.teacher.findUnique({
-        where: { id: teacherId },
-        select: { phone: true },
-      })
-      if (!teacher) {
-        return NextResponse.json({ error: '未找到' }, { status: 404 })
-      }
-      return NextResponse.json({ phone: teacher.phone || '' })
+      actorType = 'OPERATOR'
+      actorId = session.operatorId
+      actorName = session.name
     }
 
-    if (adminSession) {
-      try {
-        JSON.parse(adminSession.value)
-      } catch {
-        return NextResponse.json({ error: '未授权' }, { status: 401 })
-      }
-      if (!username || !password) {
-        return NextResponse.json({ error: '请输入账号与密码' }, { status: 400 })
-      }
-      const account = await verifyAdminCredentials(username, password)
-      if (!account) {
-        return NextResponse.json({ error: '账号或密码错误' }, { status: 401 })
-      }
-      const teacher = await prisma.teacher.findUnique({
-        where: { id: teacherId },
-        select: { phone: true },
-      })
-      if (!teacher) {
-        return NextResponse.json({ error: '未找到' }, { status: 404 })
-      }
-      return NextResponse.json({ phone: teacher.phone || '' })
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { phone: true },
+    })
+    if (!teacher) {
+      return NextResponse.json({ error: '未找到' }, { status: 404 })
     }
 
-    return NextResponse.json({ error: '未授权' }, { status: 401 })
+    await recordAudit({
+      actorType,
+      actorId,
+      actorName,
+      action: 'REVEAL_TEACHER_PHONE',
+      targetType: 'TEACHER',
+      targetId: teacherId,
+    })
+
+    return NextResponse.json({ phone: teacher.phone || '' })
   } catch {
     return NextResponse.json({ error: '请求失败' }, { status: 500 })
   }

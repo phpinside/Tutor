@@ -150,3 +150,101 @@ export async function updateFinalReviewSwitch(
   revalidatePath('/admin/teachers')
   return { success: true }
 }
+
+
+const FINAL_REVIEW_POOL_KEY = 'COACH_FINAL_REVIEW_POOL'
+
+/** 读取复审随机分配池配置（管理员设置各运营的复审分配比例） */
+export async function getFinalReviewPoolConfig(): Promise<{
+  success: boolean
+  operators?: PoolOperator[]
+  error?: string
+}> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可查看复审分配池' }
+  }
+  try {
+    const operators = await prisma.operator.findMany({
+      orderBy: [{ isEnabled: 'desc' }, { name: 'asc' }],
+      select: { id: true, name: true, phone: true, isEnabled: true },
+    })
+
+    const config = await prisma.systemConfig.findUnique({
+      where: { key: FINAL_REVIEW_POOL_KEY },
+    })
+
+    let weightMap: Record<string, number> = {}
+    if (config?.value) {
+      try {
+        const parsed = JSON.parse(config.value)
+        if (parsed && typeof parsed === 'object') {
+          for (const [k, v] of Object.entries(parsed)) {
+            const num = Number(v)
+            if (Number.isFinite(num)) weightMap[k] = num
+          }
+        }
+      } catch {
+        // JSON 解析失败时使用默认权重
+      }
+    }
+
+    return {
+      success: true,
+      operators: operators.map((op) => ({
+        id: op.id,
+        name: op.name,
+        phone: op.phone,
+        isEnabled: op.isEnabled,
+        weight: Object.hasOwn(weightMap, op.id) ? weightMap[op.id] : DEFAULT_WEIGHT,
+      })),
+    }
+  } catch (error) {
+    console.error('获取复审分配池配置失败:', error)
+    return { success: false, error: '获取配置失败' }
+  }
+}
+
+/** 保存复审随机分配池比例 */
+export async function updateFinalReviewPoolConfig(
+  weights: { operatorId: string; weight: number }[]
+): Promise<{ success: boolean; error?: string }> {
+  if (!(await isSuperAdmin())) {
+    return { success: false, error: '仅超级管理员可修改复审分配池' }
+  }
+  try {
+    for (const { weight } of weights) {
+      if (weight < 0 || !Number.isFinite(weight)) {
+        return { success: false, error: '权重无效，须为不小于 0 的数字' }
+      }
+    }
+
+    const weightMap: Record<string, number> = {}
+    for (const { operatorId, weight } of weights) {
+      weightMap[operatorId] = weight
+    }
+
+    await recordAudit({
+      actorType: 'ADMIN',
+      actorId: 'super_admin',
+      actorName: '管理员',
+      action: 'UPDATE_FINAL_REVIEW_POOL',
+      targetType: 'SYSTEM_CONFIG',
+      targetId: FINAL_REVIEW_POOL_KEY,
+      detail: { to: weightMap },
+    })
+
+    await prisma.systemConfig.upsert({
+      where: { key: FINAL_REVIEW_POOL_KEY },
+      create: { key: FINAL_REVIEW_POOL_KEY, value: JSON.stringify(weightMap) },
+      update: { value: JSON.stringify(weightMap) },
+    })
+
+    revalidatePath('/admin/config/coach-review-pool')
+    revalidatePath('/admin/teachers')
+
+    return { success: true }
+  } catch (error) {
+    console.error('更新复审分配池配置失败:', error)
+    return { success: false, error: '保存配置失败' }
+  }
+}

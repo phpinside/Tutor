@@ -60,7 +60,9 @@ export default function CoachReviewPanel({
     review.finalReviewVerdict === 'PENDING'
 
   const canDoFinalReview =
-    viewer.canFinalReview && review.finalReviewVerdict === 'PENDING'
+    (viewer.canFinalReview ||
+      (viewer.operatorId !== null && review.finalReviewOperatorId === viewer.operatorId)) &&
+    review.finalReviewVerdict === 'PENDING'
 
   const canShortcutFirstStage =
     canDoFinalReview &&

@@ -5,6 +5,7 @@ export type CoachReviewSnapshot = {
   id: string
   teacherId: string
   firstReviewOperatorId: string | null
+  finalReviewOperatorId: string | null
   firstReviewVerdict: string
   firstReviewedBy: string | null
   firstReviewedAt: Date | null

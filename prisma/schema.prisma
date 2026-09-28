@@ -640,6 +640,7 @@ model CoachReview {
 
   // 初审
   firstReviewOperatorId String? // 初审运营ID；null = 合并审核（未走成两级）
+  finalReviewOperatorId String? // 复审运营ID：初审通过后按复审分配池随机指派
   firstReviewVerdict    ReviewVerdict @default(PENDING)
   firstReviewedBy       String? // 初审人标识（operatorId）
   firstReviewedAt       DateTime?

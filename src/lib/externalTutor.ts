@@ -189,7 +189,7 @@ type FallbackPoolEntry = {
 // 读取加权随机兜底运营池（来自 SystemConfig 表，key = COACH_REVIEW_FALLBACK_POOL）
 // 默认：全部启用运营等权（weight=1）；管理员可通过 /admin/config/coach-review-pool 页面
 // 调整各运营权重，weight=0 表示将该运营排除出随机分配池。
-export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]> {
+async function loadWeightedPool(configKey: string): Promise<FallbackPoolEntry[]> {
   try {
     const operators = await prisma.operator.findMany({
       where: { isEnabled: true },
@@ -200,7 +200,7 @@ export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]>
     if (operators.length === 0) return []
 
     const config = await prisma.systemConfig.findUnique({
-      where: { key: 'COACH_REVIEW_FALLBACK_POOL' },
+      where: { key: configKey },
     })
 
     let weightMap: Record<string, number> = {}
@@ -230,14 +230,24 @@ export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]>
     // operators 已按 phone 排序，保证 seededWeightedPick 结果稳定
     return pool
   } catch (error) {
-    console.error('读取加权随机兜底运营池失败:', error)
+    console.error(`读取加权随机运营池(${configKey})失败:`, error)
     return []
   }
 }
 
+/** 初审兜底池（key = COACH_REVIEW_FALLBACK_POOL） */
+export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]> {
+  return loadWeightedPool('COACH_REVIEW_FALLBACK_POOL')
+}
+
+/** 复审随机分配池（key = COACH_FINAL_REVIEW_POOL，管理员可设置各运营分配比例） */
+export async function getFinalReviewPool(): Promise<FallbackPoolEntry[]> {
+  return loadWeightedPool('COACH_FINAL_REVIEW_POOL')
+}
+
 // 以 seed 确定性地按权重从池中挑选一个运营
 // 同一 seed 在相同池/权重下结果稳定，避免 redistribute / backfill 重跑导致分配漂移
-function seededWeightedPick(
+export function seededWeightedPick(
   pool: FallbackPoolEntry[],
   seed: string
 ): FallbackPoolEntry | null {

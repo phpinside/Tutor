@@ -75,12 +75,14 @@ export const getScopedTeacherFilter = cache(
     const or: Prisma.TeacherWhereInput[] = [
       // 条件 A：团队人员管理名单（系统分配认领 + 主动认领 + 超管指派）
       { teamAssignment: { is: { operatorId } } },
-      // 条件 B：分配给我的、职责期内的教练初审
+      // 条件 B：分配给我的、职责期内的教练初审 / 复审（含随机指派的复审）
       {
         coachReview: {
           is: {
-            firstReviewOperatorId: operatorId,
-            stage: { in: ['FIRST_REVIEW', 'REJECTED'] },
+            OR: [
+              { firstReviewOperatorId: operatorId, stage: { in: ['FIRST_REVIEW', 'REJECTED'] } },
+              { finalReviewOperatorId: operatorId, stage: 'FINAL_REVIEW' },
+            ],
           },
         },
       },
