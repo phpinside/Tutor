@@ -28,7 +28,9 @@ export async function getCoachReviewPoolConfig(): Promise<{
     if (!(await isSuperAdmin())) {
       return { success: false, error: '仅超级管理员可查看分配池配置' }
     }
+    // 学管角色参与初审分配；运营不参与（复审池仅运营）
     const operators = await prisma.operator.findMany({
+      where: { role: 'LEARNER_MANAGER' },
       orderBy: [{ isEnabled: 'desc' }, { name: 'asc' }],
       select: { id: true, name: true, phone: true, role: true, isEnabled: true },
     })

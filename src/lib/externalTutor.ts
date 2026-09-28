@@ -238,9 +238,9 @@ async function loadWeightedPool(
   }
 }
 
-/** 初审兜底池（key = COACH_REVIEW_FALLBACK_POOL） */
+/** 初审兜底池（key = COACH_REVIEW_FALLBACK_POOL）：仅学管（LEARNER_MANAGER）角色参与，运营不参与初审 */
 export async function getCoachReviewFallbackPool(): Promise<FallbackPoolEntry[]> {
-  return loadWeightedPool('COACH_REVIEW_FALLBACK_POOL')
+  return loadWeightedPool('COACH_REVIEW_FALLBACK_POOL', 'LEARNER_MANAGER')
 }
 
 /** 复审随机分配池（key = COACH_FINAL_REVIEW_POOL）：仅运营（OPERATOR）角色参与，学管无复审权 */

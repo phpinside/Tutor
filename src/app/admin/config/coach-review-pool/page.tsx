@@ -35,11 +35,11 @@ export default async function CoachReviewPoolPage() {
       <WeightedPoolManager
         icon="🎲"
         title="教练初审随机分配池"
-        description="当教练的邀请人链路无法解析出初审运营时（外部接口失败 / 无上级学管 / 无团队认领人），从此池按权重随机分配一个运营负责初审。"
+        description="当教练的邀请人链路无法解析出初审学管时（外部接口失败 / 无上级学管 / 无团队认领人），从此池按权重随机分配一名学管负责初审。"
         rules={[
+          '仅「学管」角色参与初审分配，运营不参与初审',
           '默认全员等权参与（权重 1），可按需排除或自定义权重（如 A=5, B=3 → A 获得 5/8 概率）',
           '权重为 0 / 开关关闭 = 排除出初审分配',
-          '学管与运营角色均可参与初审分配',
         ]}
         operators={result.operators ?? []}
         saveAction={updateCoachReviewPoolConfig}
