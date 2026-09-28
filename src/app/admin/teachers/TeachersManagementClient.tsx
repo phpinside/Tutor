@@ -286,12 +286,19 @@ export default function TeachersManagementClient({
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
-  // 已填写的高考科目分数（数/理/化，仅展示有分的科目）
-  const scoreParts = (teacher: Teacher): { label: string; score: number }[] => {
-    const parts: { label: string; score: number }[] = []
-    if (teacher.mathScore != null) parts.push({ label: '数学', score: teacher.mathScore })
-    if (teacher.physicsScore != null) parts.push({ label: '物理', score: teacher.physicsScore })
-    if (teacher.chemistryScore != null) parts.push({ label: '化学', score: teacher.chemistryScore })
+  // 已填写的高考科目分数（数/理/化，仅展示有分的科目；标注最擅长科目）
+  const scoreParts = (teacher: Teacher): { label: string; score: number; isPrimary: boolean }[] => {
+    const parts: { label: string; score: number; isPrimary: boolean }[] = []
+    const entries: { label: string; key: string; score: number | null }[] = [
+      { label: '数', key: 'MATH', score: teacher.mathScore },
+      { label: '理', key: 'PHYSICS', score: teacher.physicsScore },
+      { label: '化', key: 'CHEMISTRY', score: teacher.chemistryScore },
+    ]
+    for (const entry of entries) {
+      if (entry.score != null) {
+        parts.push({ label: entry.label, score: entry.score, isPrimary: teacher.primarySubject === entry.key })
+      }
+    }
     return parts
   }
 
@@ -618,20 +625,16 @@ export default function TeachersManagementClient({
                             : teacher.school)
                         : <span className="text-gray-400">-</span>}
                     </div>
-                    <div className="text-gray-500 text-xs mt-0.5 flex items-center gap-1 flex-wrap">
+                    <div className="text-gray-500 text-xs mt-0.5">
                       {scoreParts(teacher).length > 0 ? (
-                        scoreParts(teacher).map((part) => (
-                          <span key={part.label}>
-                            {part.label} <span className="text-gray-700 font-medium">{part.score}</span>
-                          </span>
-                        ))
+                        <>
+                          {scoreParts(teacher).map((p) => p.label).join('')}:
+                          {scoreParts(teacher)
+                            .map((p) => `${p.score}${p.isPrimary ? '(最擅长)' : ''}`)
+                            .join('/')}
+                        </>
                       ) : (
                         <span className="text-gray-400">-</span>
-                      )}
-                      {teacher.primarySubject && (
-                        <span className="text-gray-400">
-                          最擅长({SUBJECT_LABELS[teacher.primarySubject] ?? teacher.primarySubject})
-                        </span>
                       )}
                     </div>
                   </td>
