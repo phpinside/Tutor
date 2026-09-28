@@ -1,7 +1,10 @@
 'use server'
 
+import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/admin-auth'
+import { getOperatorSessionInfo } from '@/lib/operatorAuth'
+import { isTeacherInScope } from '@/lib/learnerManagerScope'
 
 export type AuditLogItem = {
   id: string
@@ -50,4 +53,41 @@ export async function getAuditLogs(
     console.error('获取审计日志失败:', error)
     return { success: false, error: '获取审计日志失败' }
   }
+}
+
+/**
+ * 老师修改日志：该老师名下的全部审计记录（谁/何时/改了什么）。
+ * 可见性与详情页一致：超管 / 教师本人 / 白名单内运营。
+ */
+export async function getTeacherChangeLogs(
+  teacherId: string,
+  limit: number = 30
+): Promise<{ success: boolean; logs?: unknown[]; error?: string }> {
+  let allowed = await isSuperAdmin()
+
+  if (!allowed) {
+    const cookieStore = await cookies()
+    const selfTeacherId = cookieStore.get('teacherId')?.value
+    if (selfTeacherId && selfTeacherId === teacherId) {
+      allowed = true
+    } else {
+      const session = await getOperatorSessionInfo()
+      if (session) {
+        const inScope = await isTeacherInScope(session.operatorId, teacherId)
+        allowed = inScope !== false
+      }
+    }
+  }
+
+  if (!allowed) {
+    return { success: false, logs: [], error: '无权限查看修改日志' }
+  }
+
+  const logs = await prisma.auditLog.findMany({
+    where: { targetType: 'TEACHER', targetId: teacherId },
+    orderBy: { createdAt: 'desc' },
+    take: limit,
+  })
+
+  return { success: true, logs }
 }

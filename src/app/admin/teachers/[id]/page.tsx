@@ -18,6 +18,8 @@ import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import { canPerformFinalReview } from '@/app/actions/coachReview'
 import NoPermission from '@/components/admin/NoPermission'
+import TeacherChangeLogSection from '@/components/admin/TeacherChangeLogSection'
+import { getTeacherChangeLogs } from '@/app/actions/auditLogActions'
 import {
   getLearningPlannerStatusBadgeClass,
   getLearningPlannerStatusText,
@@ -132,6 +134,8 @@ export default async function TeacherDetailPage({
 
   // 复审权限：超管始终可复审；运营角色在「运营复审权限」开关开启时可复审
   const canFinalReview = await canPerformFinalReview()
+
+  const changeLogsResult = await getTeacherChangeLogs(id)
 
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
@@ -803,6 +807,13 @@ export default async function TeacherDetailPage({
         viewerName={viewerInfo.name}
         initialRemarks={remarks}
       />
+
+      {/* 修改日志 */}
+      {changeLogsResult.success && changeLogsResult.logs && (
+        <div className="mt-8">
+          <TeacherChangeLogSection logs={changeLogsResult.logs as never[]} />
+        </div>
+      )}
     </div>
   )
 }

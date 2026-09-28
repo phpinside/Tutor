@@ -1,7 +1,7 @@
 import { prisma } from '@/lib/prisma'
 
 export type AuditEntry = {
-  actorType: 'OPERATOR' | 'ADMIN' | 'SYSTEM'
+  actorType: 'OPERATOR' | 'ADMIN' | 'TEACHER' | 'SYSTEM'
   actorId: string
   actorName?: string | null
   action: string

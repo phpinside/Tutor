@@ -10,6 +10,7 @@ import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
+import { getOperatorSessionInfo } from '@/lib/operatorAuth'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
@@ -246,11 +247,61 @@ export async function updateTeacherInfo(teacherId: string, data: {
   holidayTime?: string
 }) {
   try {
+    // 鉴权：教师本人 / 超管 / 白名单内运营（学管随灰度开关联动；范围外一律拒绝）
+    const selfTeacherId = (await cookies()).get('teacherId')?.value
+    let actor: { type: 'TEACHER' | 'ADMIN' | 'OPERATOR'; id: string; name: string | null } | null = null
+    if (selfTeacherId && selfTeacherId === teacherId) {
+      actor = { type: 'TEACHER', id: teacherId, name: null }
+    } else if (await isSuperAdmin()) {
+      actor = { type: 'ADMIN', id: 'super_admin', name: '管理员' }
+    } else {
+      const session = await getOperatorSessionInfo()
+      if (session) {
+        const inScope = await isTeacherInScope(session.operatorId, teacherId)
+        if (inScope !== false) {
+          actor = { type: 'OPERATOR', id: session.operatorId, name: session.name }
+        }
+      }
+    }
+    if (!actor) {
+      return { success: false, error: '无权限修改该老师信息' }
+    }
+
+    // 取旧值用于变更对比与审计
+    const existing = await prisma.teacher.findUnique({ where: { id: teacherId } })
+    if (!existing) {
+      return { success: false, error: '老师不存在' }
+    }
+    if (actor.type === 'TEACHER') {
+      actor.name = existing.name
+    }
+
     const teacher = await prisma.teacher.update({
       where: { id: teacherId },
       data
     })
-    
+
+    // 修改日志：仅记录实际变化的字段（from → to）
+    const changes: Record<string, { from: unknown; to: unknown }> = {}
+    for (const [key, value] of Object.entries(data)) {
+      if (value === undefined) continue
+      const before = (existing as unknown as Record<string, unknown>)[key]
+      if (JSON.stringify(before ?? null) !== JSON.stringify(value)) {
+        changes[key] = { from: before ?? null, to: value }
+      }
+    }
+    if (Object.keys(changes).length > 0) {
+      await recordAudit({
+        actorType: actor.type,
+        actorId: actor.id,
+        actorName: actor.name,
+        action: 'UPDATE_TEACHER_INFO',
+        targetType: 'TEACHER',
+        targetId: teacherId,
+        detail: { changes },
+      })
+    }
+
     revalidatePath('/onboarding')
     return { success: true, teacher }
   } catch (error) {
