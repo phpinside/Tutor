@@ -13,6 +13,7 @@ export type PoolOperator = {
   id: string
   name: string
   phone: string
+  role: string
   weight: number
   isEnabled: boolean
 }
@@ -29,7 +30,7 @@ export async function getCoachReviewPoolConfig(): Promise<{
     }
     const operators = await prisma.operator.findMany({
       orderBy: [{ isEnabled: 'desc' }, { name: 'asc' }],
-      select: { id: true, name: true, phone: true, isEnabled: true },
+      select: { id: true, name: true, phone: true, role: true, isEnabled: true },
     })
 
     const config = await prisma.systemConfig.findUnique({
@@ -57,6 +58,7 @@ export async function getCoachReviewPoolConfig(): Promise<{
       id: op.id,
       name: op.name,
       phone: op.phone,
+      role: op.role,
       isEnabled: op.isEnabled,
       weight: Object.hasOwn(weightMap, op.id) ? weightMap[op.id] : DEFAULT_WEIGHT,
     }))
@@ -86,6 +88,16 @@ export async function updateCoachReviewPoolConfig(
     for (const { operatorId, weight } of weights) {
       weightMap[operatorId] = weight
     }
+
+    await recordAudit({
+      actorType: 'ADMIN',
+      actorId: 'super_admin',
+      actorName: '管理员',
+      action: 'UPDATE_FIRST_REVIEW_POOL',
+      targetType: 'SYSTEM_CONFIG',
+      targetId: CONFIG_KEY,
+      detail: { to: weightMap },
+    })
 
     await prisma.systemConfig.upsert({
       where: { key: CONFIG_KEY },
@@ -164,9 +176,11 @@ export async function getFinalReviewPoolConfig(): Promise<{
     return { success: false, error: '仅超级管理员可查看复审分配池' }
   }
   try {
+    // 学管无复审权：仅运营（OPERATOR）角色参与复审分配
     const operators = await prisma.operator.findMany({
+      where: { role: 'OPERATOR' },
       orderBy: [{ isEnabled: 'desc' }, { name: 'asc' }],
-      select: { id: true, name: true, phone: true, isEnabled: true },
+      select: { id: true, name: true, phone: true, role: true, isEnabled: true },
     })
 
     const config = await prisma.systemConfig.findUnique({
@@ -194,6 +208,7 @@ export async function getFinalReviewPoolConfig(): Promise<{
         id: op.id,
         name: op.name,
         phone: op.phone,
+        role: op.role,
         isEnabled: op.isEnabled,
         weight: Object.hasOwn(weightMap, op.id) ? weightMap[op.id] : DEFAULT_WEIGHT,
       })),
