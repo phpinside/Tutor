@@ -9,3 +9,4 @@ backups/
 .DS_Store
 tsconfig.tsbuildinfo
 public/yishenger.png
+logs/
