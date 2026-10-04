@@ -14,7 +14,20 @@ const nextConfig: NextConfig = {
       }
     ]
   },
-  serverExternalPackages: ['qiniu', 'graceful-fs', 'mz', 'pdf-parse', 'pdfkit']
+  serverExternalPackages: ['qiniu', 'graceful-fs', 'mz', 'pdf-parse', 'pdfkit'],
+  // fileLogger 仅在 Node runtime 执行（见 src/instrumentation.ts 的 NEXT_RUNTIME 守卫），
+  // Edge 编译（middleware/instrumentation）用空模块占位以通过构建
+  webpack: (config, { nextRuntime }) => {
+    if (nextRuntime === 'edge') {
+      config.resolve.fallback = {
+        ...config.resolve.fallback,
+        fs: false,
+        path: false,
+        util: false
+      }
+    }
+    return config
+  }
 }
 
 

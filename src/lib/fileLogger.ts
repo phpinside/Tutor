@@ -1,6 +1,6 @@
-import fs from 'node:fs'
-import path from 'node:path'
-import util from 'node:util'
+import fs from 'fs'
+import path from 'path'
+import util from 'util'
 
 const LOG_FILE = process.env.LOG_FILE || 'logs/app.log'
 
