@@ -268,6 +268,22 @@ export default function TeachersManagementClient({
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
+  // 基于当前已填写状态构建筛选参数（overrides 用于覆盖指定项，空值表示移除）
+  const buildFilterParams = (overrides: Record<string, string> = {}) => {
+    const params = new URLSearchParams()
+    appendListFilterParams(params)
+    for (const [key, value] of Object.entries(overrides)) {
+      if (value) params.set(key, value)
+      else params.delete(key)
+    }
+    return params
+  }
+
+  // 下拉/日期类筛选：选择即查（业界惯例，免除「改完还要找按钮」）
+  const applySelectChange = (key: string, value: string) => {
+    router.push(`/admin/teachers?${buildFilterParams({ [key]: value }).toString()}`)
+  }
+
   // 重置筛选
   const handleReset = () => {
     setSearchTerm('')
@@ -319,65 +335,23 @@ export default function TeachersManagementClient({
       {/* 筛选区域 */}
       <div className="card mb-6">
         <div className="flex flex-col gap-4">
-          {/* 第一行：搜索框、任务进度、重置按钮 */}
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="搜索姓名/ID/邀请码/手机号..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
-              />
-            </div>
-            <select
-              value={taskIndex}
-              onChange={(e) => setTaskIndex(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">任务进度（全部）</option>
-              <option value="0">任务 0/7</option>
-              <option value="1">任务 1/7</option>
-              <option value="2">任务 2/7</option>
-              <option value="3">任务 3/7</option>
-              <option value="4">任务 4/7</option>
-              <option value="5">任务 5/7</option>
-              <option value="6">任务 6/7</option>
-              <option value="7">任务 7/7（已完成）</option>
-            </select>
-            <select
-              value={subject}
-              onChange={(e) => setSubject(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">学科（全部）</option>
-              <option value="MATH">数学</option>
-              <option value="PHYSICS">物理</option>
-              <option value="CHEMISTRY">化学</option>
-            </select>
-            <select
-              value={primarySubject}
-              onChange={(e) => setPrimarySubject(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-            >
-              <option value="">擅长学科（全部）</option>
-              <option value="MATH">数学</option>
-              <option value="PHYSICS">物理</option>
-              <option value="CHEMISTRY">化学</option>
-            </select>
+          {/* 第一行：核心工作流——搜索、状态筛选、操作按钮（频率优先，F 型扫描） */}
+          <div className="flex flex-wrap items-center gap-3">
             <input
               type="text"
-              value={school}
-              onChange={(e) => setSchool(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleApplyFilters() }}
-              placeholder="毕业学校（关键词）"
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              placeholder="搜索姓名/ID/邀请码/手机号..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="flex-1 min-w-[220px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             />
             <select
               value={inviteAudit}
-              onChange={(e) => setInviteAudit(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => {
+                setInviteAudit(e.target.value)
+                applySelectChange('inviteAudit', e.target.value)
+              }}
+              className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
             >
               <option value="">审核状态（全部）</option>
               {viewer.operatorId && !viewer.isSuperAdmin && (
@@ -401,151 +375,204 @@ export default function TeachersManagementClient({
               <option value="invalid">审核不通过</option>
             </select>
             <select
+              value={taskIndex}
+              onChange={(e) => {
+                setTaskIndex(e.target.value)
+                applySelectChange('taskIndex', e.target.value)
+              }}
+              className="w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            >
+              <option value="">任务进度（全部）</option>
+              <option value="0">任务 0/7</option>
+              <option value="1">任务 1/7</option>
+              <option value="2">任务 2/7</option>
+              <option value="3">任务 3/7</option>
+              <option value="4">任务 4/7</option>
+              <option value="5">任务 5/7</option>
+              <option value="6">任务 6/7</option>
+              <option value="7">任务 7/7（已完成）</option>
+            </select>
+            <select
               value={teamStatus}
-              onChange={(e) => setTeamStatus(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              onChange={(e) => {
+                setTeamStatus(e.target.value)
+                applySelectChange('teamStatus', e.target.value)
+              }}
+              className="w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
             >
               <option value="">团队状态（全部）</option>
               <option value="claimed">已认领</option>
               <option value="unclaimed">暂未被认领</option>
             </select>
-            <button
-              onClick={handleReset}
-              className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              重置
-            </button>
+            <div className="flex items-center gap-2 ml-auto">
+              <button
+                onClick={handleReset}
+                className="px-5 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+              >
+                重置
+              </button>
+              <button
+                onClick={handleApplyFilters}
+                className="px-6 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors text-sm"
+              >
+                筛选
+              </button>
+            </div>
           </div>
 
-          {/* 第二行：邀请人搜索、日期区间、筛选按钮 */}
-          <div className="flex flex-col md:flex-row gap-4">
+          {/* 第二行：属性筛选——毕业学校、学科、注册时间、邀请人 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <input
+              type="text"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleApplyFilters() }}
+              placeholder="毕业学校（关键词）"
+              className="w-44 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            />
+            <select
+              value={primarySubject}
+              onChange={(e) => {
+                setPrimarySubject(e.target.value)
+                applySelectChange('primarySubject', e.target.value)
+              }}
+              className="w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            >
+              <option value="">擅长学科（全部）</option>
+              <option value="MATH">数学</option>
+              <option value="PHYSICS">物理</option>
+              <option value="CHEMISTRY">化学</option>
+            </select>
+            <select
+              value={subject}
+              onChange={(e) => {
+                setSubject(e.target.value)
+                applySelectChange('subject', e.target.value)
+              }}
+              className="w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            >
+              <option value="">学科（全部）</option>
+              <option value="MATH">数学</option>
+              <option value="PHYSICS">物理</option>
+              <option value="CHEMISTRY">化学</option>
+            </select>
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600 whitespace-nowrap">注册时间：</span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e) => {
+                  setStartDate(e.target.value)
+                  applySelectChange('startDate', e.target.value)
+                }}
+                className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+              <span className="text-gray-400">-</span>
+              <input
+                type="date"
+                value={endDate}
+                onChange={(e) => {
+                  setEndDate(e.target.value)
+                  applySelectChange('endDate', e.target.value)
+                }}
+                className="w-40 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+            </div>
             <input
               type="text"
               placeholder="邀请人姓名/手机号/ID..."
               value={inviterSearch}
               onChange={(e) => setInviterSearch(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleApplyFilters()}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+              onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+              className="w-44 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
             />
-            <div className="flex-1 flex flex-col sm:flex-row items-start sm:items-center gap-2">
-              <label className="text-sm text-gray-600 whitespace-nowrap">注册时间：</label>
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-                <span className="text-gray-500">-</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
-                  className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleApplyFilters}
-              className="px-8 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-            >
-              筛选
-            </button>
           </div>
 
-          {/* 第三行：年龄、高考数学分数区间 */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-              <span className="text-sm text-gray-600 whitespace-nowrap">年龄：</span>
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={120}
-                  placeholder="最低"
-                  value={ageMin}
-                  onChange={(e) => setAgeMin(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
-                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-                <span className="text-gray-500 shrink-0">-</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={120}
-                  placeholder="最高"
-                  value={ageMax}
-                  onChange={(e) => setAgeMax(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
-                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-              </div>
+          {/* 第三行：高级筛选（低频，弱化展示） */}
+          <div className="flex flex-wrap items-center gap-3 pt-3 border-t border-gray-100">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 whitespace-nowrap">年龄：</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                placeholder="最低"
+                value={ageMin}
+                onChange={(e) => setAgeMin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+              <span className="text-gray-400 shrink-0">-</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={120}
+                placeholder="最高"
+                value={ageMax}
+                onChange={(e) => setAgeMax(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-              <span className="text-sm text-gray-600 whitespace-nowrap">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-500 whitespace-nowrap">
                 {subject === 'PHYSICS' ? '高考物理分：' :
                  subject === 'CHEMISTRY' ? '高考化学分：' :
                  '高考数学分：'}
               </span>
-              <div className="flex items-center gap-2 flex-1">
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={150}
-                  placeholder="最低"
-                  value={mathScoreMin}
-                  onChange={(e) => setMathScoreMin(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
-                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-                <span className="text-gray-500 shrink-0">-</span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min={0}
-                  max={150}
-                  placeholder="最高"
-                  value={mathScoreMax}
-                  onChange={(e) => setMathScoreMax(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
-                  className="w-full min-w-0 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-                />
-              </div>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={150}
+                placeholder="最低"
+                value={mathScoreMin}
+                onChange={(e) => setMathScoreMin(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
+              <span className="text-gray-400 shrink-0">-</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                max={150}
+                placeholder="最高"
+                value={mathScoreMax}
+                onChange={(e) => setMathScoreMax(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyFilters()}
+                className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              />
             </div>
-          </div>
-
-          {/* 第四行：性别、高考省份 */}
-          <div className="flex flex-col lg:flex-row gap-4 lg:items-end">
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-              <span className="text-sm text-gray-600 whitespace-nowrap">性别：</span>
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-              >
-                <option value="">性别（全部）</option>
-                <option value="男">男</option>
-                <option value="女">女</option>
-              </select>
-            </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-1">
-              <span className="text-sm text-gray-600 whitespace-nowrap">高考省份：</span>
-              <select
-                value={gaokaoProvince}
-                onChange={(e) => setGaokaoProvince(e.target.value)}
-                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
-              >
-                <option value="">省份（全部）</option>
-                {GAOKAO_PROVINCE_OPTIONS.map((province) => (
-                  <option key={province} value={province}>
-                    {province}
-                  </option>
-                ))}
-              </select>
-            </div>
+            <select
+              value={gender}
+              onChange={(e) => {
+                setGender(e.target.value)
+                applySelectChange('gender', e.target.value)
+              }}
+              className="w-28 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            >
+              <option value="">性别（全部）</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+            <select
+              value={gaokaoProvince}
+              onChange={(e) => {
+                setGaokaoProvince(e.target.value)
+                applySelectChange('gaokaoProvince', e.target.value)
+              }}
+              className="w-36 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+            >
+              <option value="">省份（全部）</option>
+              {GAOKAO_PROVINCE_OPTIONS.map((province) => (
+                <option key={province} value={province}>
+                  {province}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
