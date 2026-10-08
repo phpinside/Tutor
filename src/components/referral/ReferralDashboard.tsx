@@ -43,6 +43,8 @@ type ReferralData = {
     rewardSent: boolean
     adminNote: string | null
     createdAt: Date
+    referredSchool: string | null
+    referredPrimarySubject: string | null
   }>
   indirectReferrals: Array<{
     id: string
@@ -56,6 +58,8 @@ type ReferralData = {
     referralStatus: 'PENDING' | 'VALID' | 'INVALID'
     adminNote: string | null
     createdAt: Date
+    referredSchool: string | null
+    referredPrimarySubject: string | null
   }>
 }
 
@@ -85,6 +89,8 @@ export default function ReferralDashboard({
     endDate?: string
     taskStatus?: string
     referralStatus?: string
+    school?: string
+    primarySubject?: string
   }
   showRuleUpdateNotice?: boolean
   teachingRuleEffective?: boolean
@@ -131,7 +137,9 @@ export default function ReferralDashboard({
     startDate: filters?.startDate || '',
     endDate: filters?.endDate || '',
     taskStatus: filters?.taskStatus || '',
-    referralStatus: filters?.referralStatus || ''
+    referralStatus: filters?.referralStatus || '',
+    school: filters?.school || '',
+    primarySubject: filters?.primarySubject || ''
   })
 
   const handleCopy = (text: string, type: 'invite' | 'code') => {
@@ -148,6 +156,8 @@ export default function ReferralDashboard({
     if (filterForm.endDate) params.set('endDate', filterForm.endDate)
     if (filterForm.taskStatus) params.set('taskStatus', filterForm.taskStatus)
     if (filterForm.referralStatus) params.set('referralStatus', filterForm.referralStatus)
+    if (filterForm.school.trim()) params.set('school', filterForm.school.trim())
+    if (filterForm.primarySubject) params.set('primarySubject', filterForm.primarySubject)
     params.set('page', '1') // 重置到第一页
 
     router.push(`?${params.toString()}`)
@@ -159,10 +169,22 @@ export default function ReferralDashboard({
       startDate: '',
       endDate: '',
       taskStatus: '',
-      referralStatus: ''
+      referralStatus: '',
+      school: '',
+      primarySubject: ''
     })
     router.push(window.location.pathname)
   }
+
+  // 当前 URL 是否带筛选条件（用于区分「无数据」与「筛选无结果」）
+  const hasActiveFilters = Boolean(
+    filters?.startDate ||
+      filters?.endDate ||
+      filters?.taskStatus ||
+      filters?.referralStatus ||
+      filters?.school ||
+      filters?.primarySubject
+  )
 
   // 登出
   const handleLogout = async () => {
@@ -518,15 +540,101 @@ export default function ReferralDashboard({
               </div>
             )}
           </div>
+
+          {/* 筛选面板 */}
+          <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              <input
+                type="text"
+                value={filterForm.school}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, school: e.target.value }))}
+                onKeyDown={(e) => { if (e.key === 'Enter') applyFilters() }}
+                placeholder="毕业学校（关键词）"
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              />
+              <select
+                value={filterForm.primarySubject}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, primarySubject: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">擅长学科（全部）</option>
+                <option value="MATH">数学</option>
+                <option value="PHYSICS">物理</option>
+                <option value="CHEMISTRY">化学</option>
+              </select>
+              <select
+                value={filterForm.taskStatus}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, taskStatus: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">任务进度（全部）</option>
+                {[0, 1, 2, 3, 4, 5, 6].map((i) => (
+                  <option key={i} value={String(i)}>
+                    {i < 6 ? `任务 ${i + 1}/7` : '任务 7/7（已完成）'}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={filterForm.referralStatus}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, referralStatus: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="">邀请状态（全部）</option>
+                <option value="PENDING">待审核</option>
+                <option value="VALID">有效</option>
+                <option value="INVALID">无效</option>
+              </select>
+              <input
+                type="date"
+                value={filterForm.startDate}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, startDate: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              />
+              <input
+                type="date"
+                value={filterForm.endDate}
+                onChange={(e) => setFilterForm(prev => ({ ...prev, endDate: e.target.value }))}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div className="flex justify-end gap-2 mt-3">
+              <button
+                onClick={clearFilters}
+                className="px-4 py-2 text-sm text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+              >
+                重置
+              </button>
+              <button
+                onClick={applyFilters}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 transition-colors"
+              >
+                查询
+              </button>
+            </div>
+          </div>
           
           {/* 直接邀请列表 */}
           {activeTab === 'direct' && (
             <>
               {directReferrals.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🎯</div>
-                  <p className="text-gray-600 mb-2">还没有人通过你的邀请加入</p>
-                  <p className="text-sm text-gray-500">快去分享你的邀请链接吧！</p>
+                  <div className="text-6xl mb-4">{hasActiveFilters ? '🔍' : '🎯'}</div>
+                  {hasActiveFilters ? (
+                    <>
+                      <p className="text-gray-600 mb-2">没有符合筛选条件的记录</p>
+                      <button
+                        onClick={clearFilters}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        清除筛选查看全部
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-600 mb-2">还没有人通过你的邀请加入</p>
+                      <p className="text-sm text-gray-500">快去分享你的邀请链接吧！</p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -537,6 +645,7 @@ export default function ReferralDashboard({
                         <tr className="border-b border-gray-200">
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">序号</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">被邀请人</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">毕业学校</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
@@ -556,6 +665,11 @@ export default function ReferralDashboard({
                               {formatPhone(referral.referredPhone)}
                             </div>
                           )}
+                        </td>
+                        <td className="py-3 px-4 text-sm text-gray-600" title={referral.referredSchool || undefined}>
+                          {referral.referredSchool
+                            ? (referral.referredSchool.length > 10 ? `${referral.referredSchool.slice(0, 10)}...` : referral.referredSchool)
+                            : '-'}
                         </td>
                         <td className="py-3 px-4 text-sm">
                           第 {referral.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务
@@ -635,6 +749,9 @@ export default function ReferralDashboard({
                     </div>
                     <div className="space-y-2 text-sm text-gray-600">
                       <div>进度：第 {referral.currentTaskIndex}/{TOTAL_TASK_COUNT} 个任务</div>
+                      {referral.referredSchool && (
+                        <div>毕业学校：{referral.referredSchool}</div>
+                      )}
                       <div>
                         状态：
                         {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (
@@ -711,11 +828,25 @@ export default function ReferralDashboard({
             <>
               {indirectReferrals.length === 0 ? (
                 <div className="text-center py-12">
-                  <div className="text-6xl mb-4">🔗</div>
-                  <p className="text-gray-600 mb-2">暂无间接邀请记录</p>
-                  <p className="text-sm text-gray-500">
-                    当你邀请的人再邀请其他人时，会产生间接邀请
-                  </p>
+                  <div className="text-6xl mb-4">{hasActiveFilters ? '🔍' : '🔗'}</div>
+                  {hasActiveFilters ? (
+                    <>
+                      <p className="text-gray-600 mb-2">没有符合筛选条件的记录</p>
+                      <button
+                        onClick={clearFilters}
+                        className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+                      >
+                        清除筛选查看全部
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-600 mb-2">暂无间接邀请记录</p>
+                      <p className="text-sm text-gray-500">
+                        当你邀请的人再邀请其他人时，会产生间接邀请
+                      </p>
+                    </>
+                  )}
                 </div>
               ) : (
                 <>
@@ -727,6 +858,7 @@ export default function ReferralDashboard({
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">序号</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请人</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">被邀请人</th>
+                          <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">毕业学校</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">任务进度</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">完成状态</th>
                           <th className="text-left py-3 px-4 text-sm font-medium text-gray-700">邀请状态</th>
@@ -754,6 +886,11 @@ export default function ReferralDashboard({
                                   {formatPhone(referral.referredPhone)}
                                 </div>
                               )}
+                            </td>
+                            <td className="py-3 px-4 text-sm text-gray-600" title={referral.referredSchool || undefined}>
+                              {referral.referredSchool
+                                ? (referral.referredSchool.length > 10 ? `${referral.referredSchool.slice(0, 10)}...` : referral.referredSchool)
+                                : '-'}
                             </td>
                             <td className="py-3 px-4 text-sm">
                               第 {referral.currentTaskIndex}/6 个任务
@@ -841,6 +978,9 @@ export default function ReferralDashboard({
                         </div>
                         <div className="space-y-2 text-sm text-gray-600">
                           <div>进度：第 {referral.currentTaskIndex}/6 个任务</div>
+                          {referral.referredSchool && (
+                            <div>毕业学校：{referral.referredSchool}</div>
+                          )}
                           <div>
                             状态：
                             {referral.status === 'COMPLETED' || referral.status === 'UNLOCKED' ? (

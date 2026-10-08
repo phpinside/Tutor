@@ -462,6 +462,8 @@ export async function getReferralDataByTeacherId(
     taskStatus?: string // '0' - '6' 表示任务进度
     referralStatus?: string // 邀请状态: 'PENDING' | 'VALID' | 'INVALID'
     rewardStatus?: string // 奖励状态: 'sent' | 'pending'
+    school?: string // 毕业学校（模糊）
+    primarySubject?: string // 擅长学科（精确: MATH | PHYSICS | CHEMISTRY）
   }
 ) {
   try {
@@ -518,6 +520,16 @@ export async function getReferralDataByTeacherId(
         whereConditions.rewardSent = false
         whereConditions.status = 'VALID' // 只有有效邀请才有待发放的概念
       }
+    }
+
+    // 毕业学校筛选（模糊，不区分大小写）
+    if (filters?.school?.trim()) {
+      referredWhere.school = { contains: filters.school.trim(), mode: 'insensitive' }
+    }
+
+    // 擅长学科筛选（精确）
+    if (filters?.primarySubject && filters.primarySubject !== '') {
+      referredWhere.primarySubject = filters.primarySubject
     }
 
     // 如果有被邀请人筛选条件，添加到主查询
@@ -597,7 +609,9 @@ export async function getReferralDataByTeacherId(
             currentPhase: true,
             currentTaskIndex: true,
             status: true,
-            createdAt: true
+            createdAt: true,
+            school: true,
+            primarySubject: true
           }
         }
       },
@@ -619,7 +633,9 @@ export async function getReferralDataByTeacherId(
             currentPhase: true,
             currentTaskIndex: true,
             status: true,
-            createdAt: true
+            createdAt: true,
+            school: true,
+            primarySubject: true
           }
         }
       },
@@ -662,7 +678,9 @@ export async function getReferralDataByTeacherId(
           referralStatus: ref.status,
           rewardSent: ref.rewardSent,
           adminNote: ref.adminNote,
-          createdAt: ref.createdAt
+          createdAt: ref.createdAt,
+          referredSchool: ref.referred.school,
+          referredPrimarySubject: ref.referred.primarySubject
         })),
         indirectReferrals: indirectWithReferrers.map((ref, index) => ({
           id: ref.id,
@@ -675,7 +693,9 @@ export async function getReferralDataByTeacherId(
           status: ref.referred.status,
           referralStatus: ref.status,
           adminNote: ref.adminNote,
-          createdAt: ref.createdAt
+          createdAt: ref.createdAt,
+          referredSchool: ref.referred.school,
+          referredPrimarySubject: ref.referred.primarySubject
         })),
         pagination: {
           currentPage: 1,

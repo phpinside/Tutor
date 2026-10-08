@@ -63,6 +63,8 @@ export default function TeachersManagementClient({
     mathScoreMin?: string
     mathScoreMax?: string
     subject?: string
+    primarySubject?: string
+    school?: string
     gender?: string
     gaokaoProvince?: string
   }
@@ -92,6 +94,8 @@ export default function TeachersManagementClient({
   const [mathScoreMin, setMathScoreMin] = useState(initialFilters.mathScoreMin || '')
   const [mathScoreMax, setMathScoreMax] = useState(initialFilters.mathScoreMax || '')
   const [subject, setSubject] = useState(initialFilters.subject || '')
+  const [primarySubject, setPrimarySubject] = useState(initialFilters.primarySubject || '')
+  const [school, setSchool] = useState(initialFilters.school || '')
   const [gender, setGender] = useState(initialFilters.gender || '')
   const [gaokaoProvince, setGaokaoProvince] = useState(initialFilters.gaokaoProvince || '')
   const [resetModal, setResetModal] = useState<{ id: string; name: string | null } | null>(null)
@@ -213,6 +217,8 @@ export default function TeachersManagementClient({
       mathScoreMin,
       mathScoreMax,
       subject,
+      primarySubject,
+      school,
       gender,
       gaokaoProvince,
     },
@@ -229,6 +235,8 @@ export default function TeachersManagementClient({
       mathScoreMin: setMathScoreMin,
       mathScoreMax: setMathScoreMax,
       subject: setSubject,
+      primarySubject: setPrimarySubject,
+      school: setSchool,
       gender: setGender,
       gaokaoProvince: setGaokaoProvince,
     }
@@ -247,6 +255,8 @@ export default function TeachersManagementClient({
     if (mathScoreMin.trim()) params.set('mathScoreMin', mathScoreMin.trim())
     if (mathScoreMax.trim()) params.set('mathScoreMax', mathScoreMax.trim())
     if (subject) params.set('subject', subject)
+    if (primarySubject) params.set('primarySubject', primarySubject)
+    if (school.trim()) params.set('school', school.trim())
     if (gender) params.set('gender', gender)
     if (gaokaoProvince) params.set('gaokaoProvince', gaokaoProvince)
   }
@@ -272,6 +282,8 @@ export default function TeachersManagementClient({
     setMathScoreMin('')
     setMathScoreMax('')
     setSubject('')
+    setPrimarySubject('')
+    setSchool('')
     setGender('')
     setGaokaoProvince('')
     clearPersistedFilters('admin-teacher-filters')
@@ -344,6 +356,24 @@ export default function TeachersManagementClient({
               <option value="PHYSICS">物理</option>
               <option value="CHEMISTRY">化学</option>
             </select>
+            <select
+              value={primarySubject}
+              onChange={(e) => setPrimarySubject(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              <option value="">擅长学科（全部）</option>
+              <option value="MATH">数学</option>
+              <option value="PHYSICS">物理</option>
+              <option value="CHEMISTRY">化学</option>
+            </select>
+            <input
+              type="text"
+              value={school}
+              onChange={(e) => setSchool(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleApplyFilters() }}
+              placeholder="毕业学校（关键词）"
+              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+            />
             <select
               value={inviteAudit}
               onChange={(e) => setInviteAudit(e.target.value)}

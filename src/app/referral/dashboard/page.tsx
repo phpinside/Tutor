@@ -14,6 +14,8 @@ export default async function ReferralDashboardPage({
     endDate?: string
     taskStatus?: string
     referralStatus?: string
+    school?: string
+    primarySubject?: string
   }>
 }) {
   const cookieStore = await cookies()
@@ -45,7 +47,9 @@ export default async function ReferralDashboardPage({
     startDate: params.startDate,
     endDate: params.endDate,
     taskStatus: params.taskStatus,
-    referralStatus: params.referralStatus
+    referralStatus: params.referralStatus,
+    school: params.school,
+    primarySubject: params.primarySubject
   })
 
   if (!result.success || !result.data) {

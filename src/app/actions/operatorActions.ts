@@ -38,6 +38,7 @@ export async function getOperatorTeam(
     gender?: string
     gaokaoProvince?: string
     subject?: string
+    primarySubject?: string
     scoreMin?: string
     status?: string
     inviterSearch?: string
@@ -99,6 +100,11 @@ export async function getOperatorTeam(
   // 可教科目
   if (filters?.subject) {
     whereConditions.push({ teacher: { subjects: { has: filters.subject } } })
+  }
+
+  // 擅长学科（精确）
+  if (filters?.primarySubject) {
+    whereConditions.push({ teacher: { primarySubject: filters.primarySubject } })
   }
 
   // 分数下限：任一科高考成绩 ≥ 该值

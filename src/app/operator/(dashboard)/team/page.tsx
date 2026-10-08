@@ -28,6 +28,7 @@ export default async function TeamPage({
     gender?: string
     gaokaoProvince?: string
     subject?: string
+    primarySubject?: string
     scoreMin?: string
     status?: string
     inviterSearch?: string
@@ -46,6 +47,7 @@ export default async function TeamPage({
     gender,
     gaokaoProvince,
     subject,
+    primarySubject,
     scoreMin,
     status,
     inviterSearch,
@@ -60,6 +62,7 @@ export default async function TeamPage({
     gender,
     gaokaoProvince,
     subject,
+    primarySubject,
     scoreMin,
     status,
     inviterSearch,
@@ -75,7 +78,7 @@ export default async function TeamPage({
       <TeamManagementClient
         operatorId={session.operatorId}
         initialTeachers={teachers}
-        initialFilters={{ search, taskIndex, startDate, endDate, school, gender, gaokaoProvince, subject, scoreMin, status, inviterSearch }}
+        initialFilters={{ search, taskIndex, startDate, endDate, school, gender, gaokaoProvince, subject, primarySubject, scoreMin, status, inviterSearch }}
       />
     </div>
   )

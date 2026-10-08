@@ -78,6 +78,8 @@ export default async function AdminTeachersPage({
     mathScoreMin?: string
     mathScoreMax?: string
     subject?: string
+    primarySubject?: string
+    school?: string
     gender?: string
     gaokaoProvince?: string
   }>
@@ -97,6 +99,8 @@ export default async function AdminTeachersPage({
     mathScoreMin,
     mathScoreMax,
     subject,
+    primarySubject,
+    school,
     gender,
     gaokaoProvince
   } = params
@@ -284,6 +288,18 @@ export default async function AdminTeachersPage({
     })
   }
 
+  // 擅长学科筛选（primarySubject 精确）
+  if (primarySubject) {
+    whereConditions.push({ primarySubject })
+  }
+
+  // 毕业学校筛选（模糊，不区分大小写）
+  if (school?.trim()) {
+    whereConditions.push({
+      school: { contains: school.trim(), mode: 'insensitive' }
+    })
+  }
+
   // 性别筛选
   if (gender) {
     whereConditions.push({ gender })
@@ -431,6 +447,8 @@ export default async function AdminTeachersPage({
           mathScoreMin,
           mathScoreMax,
           subject,
+          primarySubject,
+          school,
           gender,
           gaokaoProvince
         }}

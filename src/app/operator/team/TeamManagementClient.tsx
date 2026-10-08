@@ -70,6 +70,7 @@ export default function TeamManagementClient({
     gender?: string
     gaokaoProvince?: string
     subject?: string
+    primarySubject?: string
     scoreMin?: string
     status?: string
     inviterSearch?: string
@@ -87,6 +88,7 @@ export default function TeamManagementClient({
   const [gender, setGender] = useState(initialFilters.gender || '')
   const [gaokaoProvince, setGaokaoProvince] = useState(initialFilters.gaokaoProvince || '')
   const [subject, setSubject] = useState(initialFilters.subject || '')
+  const [primarySubject, setPrimarySubject] = useState(initialFilters.primarySubject || '')
   const [scoreMin, setScoreMin] = useState(initialFilters.scoreMin || '')
   const [status, setStatus] = useState(initialFilters.status || '')
   const [inviterSearch, setInviterSearch] = useState(initialFilters.inviterSearch || '')
@@ -110,6 +112,7 @@ export default function TeamManagementClient({
       gender,
       gaokaoProvince,
       subject,
+      primarySubject,
       scoreMin,
       status,
       inviterSearch,
@@ -123,6 +126,7 @@ export default function TeamManagementClient({
       gender: setGender,
       gaokaoProvince: setGaokaoProvince,
       subject: setSubject,
+      primarySubject: setPrimarySubject,
       scoreMin: setScoreMin,
       status: setStatus,
       inviterSearch: setInviterSearch,
@@ -139,6 +143,7 @@ export default function TeamManagementClient({
     if (gender) params.set('gender', gender)
     if (gaokaoProvince) params.set('gaokaoProvince', gaokaoProvince)
     if (subject) params.set('subject', subject)
+    if (primarySubject) params.set('primarySubject', primarySubject)
     if (scoreMin) params.set('scoreMin', scoreMin)
     if (status) params.set('status', status)
     if (inviterSearch) params.set('inviterSearch', inviterSearch)
@@ -154,6 +159,7 @@ export default function TeamManagementClient({
     setGender('')
     setGaokaoProvince('')
     setSubject('')
+    setPrimarySubject('')
     setScoreMin('')
     setStatus('')
     setInviterSearch('')
@@ -314,6 +320,18 @@ export default function TeamManagementClient({
               className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
             >
               <option value="">可教科目（全部）</option>
+              {SUBJECT_OPTIONS.map((subject) => (
+                <option key={subject.value} value={subject.value}>
+                  {subject.label}
+                </option>
+              ))}
+            </select>
+            <select
+              value={primarySubject}
+              onChange={(e) => setPrimarySubject(e.target.value)}
+              className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="">擅长学科（全部）</option>
               {SUBJECT_OPTIONS.map((subject) => (
                 <option key={subject.value} value={subject.value}>
                   {subject.label}
