@@ -12,6 +12,13 @@ interface Tool {
 
 const TOOLS: Tool[] = [
   {
+    icon: '🏅',
+    name: '学员奖状生成器',
+    description: '填写学员信息，选择横版或竖版模板，一键下载高清奖状图片',
+    href: '/onboarding/tools/student-certificate',
+    available: true,
+  },
+  {
     icon: '🎉',
     name: '案例图片生成器',
     description: '选择喜报模板，上传案例截图并填写文案，一键生成案例图片',

@@ -241,6 +241,7 @@ model Teacher {
   coachReview                CoachReview?
   tencentMeetingBookings     TencentMeetingBooking[]
   caseImageRecords           CaseImageRecord[]
+  studentCertificateRecords  StudentCertificateRecord[]
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -580,6 +581,51 @@ model CaseImageRecord {
   @@index([teacherId, createdAt])
   @@index([createdAt])
   @@map("case_image_records")
+}
+
+// 学员奖状生成记录
+model StudentCertificateRecord {
+  id          String   @id @default(cuid())
+  teacherId   String
+  templateId  String
+  templateName String
+  orientation String @default("LANDSCAPE")
+  studentName String
+  grade       String
+  subject     String
+  awardName   String
+  citation    String   @db.Text
+  issuer      String
+  issueDate   String
+  teamName    String
+  coachName   String
+  imageKey    String
+  createdAt   DateTime @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  @@index([teacherId, createdAt])
+  @@index([createdAt])
+  @@map("student_certificate_records")
+}
+
+model StudentCertificateTemplate {
+  id             String   @id
+  name           String
+  description    String   @default("")
+  title          String   @default("荣誉证书")
+  orientation    String   @default("LANDSCAPE")
+  backgroundPath String?
+  backgroundKey  String?
+  slots          Json
+  isActive       Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  archivedAt     DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive, archivedAt, sortOrder])
+  @@map("student_certificate_templates")
 }
 
 // 规划书自查记录

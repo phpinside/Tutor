@@ -8,6 +8,7 @@ const ROUTE_PERMISSIONS: Record<string, string[]> = {
   '/admin/withdrawals': ['super_admin'],
   '/admin/certificates': ['super_admin'],
   '/admin/case-image-records': ['super_admin'],
+  '/admin/student-certificate-records': ['super_admin'],
   '/admin/tencent-meetings': ['super_admin'],
   '/admin/config': ['super_admin'],
   '/admin/audit': ['super_admin'],
@@ -140,5 +141,3 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*', '/onboarding/:path*'],
 }
-
-

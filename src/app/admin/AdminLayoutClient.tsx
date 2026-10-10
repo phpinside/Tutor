@@ -17,6 +17,7 @@ const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/withdrawals', icon: '💰', label: '提现管理', roles: ['super_admin'] },
   { path: '/admin/certificates', icon: '📄', label: '证明开具', roles: ['super_admin'] },
   { path: '/admin/case-image-records', icon: '📊', label: '案例记录', roles: ['super_admin'] },
+  { path: '/admin/student-certificate-records', icon: '🏅', label: '奖状记录', roles: ['super_admin'] },
   { path: '/admin/tencent-meetings', icon: '🎥', label: '会议管理', roles: ['super_admin'] },
   { path: '/admin/config', icon: '⚙️', label: '系统配置', roles: ['super_admin'] },
   { path: '/admin/audit', icon: '📋', label: '审计日志', roles: ['super_admin'] },
@@ -64,7 +65,7 @@ export default function AdminLayoutClient({
               </div>
             </div>
             
-            <nav className="flex items-center gap-6">
+            <nav className="ml-5 flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap">
               {visibleMenuItems.map(item => (
                 <a
                   key={item.path}
@@ -75,7 +76,7 @@ export default function AdminLayoutClient({
                   {item.label}
                 </a>
               ))}
-              <LogoutButton />
+              <span className="shrink-0"><LogoutButton /></span>
             </nav>
           </div>
         </div>
