@@ -7,7 +7,7 @@ import { prisma } from '@/lib/prisma'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { CERTIFICATE_SLOT_KEYS, type CertificateOrientation, type CertificateSlots } from '@/lib/student-certificate-config'
 import { serializeCertificateTemplate } from '@/lib/student-certificate-templates'
-import { certificateBackgroundExists, certificateBackgroundFilePath } from '@/lib/student-certificate-template-files'
+import { certificateBackgroundExists, certificateBackgroundFilePath, certificateThumbnailPathFor } from '@/lib/student-certificate-template-files'
 
 export type StudentCertificateTemplateInput = {
   name: string
@@ -54,7 +54,9 @@ export async function createStudentCertificateTemplate(input: StudentCertificate
   if (!input.backgroundPath || !(await certificateBackgroundExists(input.backgroundPath))) return { success: false, error: '请上传奖状底图' }
   const row = await prisma.studentCertificateTemplate.create({ data: {
     id: randomUUID(), name: input.name.trim(), description: input.description.trim(), title: input.title.trim(),
-    orientation: input.orientation, backgroundPath: input.backgroundPath, slots: input.slots as unknown as Prisma.InputJsonValue,
+    orientation: input.orientation, backgroundPath: input.backgroundPath,
+    thumbnailPath: certificateThumbnailPathFor(input.backgroundPath),
+    slots: input.slots as unknown as Prisma.InputJsonValue,
     sortOrder: input.sortOrder, isActive: false,
   } })
   refresh()
@@ -72,7 +74,7 @@ export async function updateStudentCertificateTemplate(id: string, input: Studen
   const row = await prisma.studentCertificateTemplate.update({ where: { id }, data: {
     name: input.name.trim(), description: input.description.trim(), title: input.title.trim(), sortOrder: input.sortOrder,
     slots: input.slots as unknown as Prisma.InputJsonValue,
-    ...(input.backgroundPath ? { backgroundPath: input.backgroundPath, backgroundKey: null } : {}),
+    ...(input.backgroundPath ? { backgroundPath: input.backgroundPath, backgroundKey: null, thumbnailPath: certificateThumbnailPathFor(input.backgroundPath) } : {}),
   } })
   refresh()
   return { success: true, template: serializeCertificateTemplate(row) }

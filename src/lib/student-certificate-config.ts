@@ -57,6 +57,8 @@ export type CertificateTemplate = {
   title: string
   orientation: CertificateOrientation
   backgroundUrl: string
+  /** 模板列表小图（缩略图）；实时预览与导出始终用 backgroundUrl 原图 */
+  thumbnailUrl: string
   slots: CertificateSlots
   isActive: boolean
   sortOrder: number

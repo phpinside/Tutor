@@ -140,15 +140,17 @@ export function generateCaseImageKey(teacherId: string, studentName: string): st
 /**
  * 生成案例图喜报图片的私有下载 URL（带签名）。
  * download 为 true 时在签名前附加 attname 参数，强制浏览器以附件形式下载。
+ * thumbnailWidth 传入时在签名前附加 imageView2 缩放参数（如列表小图），返回等比缩放到该宽度的图片。
  */
 export function generateCaseImagePrivateUrl(
   key: string,
-  options?: { download?: boolean; deadline?: number }
+  options?: { download?: boolean; deadline?: number; thumbnailWidth?: number }
 ): string {
   const expireTime = options?.deadline || Math.floor(Date.now() / 1000) + 3600
 
   const encodedKey = key.split('/').map(encodeURIComponent).join('/')
-  const baseUrl = `${QINIU_CONFIG.domain}/${encodedKey}?e=${expireTime}${options?.download ? '&attname=' : ''}`
+  // imageView2 与 attname 一样必须在签名前拼入 URL，否则签名校验会失败
+  const baseUrl = `${QINIU_CONFIG.domain}/${encodedKey}?e=${expireTime}${options?.download ? '&attname=' : ''}${options?.thumbnailWidth ? `&imageView2/2/w/${options.thumbnailWidth}` : ''}`
 
   const signature = (qiniu.util as any).hmacSha1(baseUrl, QINIU_CONFIG.secretKey)
   const encodedSign = (qiniu.util as any).base64ToUrlSafe(signature)

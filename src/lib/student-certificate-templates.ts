@@ -25,10 +25,15 @@ export function parseCertificateSlots(raw: unknown, orientation: CertificateOrie
 
 export function serializeCertificateTemplate(row: TemplateRow): CertificateTemplate {
   const orientation = row.orientation === 'PORTRAIT' ? 'PORTRAIT' : 'LANDSCAPE'
+  const isUploaded = !!row.backgroundPath?.startsWith('/student-certificate-templates/upload-')
+  const backgroundUrl = row.backgroundPath && !isUploaded
+    ? row.backgroundPath : `/api/student-certificate-templates/${encodeURIComponent(row.id)}/background`
   return {
     id: row.id, name: row.name, description: row.description, title: row.title,
-    orientation, backgroundUrl: row.backgroundPath && !row.backgroundPath.startsWith('/student-certificate-templates/upload-')
-      ? row.backgroundPath : `/api/student-certificate-templates/${encodeURIComponent(row.id)}/background`,
+    orientation, backgroundUrl,
+    // 上传模板的小图走同一带权限的 API route（route 内文件缺失时回退原图）
+    thumbnailUrl: row.thumbnailPath && !isUploaded
+      ? row.thumbnailPath : `/api/student-certificate-templates/${encodeURIComponent(row.id)}/background?variant=thumb`,
     slots: parseCertificateSlots(row.slots, orientation), isActive: row.isActive,
     sortOrder: row.sortOrder, archivedAt: row.archivedAt?.toISOString() ?? null,
   }

@@ -616,6 +616,7 @@ model StudentCertificateTemplate {
   title          String   @default("荣誉证书")
   orientation    String   @default("LANDSCAPE")
   backgroundPath String?
+  thumbnailPath  String? // 模板列表小图（静态路径），为空时前端回退用底图原图
   backgroundKey  String?
   slots          Json
   isActive       Boolean  @default(false)

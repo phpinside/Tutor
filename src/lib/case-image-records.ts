@@ -18,6 +18,8 @@ export type CaseImageRecordDTO = {
   bottomNote: string | null
   /** 查看大图用的签名 URL（1 小时有效） */
   imageUrl: string
+  /** 列表小图用的签名 URL（imageView2 缩放到 400px 宽） */
+  thumbnailUrl: string
   /** 强制下载用的签名 URL（attname） */
   imageDownloadUrl: string
   createdAt: string
@@ -48,6 +50,7 @@ export function serializeCaseImageRecord(
     coachSignature: record.coachSignature,
     bottomNote: record.bottomNote,
     imageUrl: generateCaseImagePrivateUrl(record.imageKey),
+    thumbnailUrl: generateCaseImagePrivateUrl(record.imageKey, { thumbnailWidth: 400 }),
     imageDownloadUrl: generateCaseImagePrivateUrl(record.imageKey, { download: true }),
     createdAt: record.createdAt.toISOString(),
     teacherName: teacher?.name ?? undefined,

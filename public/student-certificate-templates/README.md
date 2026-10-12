@@ -5,6 +5,7 @@
 - 内置横版模板：`royal.jpg`（皇家典藏）、`azure.jpg`（蔚蓝荣耀）、`british.jpg`（英伦学院）、`blackGold.jpg`（黑金至尊）、`scholar.jpg`（国风书香）、`champagne.jpg`（香槟雅金）、`sunshine.jpg`（阳光成长）、`laurel.jpg`（桂冠荣耀）。
 - 对应竖版模板：`royal-portrait.jpg`、`azure-portrait.jpg`、`british-portrait.jpg`、`blackGold-portrait.jpg`、`scholar-portrait.jpg`、`champagne-portrait.jpg`、`sunshine-portrait.jpg`、`laurel-portrait.jpg`。
 - 管理员上传的底图命名为 `upload-<UUID>.png/jpg/webp`，避免重名覆盖。更换底图或归档模板不会删除旧文件。
+- 缩略图与本目录底图同目录平铺、以 `-thumb` 后缀命名（最长边 480 的 JPG），由 `npx tsx prisma/generateTemplateThumbnails.ts` 生成；管理员上传时服务端自动生成。数据库 `thumbnailPath` 指向缩略图，为空时前端回退加载底图原图。模板选择列表只加载缩略图，实时预览与 PNG 导出始终使用原图。
 
 共十六套无文字 A4 底图：八套横版为 3508 × 2480，八套竖版为 2480 × 3508。竖版重新组织了装饰构图，保留对应横版的配色与纹饰。文字位置保存在数据库中，由后台预览、老师端预览、模板缩略图与 PNG 导出共用的渲染器绘制。
 

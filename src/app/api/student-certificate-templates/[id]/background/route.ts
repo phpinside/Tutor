@@ -3,11 +3,11 @@ import { cookies } from 'next/headers'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { isSuperAdmin } from '@/lib/admin-auth'
-import { readCertificateBackground } from '@/lib/student-certificate-template-files'
+import { readCertificateBackground, readCertificateThumbnail } from '@/lib/student-certificate-template-files'
 
 export const runtime = 'nodejs'
 
-export async function GET(_request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const template = await prisma.studentCertificateTemplate.findUnique({ where: { id } })
   if (!template || (!template.backgroundPath && !template.backgroundKey)) return new NextResponse(null, { status: 404 })
@@ -16,6 +16,11 @@ export async function GET(_request: NextRequest, { params }: { params: Promise<{
   if (!admin && (!teacher || !template.isActive || template.archivedAt)) return new NextResponse(null, { status: 403 })
   try {
     if (template.backgroundPath) {
+      // 模板列表小图：variant=thumb 优先返回缩略图，缺失时回退原图
+      if (request.nextUrl.searchParams.get('variant') === 'thumb') {
+        const thumbnail = await readCertificateThumbnail(template.thumbnailPath)
+        if (thumbnail) return new NextResponse(new Uint8Array(thumbnail), { headers: { 'Content-Type': 'image/jpeg', 'Cache-Control': 'private, max-age=300' } })
+      }
       const buffer = await readCertificateBackground(template.backgroundPath)
       const type = template.backgroundPath.endsWith('.webp') ? 'image/webp' : /\.jpe?g$/.test(template.backgroundPath) ? 'image/jpeg' : 'image/png'
       return new NextResponse(new Uint8Array(buffer), { headers: { 'Content-Type': type, 'Cache-Control': 'private, max-age=300' } })

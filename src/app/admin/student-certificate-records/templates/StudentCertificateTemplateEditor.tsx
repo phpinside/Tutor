@@ -13,7 +13,7 @@ const clamp = (value: number, min: number, max: number) => Math.max(min, Math.mi
 export default function StudentCertificateTemplateEditor({ initial, today }: { initial: CertificateTemplate | null; today: string }) {
   const router = useRouter()
   const [template, setTemplate] = useState<CertificateTemplate>(initial ?? {
-    id: 'new', name: '', description: '', title: '荣誉证书', orientation: 'LANDSCAPE', backgroundUrl: '',
+    id: 'new', name: '', description: '', title: '荣誉证书', orientation: 'LANDSCAPE', backgroundUrl: '', thumbnailUrl: '',
     slots: defaultCertificateSlots('LANDSCAPE'), isActive: false, sortOrder: 0, archivedAt: null,
   })
   const [file, setFile] = useState<File | null>(null)

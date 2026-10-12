@@ -4,6 +4,7 @@ import { generateCaseImagePrivateUrl } from '@/lib/qiniu'
 export type StudentCertificateRecordDTO = Omit<StudentCertificateRecord, 'createdAt' | 'imageKey'> & {
   createdAt: string
   imageUrl: string
+  thumbnailUrl: string
   imageDownloadUrl: string
   teacherName?: string
   teacherPhone?: string
@@ -17,6 +18,7 @@ export function serializeStudentCertificateRecord(record: StudentCertificateReco
     issuer: record.issuer, issueDate: record.issueDate, teamName: record.teamName,
     coachName: record.coachName, createdAt: record.createdAt.toISOString(),
     imageUrl: generateCaseImagePrivateUrl(record.imageKey),
+    thumbnailUrl: generateCaseImagePrivateUrl(record.imageKey, { thumbnailWidth: 640 }),
     imageDownloadUrl: generateCaseImagePrivateUrl(record.imageKey, { download: true }),
     teacherName: teacher?.name ?? undefined, teacherPhone: teacher?.phone ?? undefined,
   }

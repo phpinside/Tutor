@@ -1143,7 +1143,7 @@ export default function CaseImageGeneratorClient({
                     aria-label="查看大图"
                     className="h-14 w-14 shrink-0 overflow-hidden rounded-lg border border-gray-200 bg-gray-50"
                   >
-                    <img src={record.imageUrl} alt="" className="h-full w-full object-cover" />
+                    <img src={record.thumbnailUrl} alt="" className="h-full w-full object-cover" />
                   </button>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 text-sm">
