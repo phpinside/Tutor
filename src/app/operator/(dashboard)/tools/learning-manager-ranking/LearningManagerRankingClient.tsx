@@ -8,10 +8,11 @@ import {
 } from '@/lib/learning-manager-ranking'
 
 const TEAM_FIELDS = [
-  { key: 'name', label: '团队名称', placeholder: '例如：张洪瑞团队', maxLength: 16, rows: 1 },
+  { key: 'name', label: '学管姓名', placeholder: '例如：张洪瑞', maxLength: 16, rows: 1 },
   { key: 'grades', label: '擅长学段', placeholder: '例如：小学 / 初中', maxLength: 40, rows: 1 },
   { key: 'introduction', label: '核心简介', placeholder: '例如：学习规划 | 师资匹配 | 日常跟进 | 阶段反馈', maxLength: 80, rows: 2 },
-  { key: 'highlight', label: '亮点总结', placeholder: '填写团队亮点，支持换行', maxLength: 80, rows: 3 },
+  { key: 'highlight', label: '亮点总结', placeholder: '填写学管亮点，支持换行', maxLength: 80, rows: 3 },
+  { key: 'teamName', label: '所属团队', placeholder: '例如：张洪瑞团队', maxLength: 40, rows: 1 },
 ] as const
 
 function loadBackground(src: string) {
@@ -78,7 +79,7 @@ export default function LearningManagerRankingClient({ defaultPeriod }: { defaul
     return () => window.clearTimeout(timer)
   }, [background, backdrop, period, teams, content])
 
-  function updateTeam(id: string, field: keyof Omit<RankingTeam, 'id'>, value: string) {
+  function updateTeam<K extends keyof Omit<RankingTeam, 'id'>>(id: string, field: K, value: RankingTeam[K]) {
     setDownloadError('')
     setTeams((current) => current.map((team) => team.id === id ? { ...team, [field]: value } : team))
   }
@@ -133,38 +134,47 @@ export default function LearningManagerRankingClient({ defaultPeriod }: { defaul
         </section>
 
         <div className="flex items-center justify-between gap-3">
-          <h2 className="font-semibold text-gray-900">学管团队 <span className="text-sm font-normal text-gray-500">共 {teams.length} 个</span></h2>
+          <h2 className="font-semibold text-gray-900">学管名单 <span className="text-sm font-normal text-gray-500">共 {teams.length} 位</span></h2>
           <span className="text-xs text-gray-500">按从左到右、从上到下排列</span>
         </div>
 
         {teams.map((team, index) => (
           <fieldset key={team.id} className="min-w-0 rounded-2xl border border-gray-200 bg-white p-5">
-            <legend className="sr-only">第 {index + 1} 个团队</legend>
+            <legend className="sr-only">第 {index + 1} 位学管</legend>
             <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-              <h3 className="font-semibold text-gray-900"><span className="mr-2 text-blue-600">{String(index + 1).padStart(2, '0')}</span>{team.name || '新团队'}</h3>
+              <h3 className="font-semibold text-gray-900"><span className="mr-2 text-blue-600">{String(index + 1).padStart(2, '0')}</span>{team.name || '新学管'}</h3>
               <div className="flex gap-3 text-xs">
-                <button type="button" aria-label={`上移第 ${index + 1} 个团队`} onClick={() => moveTeam(index, -1)} disabled={index === 0} className="text-gray-500 hover:text-blue-600 disabled:opacity-30">上移</button>
-                <button type="button" aria-label={`下移第 ${index + 1} 个团队`} onClick={() => moveTeam(index, 1)} disabled={index === teams.length - 1} className="text-gray-500 hover:text-blue-600 disabled:opacity-30">下移</button>
-                <button type="button" aria-label={`删除第 ${index + 1} 个团队`} onClick={() => setTeams((current) => current.filter((item) => item.id !== team.id))} disabled={teams.length === 1} className="text-red-500 hover:text-red-700 disabled:opacity-30">删除</button>
+                <button type="button" aria-label={`上移第 ${index + 1} 位学管`} onClick={() => moveTeam(index, -1)} disabled={index === 0} className="text-gray-500 hover:text-blue-600 disabled:opacity-30">上移</button>
+                <button type="button" aria-label={`下移第 ${index + 1} 位学管`} onClick={() => moveTeam(index, 1)} disabled={index === teams.length - 1} className="text-gray-500 hover:text-blue-600 disabled:opacity-30">下移</button>
+                <button type="button" aria-label={`删除第 ${index + 1} 位学管`} onClick={() => setTeams((current) => current.filter((item) => item.id !== team.id))} disabled={teams.length === 1} className="text-red-500 hover:text-red-700 disabled:opacity-30">删除</button>
               </div>
             </div>
             <div className="grid gap-4 sm:grid-cols-2">
               {TEAM_FIELDS.map((field) => (
-                <label key={field.key} className={`block min-w-0 ${field.rows > 1 ? 'sm:col-span-2' : ''}`}>
-                  <span className="mb-1.5 block text-sm font-medium text-gray-700">{field.label}</span>
+                <div key={field.key} className={`block min-w-0 ${field.rows > 1 || field.key === 'teamName' ? 'sm:col-span-2' : ''}`}>
+                  <div className="mb-1.5 flex items-center justify-between gap-3">
+                    <label htmlFor={`${team.id}-${field.key}`} className="text-sm font-medium text-gray-700">{field.label}</label>
+                    {field.key === 'teamName' && (
+                      <label className="flex cursor-pointer items-center gap-2 text-sm text-gray-600">
+                        <input type="checkbox" aria-label={`第 ${index + 1} 位学管显示所属团队`} checked={team.showTeamName} onChange={(event) => updateTeam(team.id, 'showTeamName', event.target.checked)} className="h-4 w-4 rounded border-gray-300 accent-blue-600" />
+                        显示所属团队
+                      </label>
+                    )}
+                  </div>
                   {field.rows === 1 ? (
-                    <input aria-label={`第 ${index + 1} 个团队${field.label}`} value={team[field.key]} onChange={(event) => updateTeam(team.id, field.key, event.target.value)} required maxLength={field.maxLength} placeholder={field.placeholder} className="input w-full" />
+                    <input id={`${team.id}-${field.key}`} aria-label={`第 ${index + 1} 位学管${field.label}`} value={team[field.key]} onChange={(event) => updateTeam(team.id, field.key, event.target.value)} required={field.key !== 'teamName' || team.showTeamName} disabled={field.key === 'teamName' && !team.showTeamName} maxLength={field.maxLength} placeholder={field.placeholder} className="input w-full disabled:bg-gray-50 disabled:text-gray-400" />
                   ) : (
-                    <textarea aria-label={`第 ${index + 1} 个团队${field.label}`} value={team[field.key]} onChange={(event) => updateTeam(team.id, field.key, event.target.value)} required maxLength={field.maxLength} rows={field.rows} placeholder={field.placeholder} className="input w-full resize-y" />
+                    <textarea id={`${team.id}-${field.key}`} aria-label={`第 ${index + 1} 位学管${field.label}`} value={team[field.key]} onChange={(event) => updateTeam(team.id, field.key, event.target.value)} required maxLength={field.maxLength} rows={field.rows} placeholder={field.placeholder} className="input w-full resize-y" />
                   )}
-                </label>
+                  {field.key === 'teamName' && <p className="mt-1.5 text-xs text-gray-500">关闭显示后保留图片中的整行空间和已填写的团队名称。</p>}
+                </div>
               ))}
             </div>
           </fieldset>
         ))}
 
-        <button type="button" onClick={() => setTeams((current) => [...current, { id: crypto.randomUUID(), name: '', grades: '', introduction: '', highlight: '' }])} className="w-full rounded-xl border-2 border-dashed border-blue-200 bg-blue-50 px-4 py-4 font-medium text-blue-600 hover:border-blue-400 hover:bg-blue-100">＋ 添加学管团队</button>
-        <p className="text-xs text-gray-500">团队数量增加时图片自动加长；最后一个单独的团队会居中展示。标题、评选依据、背景和底部文案保持固定。</p>
+        <button type="button" onClick={() => setTeams((current) => [...current, { id: crypto.randomUUID(), name: '', grades: '', introduction: '', highlight: '', teamName: '', showTeamName: true }])} className="w-full rounded-xl border-2 border-dashed border-blue-200 bg-blue-50 px-4 py-4 font-medium text-blue-600 hover:border-blue-400 hover:bg-blue-100">＋ 添加学管</button>
+        <p className="text-xs text-gray-500">学管数量增加时图片自动加长；最后一位单独的学管会居中展示。标题、评选依据、背景和底部文案保持固定。</p>
       </form>
 
       <section className="rounded-2xl border border-gray-200 bg-white p-4 sm:p-5 lg:sticky lg:top-32 xl:top-24">

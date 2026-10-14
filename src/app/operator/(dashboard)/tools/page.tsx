@@ -4,7 +4,7 @@ const TOOLS = [
   {
     name: '学管榜单生成器',
     icon: '🏆',
-    description: '编辑时间区间和团队文案，生成蓝金风格的每周优秀学管榜单，下载高清图片。',
+    description: '编辑时间区间、学管姓名、所属团队和推荐文案，生成每周优秀学管榜单，下载高清图片。',
     href: '/operator/tools/learning-manager-ranking',
   },
 ]
