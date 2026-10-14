@@ -13,6 +13,7 @@ const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/tencent-meetings', label: '腾讯会议' },
   { path: '/operator/team', label: '团队人员管理' },
   { path: '/operator/planner-review', label: '规划师审核' },
+  { path: '/operator/tools', label: '在线工具' },
   { path: '/operator/settings', label: '资料设置' },
 ]
 
@@ -73,7 +74,7 @@ export default function OperatorLayoutClient({
     <div className="min-h-screen bg-gray-50">
       <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex flex-col items-start justify-between gap-3 py-3 xl:flex-row xl:items-center">
             <div className="flex items-center gap-3">
               <span className="text-2xl">🎓</span>
               <div>
@@ -82,7 +83,7 @@ export default function OperatorLayoutClient({
               </div>
             </div>
 
-            <nav className="flex items-center gap-6">
+            <nav className="flex w-full max-w-full items-center gap-5 overflow-x-auto whitespace-nowrap pb-1 xl:w-auto" aria-label="运营后台导航">
               {menuItems.map((item) => (
                 <a key={item.path} href={item.path} className={navLinkClass(item.path)}>
                   {item.label}
