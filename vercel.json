@@ -6,6 +6,10 @@
     {
     "path": "/api/cron/check-teaching-status",
     "schedule": "0 12 * * *"
+  },
+  {
+    "path": "/api/cron/sync-managers",
+    "schedule": "0 16 * * *"
   }
  ]
 }
