@@ -19,6 +19,7 @@ export type CoachReviewSnapshot = {
   resolvedManagerPhone: string | null
   resolveSource: string | null
   firstReviewOperatorName: string | null
+  finalReviewOperatorName: string | null
 }
 
 export type ReviewBadgeInfo = {
@@ -28,7 +29,7 @@ export type ReviewBadgeInfo = {
 
 export function getReviewBadgeForViewer(
   review: CoachReviewSnapshot | undefined,
-  viewer: { operatorId: string | null; isSuperAdmin: boolean }
+  viewer: { operatorId: string | null; isSuperAdmin: boolean; canFinalReview?: boolean }
 ): ReviewBadgeInfo | null {
   if (!review) return null
 
@@ -56,13 +57,28 @@ export function getReviewBadgeForViewer(
     }
   }
 
-  // 待复审 / 待审核：仅超管可见
-  if (viewer.isSuperAdmin && review.finalReviewVerdict === 'PENDING') {
-    if (!review.firstReviewOperatorId) {
-      return { text: '待审核·管理员', variant: 'merged' }
-    }
-    if (review.stage === 'FINAL_REVIEW') {
-      return { text: '待复审·管理员', variant: 'final' }
+  // 待审核（合并审核，无初审人）：仅超管可见
+  if (
+    viewer.isSuperAdmin &&
+    review.finalReviewVerdict === 'PENDING' &&
+    !review.firstReviewOperatorId
+  ) {
+    return { text: '待审核·管理员', variant: 'merged' }
+  }
+
+  // 待复审（两级流程）：超管 / 被指派复审人 / 初审人 / 有复审权限的运营可见，附复审负责人
+  if (
+    review.stage === 'FINAL_REVIEW' &&
+    review.finalReviewVerdict === 'PENDING' &&
+    review.firstReviewOperatorId
+  ) {
+    const isAssignedFinalReviewer =
+      viewer.operatorId !== null && review.finalReviewOperatorId === viewer.operatorId
+    const isFirstReviewer =
+      viewer.operatorId !== null && review.firstReviewOperatorId === viewer.operatorId
+    if (viewer.isSuperAdmin || isAssignedFinalReviewer || isFirstReviewer || viewer.canFinalReview) {
+      const name = review.finalReviewOperatorName || '超管'
+      return { text: `待复审·${name}`, variant: 'final' }
     }
   }
 

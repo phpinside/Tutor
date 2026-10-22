@@ -170,6 +170,7 @@ function toSnapshot(
     resolvedManagerPhone: review.resolvedManagerPhone,
     resolveSource: review.resolveSource,
     firstReviewOperatorName: null,
+    finalReviewOperatorName: null,
   }
 }
 
@@ -265,8 +266,20 @@ export async function getCoachReviewForTeacher(
       firstReviewOperatorName = op?.name ?? null
     }
 
+    let finalReviewOperatorName: string | null = null
+    if (review.finalReviewOperatorId) {
+      const op = await prisma.operator.findUnique({
+        where: { id: review.finalReviewOperatorId },
+        select: { name: true },
+      })
+      finalReviewOperatorName = op?.name ?? null
+    }
+
     const snapshot = toSnapshot(review)
-    if (snapshot) snapshot.firstReviewOperatorName = firstReviewOperatorName
+    if (snapshot) {
+      snapshot.firstReviewOperatorName = firstReviewOperatorName
+      snapshot.finalReviewOperatorName = finalReviewOperatorName
+    }
     return { success: true, review: snapshot }
   } catch (error) {
     console.error('获取教练审核记录失败:', error)
@@ -288,7 +301,7 @@ export async function getCoachReviewsForTeachers(
     const operatorIds = [
       ...new Set(
         reviews
-          .map((r) => r.firstReviewOperatorId)
+          .flatMap((r) => [r.firstReviewOperatorId, r.finalReviewOperatorId])
           .filter((id): id is string => id !== null)
       ),
     ]
@@ -305,11 +318,15 @@ export async function getCoachReviewsForTeachers(
 
     for (const r of reviews) {
       const snap = toSnapshot(r)
-      if (snap && snap.firstReviewOperatorId) {
-        snap.firstReviewOperatorName =
-          opMap.get(snap.firstReviewOperatorId) ?? null
+      if (snap) {
+        if (snap.firstReviewOperatorId) {
+          snap.firstReviewOperatorName = opMap.get(snap.firstReviewOperatorId) ?? null
+        }
+        if (snap.finalReviewOperatorId) {
+          snap.finalReviewOperatorName = opMap.get(snap.finalReviewOperatorId) ?? null
+        }
+        map.set(r.teacherId, snap)
       }
-      map.set(r.teacherId, snap!)
     }
 
     return map

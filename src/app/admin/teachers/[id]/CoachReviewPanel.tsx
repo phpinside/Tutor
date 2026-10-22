@@ -222,6 +222,10 @@ export default function CoachReviewPanel({
         <p className="text-sm font-medium text-gray-700 mb-1">复审</p>
         <div className="text-xs text-gray-600 space-y-0.5">
           <p>
+            复审负责人：
+            {review.finalReviewOperatorName || '超管'}
+          </p>
+          <p>
             结论：{VERDICT_LABELS[review.finalReviewVerdict] || review.finalReviewVerdict}
             {review.finalReviewedBy && `（${review.finalReviewedBy}）`}
           </p>
