@@ -77,8 +77,9 @@ async function syncManagers(): Promise<SyncSummary> {
   }
 
   const operators = await prisma.operator.findMany({
-    select: { id: true, name: true, phone: true, isEnabled: true },
+    select: { id: true, name: true, phone: true, isEnabled: true, role: true },
   })
+  const learnerManagers = operators.filter((op) => op.role === 'LEARNER_MANAGER')
 
   const unmatchedExt = new Set(extManagers.map((_, index) => index))
   const matchedByName = new Map<string, number>()
@@ -90,7 +91,7 @@ async function syncManagers(): Promise<SyncSummary> {
     ({ m }) => m.name
   )
 
-  for (const op of operators) {
+  for (const op of learnerManagers) {
     const candidates = (extByName.get(normalizeName(op.name)) ?? []).filter(
       ({ index }) => unmatchedExt.has(index)
     )
@@ -108,7 +109,7 @@ async function syncManagers(): Promise<SyncSummary> {
     ({ m }) => m.phone
   )
 
-  for (const op of operators) {
+  for (const op of learnerManagers) {
     if (matchedByName.has(op.id)) continue
     const candidates = (extByPhone.get(normalizePhone(op.phone)) ?? []).filter(
       ({ index }) => unmatchedExt.has(index)
@@ -124,7 +125,7 @@ async function syncManagers(): Promise<SyncSummary> {
 
   summary.matched = matchedByName.size + matchedByPhone.size
 
-  for (const op of operators) {
+  for (const op of learnerManagers) {
     if (matchedByName.has(op.id) || matchedByPhone.has(op.id)) continue
     if (ambiguousOpIds.has(op.id)) {
       summary.skipped.push(`匹配存在歧义，跳过自动封禁，请人工核查: ${op.name}(${op.phone})`)
