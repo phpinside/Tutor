@@ -168,6 +168,7 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
         chemistryScore: sensitiveLocked ? formData.chemistryScore || undefined : formData.chemistryScore,
         scienceCompetition: formData.scienceCompetition,
         commitmentAccepted: true,
+        editSource: 'TASK_FORM',
       }
       
       // 更新老师信息

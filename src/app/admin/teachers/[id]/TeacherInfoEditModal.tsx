@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { updateTeacherInfo } from '@/app/actions/teacher'
+import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 
 const SUBJECT_OPTIONS = [
   { value: 'MATH', label: '数学' },
@@ -23,6 +24,7 @@ interface TeacherData {
   school: string | null
   graduationYear: string | null
   identity: string | null
+  gaokaoProvince: string | null
   subjects: string[]
   primarySubject: string | null
   mathScore: number | null
@@ -60,6 +62,7 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
     school: teacher.school || '',
     graduationYear: teacher.graduationYear || '',
     identity: teacher.identity || '',
+    gaokaoProvince: teacher.gaokaoProvince || '',
     subjects: teacher.subjects ?? [],
     primarySubject: teacher.primarySubject || '',
     mathScore: teacher.mathScore ?? 0,
@@ -108,6 +111,7 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
       school: teacher.school || '',
       graduationYear: teacher.graduationYear || '',
       identity: teacher.identity || '',
+      gaokaoProvince: teacher.gaokaoProvince || '',
       subjects: teacher.subjects ?? [],
       primarySubject: teacher.primarySubject || '',
       mathScore: teacher.mathScore ?? 0,
@@ -153,6 +157,7 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
         school: formData.school || undefined,
         graduationYear: formData.graduationYear || undefined,
         identity: formData.identity || undefined,
+        gaokaoProvince: formData.gaokaoProvince || undefined,
         subjects: formData.subjects,
         primarySubject: formData.primarySubject || undefined,
         mathScore: formData.mathScore || undefined,
@@ -167,6 +172,7 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
         weekdayTime: formData.weekdayTime || undefined,
         weekendTime: formData.weekendTime || undefined,
         holidayTime: formData.holidayTime || undefined,
+        editSource: 'TEACHER_INFO_EDIT_MODAL',
       })
 
       if (result.success) {
@@ -267,6 +273,23 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">毕业年份</label>
                       <input type="number" value={formData.graduationYear} onChange={e => handleChange('graduationYear', e.target.value)} className="input" placeholder="如：2024" min={2000} max={2030} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">参加高考的省份</label>
+                      <select
+                        value={formData.gaokaoProvince}
+                        onChange={e => handleChange('gaokaoProvince', e.target.value)}
+                        disabled={!sensitiveEditable}
+                        className={`input${sensitiveEditable ? '' : ' bg-gray-100 text-gray-500 cursor-not-allowed'}`}
+                      >
+                        <option value="">未填写</option>
+                        {GAOKAO_PROVINCE_OPTIONS.map(province => (
+                          <option key={province} value={province}>{province}</option>
+                        ))}
+                      </select>
+                      {!sensitiveEditable && (
+                        <p className="text-xs text-amber-600 mt-1">学管不可修改，需走申请流程</p>
+                      )}
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">身份</label>

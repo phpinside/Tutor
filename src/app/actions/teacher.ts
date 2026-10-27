@@ -256,9 +256,12 @@ export async function updateTeacherInfo(teacherId: string, data: {
 
   /** 教练本人提交时必须为 true（已在 UI 勾选「信息真实性承诺」）；运营/超管代改时无需传 */
   commitmentAccepted?: boolean
+
+  /** 编辑入口来源（如 TASK_FORM / TEACHER_INFO_EDIT_MODAL），写入审计便于追溯 */
+  editSource?: string
 }) {
   // commitmentAccepted 仅用于承诺审计，不属于老师字段，不能进入 prisma.update
-  const { commitmentAccepted, ...fieldData } = data
+  const { commitmentAccepted, editSource, ...fieldData } = data
   try {
     // 鉴权：教师本人 / 超管 / 白名单内运营（学管随灰度开关联动；范围外一律拒绝）
     const selfTeacherId = (await cookies()).get('teacherId')?.value
@@ -367,7 +370,10 @@ export async function updateTeacherInfo(teacherId: string, data: {
         action: 'UPDATE_TEACHER_INFO',
         targetType: 'TEACHER',
         targetId: teacherId,
-        detail: { changes },
+        detail: {
+          changes,
+          ...(editSource ? { source: editSource } : {}),
+        },
       })
     }
 
