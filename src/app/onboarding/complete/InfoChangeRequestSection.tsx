@@ -45,10 +45,37 @@ interface Props {
 }
 
 const CHECKLIST_ITEMS = [
-  '截图来自省教育考试院官网、官方查分小程序或官方短信，非他人转发',
+  '截图来自学信网、省教育考试院官网、官方查分小程序或官方短信等官方渠道，非他人转发',
   '截图中姓名与所申请科目的成绩清晰可辨',
   '已遮挡准考证号、身份证号等无关个人信息（无需提供身份证照片）',
   '未对成绩数字做任何修改，截图未经过处理',
+]
+
+/** 推荐查询渠道（按可验证性排序：学信网可在线核验 > 考试院电子证明 > 查分截图） */
+const PROOF_CHANNELS: { tag: string; tagClass: string; title: string; steps: string[] }[] = [
+  {
+    tag: '首选 · 可在线核验',
+    tagClass: 'bg-green-100 text-green-800',
+    title: '学信网高考成绩查询 / 认证',
+    steps: [
+      '登录学信网 www.chsi.com.cn',
+      '进入「学籍学历 / 成绩与学历认证」栏目',
+      '完成实名注册登录后查询高考成绩',
+      '如可出具高考成绩认证报告，截图请包含报告编号与在线验证码，便于审核在线核验',
+    ],
+  },
+  {
+    tag: '推荐',
+    tagClass: 'bg-blue-100 text-blue-800',
+    title: '省教育考试院官网 / 官方小程序',
+    steps: ['在参加高考省份的考试院官方渠道查询成绩', '如支持开具带验证码的电子成绩证明，请一并截图'],
+  },
+  {
+    tag: '兜底',
+    tagClass: 'bg-gray-100 text-gray-700',
+    title: '官方查分短信',
+    steps: ['使用运营商下发的官方查分短信截图'],
+  },
 ]
 
 export default function InfoChangeRequestSection({
@@ -353,10 +380,31 @@ export default function InfoChangeRequestSection({
                   </div>
                   <ul className="text-sm text-gray-700 space-y-1.5 list-disc list-inside">
                     <li>截图需包含<span className="font-medium">姓名、省份（查询渠道）、所申请科目成绩</span></li>
-                    <li>推荐使用省教育考试院官网 / 官方小程序 / 官方短信截图</li>
                     <li>请遮挡准考证号、身份证号等信息，<span className="font-medium">无需上传身份证</span></li>
                     <li>图片清晰、未修改；支持 PNG / JPG / WEBP，单张 ≤10MB，最多 {MAX_PROOF_IMAGES} 张</li>
                   </ul>
+                </div>
+
+                {/* 推荐查询渠道（分步引导，按可验证性排序） */}
+                <div className="mt-4 rounded-lg bg-white/80 border border-primary-100 p-3">
+                  <p className="text-xs font-semibold text-gray-700 mb-2">推荐查询渠道（按优先级任选其一）</p>
+                  <div className="space-y-2.5">
+                    {PROOF_CHANNELS.map((channel, idx) => (
+                      <div key={idx} className="flex gap-2.5">
+                        <span className={`shrink-0 self-start px-1.5 py-0.5 rounded text-[10px] font-medium ${channel.tagClass}`}>
+                          {channel.tag}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium text-gray-800">{channel.title}</p>
+                          <ol className="text-xs text-gray-500 leading-relaxed list-decimal list-inside">
+                            {channel.steps.map((step, sIdx) => (
+                              <li key={sIdx}>{step}</li>
+                            ))}
+                          </ol>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
 
