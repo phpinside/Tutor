@@ -12,6 +12,7 @@ interface MenuItem {
 
 const MENU_ITEMS: MenuItem[] = [
   { path: '/admin/teachers', icon: '👨‍🏫', label: '老师管理', roles: ['super_admin'] },
+  { path: '/admin/teachers/info-change-requests', icon: '📝', label: '资料修改审核', roles: ['super_admin'] },
   { path: '/admin/operators', icon: '👥', label: '运营人员', roles: ['super_admin'] },
   { path: '/admin/referrals', icon: '🤝', label: '邀请管理', roles: ['super_admin'] },
   { path: '/admin/withdrawals', icon: '💰', label: '提现管理', roles: ['super_admin'] },

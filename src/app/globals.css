@@ -65,6 +65,10 @@
     @apply badge bg-gray-100 text-gray-800;
   }
   
+  .badge-danger {
+    @apply badge bg-red-100 text-red-800;
+  }
+  
   /* 进度条 */
   .progress-bar-container {
     @apply w-full;

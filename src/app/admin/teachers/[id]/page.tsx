@@ -19,6 +19,8 @@ import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import { canPerformFinalReview } from '@/app/actions/coachReview'
 import NoPermission from '@/components/admin/NoPermission'
 import TeacherChangeLogSection from '@/components/admin/TeacherChangeLogSection'
+import TeacherInfoChangeRequestHistory from './TeacherInfoChangeRequestHistory'
+import { toInfoChangeReviewItemView } from '@/lib/teacherInfoChangeServer'
 import { getTeacherChangeLogs } from '@/app/actions/auditLogActions'
 import {
   getLearningPlannerStatusBadgeClass,
@@ -137,6 +139,35 @@ export default async function TeacherDetailPage({
 
   const changeLogsResult = await getTeacherChangeLogs(id)
 
+  // 学管角色（用于编辑弹窗的敏感字段禁用提示；服务端 updateTeacherInfo 同步兜底）
+  const viewerOperatorRole = viewerInfo.id
+    ? (await prisma.operator.findUnique({
+        where: { id: viewerInfo.id },
+        select: { role: true },
+      }))?.role ?? null
+    : null
+
+  // 该教练的资料修改申请历史（最近 10 条，含证明图签名 URL）
+  const infoChangeRows = await prisma.teacherInfoChangeRequest.findMany({
+    where: { teacherId: id },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+    include: {
+      teacher: {
+        select: {
+          id: true,
+          name: true,
+          phone: true,
+          gaokaoProvince: true,
+          mathScore: true,
+          physicsScore: true,
+          chemistryScore: true,
+        },
+      },
+    },
+  })
+  const infoChangeItems = infoChangeRows.map(toInfoChangeReviewItemView)
+
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
     viewerInfo.id
@@ -207,7 +238,11 @@ export default async function TeacherDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <TeacherInfoEditModal teacherId={teacher.id} teacher={teacher} />
+            <TeacherInfoEditModal
+              teacherId={teacher.id}
+              teacher={teacher}
+              sensitiveEditable={viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR'}
+            />
             {(viewerInfo.isSuperAdmin || viewerInfo.id) && (
               <ResetTeacherPasswordModal teacherId={teacher.id} teacherName={teacher.name} />
             )}
@@ -807,6 +842,11 @@ export default async function TeacherDetailPage({
         viewerName={viewerInfo.name}
         initialRemarks={remarks}
       />
+
+      {/* 资料修改申请历史 */}
+      <div className="mt-8">
+        <TeacherInfoChangeRequestHistory items={infoChangeItems} />
+      </div>
 
       {/* 修改日志 */}
       {changeLogsResult.success && changeLogsResult.logs && (

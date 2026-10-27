@@ -19,6 +19,11 @@ const ACTION_LABELS: Record<string, string> = {
   UPDATE_TEACHER_FOLLOWER: '更换跟进人',
   UPDATE_FIRST_REVIEWER: '更换初审负责人',
   FINAL_REVIEW: '入驻复审',
+  SUBMIT_INFO_CHANGE_REQUEST: '提交资料修改申请',
+  CANCEL_INFO_CHANGE_REQUEST: '撤回资料修改申请',
+  FIRST_REVIEW_INFO_CHANGE_REQUEST: '资料修改申请初审',
+  FINAL_REVIEW_INFO_CHANGE_REQUEST: '资料修改申请复审',
+  ACCEPT_AUTHENTICITY_COMMITMENT: '确认信息真实性承诺',
 }
 
 const FIELD_LABELS: Record<string, string> = {

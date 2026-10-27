@@ -42,9 +42,11 @@ interface TeacherData {
 interface Props {
   teacherId: string
   teacher: TeacherData
+  /** 是否可编辑敏感字段（姓名/高考成绩）；学管为 false（服务端同步兜底） */
+  sensitiveEditable?: boolean
 }
 
-export default function TeacherInfoEditModal({ teacherId, teacher }: Props) {
+export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEditable = true }: Props) {
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -185,13 +187,14 @@ export default function TeacherInfoEditModal({ teacherId, teacher }: Props) {
       type="text"
       inputMode="numeric"
       pattern="[0-9]*"
+      disabled={!sensitiveEditable}
       value={(formData[field] as number) === 0 ? '' : formData[field]}
       onChange={(e) => {
         const val = e.target.value.replace(/[^0-9]/g, '')
         const num = val === '' ? 0 : Math.min(max, parseInt(val))
         handleChange(field, num)
       }}
-      className="input"
+      className={`input${sensitiveEditable ? '' : ' bg-gray-100 text-gray-500 cursor-not-allowed'}`}
     />
   )
 
@@ -217,13 +220,26 @@ export default function TeacherInfoEditModal({ teacherId, teacher }: Props) {
             <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
               <div className="overflow-y-auto flex-1 p-5 space-y-6">
 
+                {!sensitiveEditable && (
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+                    学管账号不可直接修改姓名与高考成绩；如需调整，请由教练本人在完成页提交资料修改申请，或由运营处理。
+                  </div>
+                )}
+
                 {/* 一、基础信息 */}
                 <div>
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-1 border-b border-gray-100">基础信息</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
-                      <input type="text" value={formData.name} onChange={e => handleChange('name', e.target.value)} className="input" placeholder="请输入姓名" />
+                      <input
+                        type="text"
+                        value={formData.name}
+                        onChange={e => handleChange('name', e.target.value)}
+                        disabled={!sensitiveEditable}
+                        className={`input${sensitiveEditable ? '' : ' bg-gray-100 text-gray-500 cursor-not-allowed'}`}
+                        placeholder="请输入姓名"
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">联系电话</label>

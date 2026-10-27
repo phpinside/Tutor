@@ -8,6 +8,14 @@ import { cookies } from 'next/headers'
 import { sanitizeInput } from '@/lib/utils'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import {
+  SENSITIVE_FIELDS,
+  SENSITIVE_FIELD_LABELS,
+  canDirectEditSensitiveFields,
+  hasPassedOnboarding,
+  isSameValue,
+} from '@/lib/teacherSensitiveFields'
+import { AUTHENTICITY_COMMITMENT_VERSION } from '@/lib/teacherInfoChangeShared'
 import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'
@@ -245,7 +253,12 @@ export async function updateTeacherInfo(teacherId: string, data: {
   weekdayTime?: string
   weekendTime?: string
   holidayTime?: string
+
+  /** 教练本人提交时必须为 true（已在 UI 勾选「信息真实性承诺」）；运营/超管代改时无需传 */
+  commitmentAccepted?: boolean
 }) {
+  // commitmentAccepted 仅用于承诺审计，不属于老师字段，不能进入 prisma.update
+  const { commitmentAccepted, ...fieldData } = data
   try {
     // 鉴权：教师本人 / 超管 / 白名单内运营（学管随灰度开关联动；范围外一律拒绝）
     const selfTeacherId = (await cookies()).get('teacherId')?.value
@@ -276,14 +289,70 @@ export async function updateTeacherInfo(teacherId: string, data: {
       actor.name = existing.name
     }
 
+    // 敏感字段（姓名/高考省份/高考成绩）直改权限：
+    // 超管 / 运营（OPERATOR）可直改；教练本人仅在通过入驻审核前可直改；学管（LEARNER_MANAGER）一律不可直改
+    const operatorRole = actor.type === 'OPERATOR'
+      ? (await prisma.operator.findUnique({
+          where: { id: actor.id },
+          select: { role: true },
+        }))?.role ?? null
+      : null
+    const canDirectEditSensitive =
+      actor.type === 'ADMIN' ||
+      (actor.type === 'OPERATOR' && canDirectEditSensitiveFields(operatorRole)) ||
+      (actor.type === 'TEACHER' && !(await hasPassedOnboarding(teacherId)))
+
+    let updateData = fieldData
+    if (!canDirectEditSensitive) {
+      const existingRecord = existing as unknown as Record<string, unknown>
+      const blockedFields = SENSITIVE_FIELDS.filter(
+        (field) => fieldData[field] !== undefined && !isSameValue(existingRecord[field], fieldData[field])
+      )
+      if (blockedFields.length > 0) {
+        const isSelf = actor.type === 'TEACHER'
+        return {
+          success: false,
+          error: isSelf
+            ? `已通过入驻审核，${blockedFields.map((f) => SENSITIVE_FIELD_LABELS[f]).join('、')}不可直接修改，请前往完成页使用「资料修改申请」提交申请`
+            : `学管不可直接修改${blockedFields.map((f) => SENSITIVE_FIELD_LABELS[f]).join('、')}，请由教练本人提交资料修改申请或由运营处理`,
+          blockedFields,
+        }
+      }
+      // 无实际变化的敏感字段剥离后照常更新其余字段（兼容表单全量提交）
+      const stripped: Record<string, unknown> = { ...fieldData }
+      for (const field of SENSITIVE_FIELDS) delete stripped[field]
+      updateData = stripped as typeof fieldData
+    }
+
+    // 教练本人修改资料必须先勾选「信息真实性承诺」（服务端强制，防绕过 UI）
+    if (actor.type === 'TEACHER' && !commitmentAccepted) {
+      return {
+        success: false,
+        error: '请先阅读并勾选「信息真实性承诺」后再提交',
+      }
+    }
+
+    // 承诺确认留痕：记录确认人、入口与文案版本（文案变更时递增 AUTHENTICITY_COMMITMENT_VERSION）
+    if (commitmentAccepted) {
+      await recordAudit({
+        actorType: actor.type,
+        actorId: actor.id,
+        actorName: actor.name,
+        action: 'ACCEPT_AUTHENTICITY_COMMITMENT',
+        targetType: 'TEACHER',
+        targetId: teacherId,
+        detail: { source: 'TASK_FORM', version: AUTHENTICITY_COMMITMENT_VERSION },
+      })
+    }
+
     const teacher = await prisma.teacher.update({
       where: { id: teacherId },
-      data
+      data: updateData
     })
 
     // 修改日志：仅记录实际变化的字段（from → to）
     const changes: Record<string, { from: unknown; to: unknown }> = {}
-    for (const [key, value] of Object.entries(data)) {
+    for (const [key, value] of Object.entries(updateData)) {
       if (value === undefined) continue
       const before = (existing as unknown as Record<string, unknown>)[key]
       if (JSON.stringify(before ?? null) !== JSON.stringify(value)) {

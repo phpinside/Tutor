@@ -5,6 +5,7 @@ import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import { useRouter } from 'next/navigation'
 import { submitTask } from '@/app/actions/task'
 import { updateTeacherInfo } from '@/app/actions/teacher'
+import AuthenticityDeclaration from '@/components/AuthenticityDeclaration'
 import type { TaskConfig } from '@/lib/config'
 
 interface TaskFormProps {
@@ -12,11 +13,14 @@ interface TaskFormProps {
   teacherId: string
   teacher: any
   submission: any
+  /** 入驻审核通过后为 true：姓名/高考省份/高考成绩锁定，需走「资料修改申请」 */
+  sensitiveLocked?: boolean
 }
 
-export default function TaskForm({ task, teacherId, teacher, submission }: TaskFormProps) {
+export default function TaskForm({ task, teacherId, teacher, submission, sensitiveLocked = false }: TaskFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [commitmentAccepted, setCommitmentAccepted] = useState(false)
   
   const SUBJECT_OPTIONS = [
     { value: 'MATH', label: '数学' },
@@ -100,7 +104,7 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
       return
     }
 
-    if (!formData.gaokaoProvince) {
+    if (!sensitiveLocked && !formData.gaokaoProvince) {
       alert('请选择参加高考的省份')
       return
     }
@@ -116,9 +120,11 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
     }
     
     const missingScores: string[] = []
-    if (formData.subjects.includes('MATH') && !formData.mathScore) missingScores.push('数学')
-    if (formData.subjects.includes('PHYSICS') && !formData.physicsScore) missingScores.push('物理')
-    if (formData.subjects.includes('CHEMISTRY') && !formData.chemistryScore) missingScores.push('化学')
+    if (!sensitiveLocked) {
+      if (formData.subjects.includes('MATH') && !formData.mathScore) missingScores.push('数学')
+      if (formData.subjects.includes('PHYSICS') && !formData.physicsScore) missingScores.push('物理')
+      if (formData.subjects.includes('CHEMISTRY') && !formData.chemistryScore) missingScores.push('化学')
+    }
     if (missingScores.length > 0) {
       alert(`请填写所选可教学科的高考成绩：${missingScores.join('、')}`)
       return
@@ -126,6 +132,11 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
 
     if (grades.length === 0) {
       alert('请至少选择一个可辅导学段')
+      return
+    }
+
+    if (!commitmentAccepted) {
+      alert('请先阅读页面底部「信息真实性承诺」并勾选确认')
       return
     }
 
@@ -147,10 +158,16 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
         gradePreference: (formData.gradePreference as string[]).join(','),
         teachingStrengths: (formData.teachingStrengths as string[]).join(','),
         studentTypes: (formData.studentTypes as string[]).join(','),
-        physicsScore: formData.physicsScore,
-        chemistryScore: formData.chemistryScore,
+        // 锁定态：敏感字段仅回传当前值（空值剥离），实际修改走「资料修改申请」；服务端同步兜底
+        name: sensitiveLocked ? (teacher.name as string) : formData.name,
+        gaokaoProvince: sensitiveLocked
+          ? formData.gaokaoProvince || undefined
+          : formData.gaokaoProvince,
+        mathScore: sensitiveLocked ? formData.mathScore || undefined : formData.mathScore,
+        physicsScore: sensitiveLocked ? formData.physicsScore || undefined : formData.physicsScore,
+        chemistryScore: sensitiveLocked ? formData.chemistryScore || undefined : formData.chemistryScore,
         scienceCompetition: formData.scienceCompetition,
-        gaokaoProvince: formData.gaokaoProvince
+        commitmentAccepted: true,
       }
       
       // 更新老师信息
@@ -184,6 +201,14 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
   
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      <AuthenticityDeclaration variant="banner" />
+      {sensitiveLocked && (
+        <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
+          🔒 入驻审核已通过：姓名、高考省份、高考成绩已锁定，如需修改请在
+          <a href="/onboarding/complete" className="font-medium underline underline-offset-2 mx-1">完成页</a>
+          提交「资料修改申请」。
+        </div>
+      )}
       {/* 一、基础信息 */}
       <div className="card">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -201,8 +226,9 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
               value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="请输入你的真实姓名"
-              className="input"
+              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
               required
+              disabled={sensitiveLocked}
             />
           </div>
           
@@ -355,8 +381,9 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
             <select
               value={formData.gaokaoProvince}
               onChange={(e) => handleChange('gaokaoProvince', e.target.value)}
-              className="input"
-              required
+              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+              required={!sensitiveLocked}
+              disabled={sensitiveLocked}
             >
               <option value="">请选择省份</option>
               {GAOKAO_PROVINCE_OPTIONS.map((province) => (
@@ -441,8 +468,9 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
                 handleChange('mathScore', num);
               }}
               placeholder="如: 130"
-              className="input"
-              required={formData.subjects.includes('MATH')}
+              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+              required={!sensitiveLocked && formData.subjects.includes('MATH')}
+              disabled={sensitiveLocked}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数，满分150分</p>
           </div>
@@ -463,8 +491,9 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
                 handleChange('physicsScore', num);
               }}
               placeholder="如: 95"
-              className="input"
-              required={formData.subjects.includes('PHYSICS')}
+              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+              required={!sensitiveLocked && formData.subjects.includes('PHYSICS')}
+              disabled={sensitiveLocked}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
@@ -485,8 +514,9 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
                 handleChange('chemistryScore', num);
               }}
               placeholder="如: 88"
-              className="input"
-              required={formData.subjects.includes('CHEMISTRY')}
+              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+              required={!sensitiveLocked && formData.subjects.includes('CHEMISTRY')}
+              disabled={sensitiveLocked}
             />
             <p className="text-xs text-gray-500 mt-1">请填写分数</p>
           </div>
@@ -679,6 +709,12 @@ export default function TaskForm({ task, teacherId, teacher, submission }: TaskF
         </div>
       </div>
       
+      {/* 信息真实性承诺（提交前必须确认） */}
+      <AuthenticityDeclaration
+        checked={commitmentAccepted}
+        onChange={setCommitmentAccepted}
+      />
+
       {/* 提交按钮 */}
       <div className="flex gap-3">
         <button

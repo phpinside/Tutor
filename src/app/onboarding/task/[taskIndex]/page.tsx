@@ -3,6 +3,7 @@ import { redirect, notFound } from 'next/navigation'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskSubmission } from '@/app/actions/task'
 import { getTaskConfigs, QINIU_CONFIG } from '@/lib/config'
+import { hasPassedOnboarding } from '@/lib/teacherSensitiveFields'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import TaskIntro from '@/components/tasks/TaskIntro'
 import TaskForm from '@/components/tasks/TaskForm'
@@ -38,6 +39,8 @@ export default async function TaskPage({
   const teacher = await getTeacher(teacherId)
   const task = TASKS_CONFIG[taskIndex]
   const submission = await getTaskSubmission(teacherId, taskIndex)
+  // 入驻审核通过后，任务表单中的敏感字段（姓名/高考省份/高考成绩）锁定
+  const sensitiveLocked = await hasPassedOnboarding(teacherId)
   const useNarrowLayout = task.type === 'ONLINE_TEST'
 
   // 为学管老师二维码生成签名 URL（私有 bucket 需要签名才能访问）
@@ -56,7 +59,15 @@ export default async function TaskPage({
         return <TaskIntro task={task} teacherId={teacherId} submission={submission} />
       
       case 'FORM':
-        return <TaskForm task={task} teacherId={teacherId} teacher={teacher} submission={submission} />
+        return (
+          <TaskForm
+            task={task}
+            teacherId={teacherId}
+            teacher={teacher}
+            submission={submission}
+            sensitiveLocked={sensitiveLocked}
+          />
+        )
       
       case 'VIDEO_UPLOAD':
         return <TaskVideoUpload task={task} teacherId={teacherId} submission={submission} teacher={teacher} />

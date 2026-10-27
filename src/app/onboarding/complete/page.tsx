@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
 import {
   getDirectReferralStatusForReferred,
   getRejectedDirectReferralForReferred,
@@ -11,6 +12,10 @@ import {
 } from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
+import { SENSITIVE_FIELDS } from '@/lib/teacherSensitiveFields'
+import type { SensitiveField } from '@/lib/teacherSensitiveFields'
+import { toInfoChangeItemView } from '@/lib/teacherInfoChangeShared'
+import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
 import CompletionContent from './CompletionContent'
 
 export const dynamic = 'force-dynamic'
@@ -74,6 +79,28 @@ export default async function CompletePage() {
 
   const profileTaskHref = `/onboarding/task/1`
 
+  // 高考资料修改申请：仅在入驻审核通过后开放（教练本人此时不可直改敏感字段）
+  const sensitivePassed = coachReview?.stage === 'APPROVED'
+  let infoChangeCurrentValues: Record<SensitiveField, string> | null = null
+  let infoChangeRequests: InfoChangeItemView[] = []
+  if (sensitivePassed) {
+    const teacherRecord = teacher as unknown as Record<string, unknown>
+    infoChangeCurrentValues = Object.fromEntries(
+      SENSITIVE_FIELDS.map((field) => [
+        field,
+        teacherRecord[field] === null || teacherRecord[field] === undefined
+          ? ''
+          : String(teacherRecord[field]),
+      ])
+    ) as Record<SensitiveField, string>
+    const rows = await prisma.teacherInfoChangeRequest.findMany({
+      where: { teacherId },
+      orderBy: { createdAt: 'desc' },
+      take: 20,
+    })
+    infoChangeRequests = rows.map(toInfoChangeItemView)
+  }
+
   return (
     <CompletionContent
       teacherName={teacher.name}
@@ -86,6 +113,15 @@ export default async function CompletePage() {
       inviteApproved={inviteApproved}
       profileTaskHref={profileTaskHref}
       coachReviewStatus={coachReviewStatus}
+      infoChangeSection={
+        sensitivePassed && infoChangeCurrentValues
+          ? {
+              teacherId,
+              currentValues: infoChangeCurrentValues,
+              initialRequests: infoChangeRequests,
+            }
+          : null
+      }
     />
   )
 }

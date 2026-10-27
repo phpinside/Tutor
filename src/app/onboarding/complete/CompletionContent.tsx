@@ -3,6 +3,9 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
+import InfoChangeRequestSection from './InfoChangeRequestSection'
+import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
+import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 
 const SUBJECT_LABELS: Record<string, string> = {
   MATH: '数学',
@@ -38,6 +41,11 @@ interface CompletionContentProps {
   inviteApproved: boolean
   profileTaskHref: string
   coachReviewStatus: CoachReviewStatus
+  infoChangeSection: {
+    teacherId: string
+    currentValues: Record<SensitiveField, string>
+    initialRequests: InfoChangeItemView[]
+  } | null
 }
 
 export default function CompletionContent({
@@ -51,6 +59,7 @@ export default function CompletionContent({
   inviteApproved,
   profileTaskHref,
   coachReviewStatus,
+  infoChangeSection,
 }: CompletionContentProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
@@ -302,6 +311,15 @@ export default function CompletionContent({
                   ))}
                 </div>
               </div>
+
+              {/* 高考资料修改申请（仅入驻审核通过后显示） */}
+              {infoChangeSection && (
+                <InfoChangeRequestSection
+                  teacherId={infoChangeSection.teacherId}
+                  currentValues={infoChangeSection.currentValues}
+                  initialRequests={infoChangeSection.initialRequests}
+                />
+              )}
 
               <div className="space-y-4">
                 <h2 className="text-xl font-semibold text-gray-900">接下来你可以:</h2>
