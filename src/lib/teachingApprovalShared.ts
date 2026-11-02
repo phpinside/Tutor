@@ -6,9 +6,9 @@
 
 export const TEACHING_APPROVAL_OPTIONS = [
   { code: 'PRIMARY', label: '小学' },
-  { code: 'JUNIOR', label: '初中' },
+  { code: 'JUNIOR', label: '初一/初二' },
   { code: 'JUNIOR_3', label: '初三' },
-  { code: 'SENIOR', label: '高中' },
+  { code: 'SENIOR', label: '高一/高二' },
   { code: 'SENIOR_3', label: '高三' },
 ] as const
 
