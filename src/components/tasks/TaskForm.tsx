@@ -5,8 +5,20 @@ import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import { useRouter } from 'next/navigation'
 import { submitTask } from '@/app/actions/task'
 import { updateTeacherInfo } from '@/app/actions/teacher'
+import { saveTeacherQualifications } from '@/app/actions/teacherQualification'
 import AuthenticityDeclaration from '@/components/AuthenticityDeclaration'
+import TaskQualifications from './TaskQualifications'
+import type { TaskQualificationsPayload } from './TaskQualifications'
+import type { QualificationMeta, QualificationType } from '@/lib/teacherQualificationShared'
 import type { TaskConfig } from '@/lib/config'
+
+/** 可选整数字符串 → number | undefined（空串视为未填写） */
+function parseOptionalInt(value: string): number | undefined {
+  const raw = String(value ?? '').trim()
+  if (raw === '') return undefined
+  const num = parseInt(raw, 10)
+  return Number.isInteger(num) ? num : undefined
+}
 
 interface TaskFormProps {
   task: TaskConfig
@@ -15,12 +27,19 @@ interface TaskFormProps {
   submission: any
   /** 入驻审核通过后为 true：姓名/高考省份/高考成绩锁定，需走「资料修改申请」 */
   sensitiveLocked?: boolean
+  /** 已提交的资质证明（入驻申报来源），用于回填资质区块 */
+  initialQualifications?: { type: QualificationType; files: string[]; meta: QualificationMeta }[]
 }
 
-export default function TaskForm({ task, teacherId, teacher, submission, sensitiveLocked = false }: TaskFormProps) {
+export default function TaskForm({ task, teacherId, teacher, submission, sensitiveLocked = false, initialQualifications = [] }: TaskFormProps) {
   const router = useRouter()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [commitmentAccepted, setCommitmentAccepted] = useState(false)
+  const [qualificationPayload, setQualificationPayload] = useState<TaskQualificationsPayload>({
+    items: [],
+    isInServiceTeacher: teacher.isInServiceTeacher === true,
+  })
+  const [qualificationDirty, setQualificationDirty] = useState(false)
   
   const SUBJECT_OPTIONS = [
     { value: 'MATH', label: '数学' },
@@ -52,6 +71,9 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
     mathScore: teacher.mathScore ?? 0,
     physicsScore: teacher.physicsScore ?? 0,
     chemistryScore: teacher.chemistryScore ?? 0,
+    mathScoreTotal: teacher.mathScoreTotal != null ? String(teacher.mathScoreTotal) : '',
+    physicsScoreTotal: teacher.physicsScoreTotal != null ? String(teacher.physicsScoreTotal) : '',
+    chemistryScoreTotal: teacher.chemistryScoreTotal != null ? String(teacher.chemistryScoreTotal) : '',
     scienceCompetition: teacher.scienceCompetition || teacher.mathCompetition || '',
     teachingExperience: teacher.teachingExperience || '',
     gradePreference: teacher.gradePreference ? teacher.gradePreference.split(',') : [],
@@ -130,6 +152,35 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
       return
     }
 
+    // 成绩与卷面总分成对校验（锁定态两者均不可编辑，跳过）
+    if (!sensitiveLocked) {
+      const scoreTotalPairs: { score: number; total: string; label: string }[] = [
+        { score: formData.mathScore, total: formData.mathScoreTotal, label: '高考数学成绩' },
+        { score: formData.physicsScore, total: formData.physicsScoreTotal, label: '高考物理成绩' },
+        { score: formData.chemistryScore, total: formData.chemistryScoreTotal, label: '高考化学成绩' },
+      ]
+      for (const pair of scoreTotalPairs) {
+        const totalRaw = String(pair.total).trim()
+        const scoreFilled = Boolean(pair.score)
+        const totalFilled = totalRaw !== ''
+        if (scoreFilled !== totalFilled) {
+          alert(`${pair.label}与卷面总分需同时填写`)
+          return
+        }
+        if (scoreFilled) {
+          const totalNum = parseInt(totalRaw, 10)
+          if (!Number.isInteger(totalNum) || totalNum < 30 || totalNum > 150) {
+            alert('卷面总分需为 30-150 的整数')
+            return
+          }
+          if (pair.score > totalNum) {
+            alert(`${pair.label}（${pair.score}）不能高于卷面总分（${totalNum}）`)
+            return
+          }
+        }
+      }
+    }
+
     if (grades.length === 0) {
       alert('请至少选择一个可辅导学段')
       return
@@ -138,6 +189,20 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
     if (!commitmentAccepted) {
       alert('请先阅读页面底部「信息真实性承诺」并勾选确认')
       return
+    }
+
+    // 资质证明配套校验（选填；填了材料必须补齐配套选择）
+    if (qualificationDirty) {
+      const certItem = qualificationPayload.items.find((i) => i.type === 'TEACHER_CERT')
+      if (certItem && certItem.files.length > 0 && (!certItem.meta.certStage || !certItem.meta.certSubject)) {
+        alert('教师资格证需选择对应的学段与学科')
+        return
+      }
+      const mandarinItem = qualificationPayload.items.find((i) => i.type === 'MANDARIN_CERT')
+      if (mandarinItem && mandarinItem.files.length > 0 && !mandarinItem.meta.mandarinLevel) {
+        alert('普通话等级证需选择对应等级')
+        return
+      }
     }
 
     const ageNum = parseInt(String(formData.age).trim(), 10)
@@ -166,17 +231,33 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
         mathScore: sensitiveLocked ? formData.mathScore || undefined : formData.mathScore,
         physicsScore: sensitiveLocked ? formData.physicsScore || undefined : formData.physicsScore,
         chemistryScore: sensitiveLocked ? formData.chemistryScore || undefined : formData.chemistryScore,
+        mathScoreTotal: parseOptionalInt(formData.mathScoreTotal),
+        physicsScoreTotal: parseOptionalInt(formData.physicsScoreTotal),
+        chemistryScoreTotal: parseOptionalInt(formData.chemistryScoreTotal),
+        isInServiceTeacher: qualificationPayload.isInServiceTeacher,
         scienceCompetition: formData.scienceCompetition,
         commitmentAccepted: true,
         editSource: 'TASK_FORM',
       }
-      
+
       // 更新老师信息
       const updateResult = await updateTeacherInfo(teacherId, teacherData)
-      
+
       if (!updateResult.success) {
         alert(updateResult.error || '更新个人信息失败，请重试')
         return
+      }
+
+      // 资质证明（选填）：有变更时整体替换入驻申报记录并同步专项字段
+      if (qualificationDirty) {
+        const qualResult = await saveTeacherQualifications({
+          items: qualificationPayload.items,
+          isInServiceTeacher: qualificationPayload.isInServiceTeacher,
+        })
+        if (!qualResult.success) {
+          alert(qualResult.error || '资质证明保存失败，请重试')
+          return
+        }
       }
       
       // 提交任务（会自动推进到下一个任务）
@@ -453,73 +534,121 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
             </div>
           )}
 
-          {/* 高考数学成绩 */}
+          {/* 高考数学成绩 + 卷面总分 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               高考数学成绩 {formData.subjects.includes('MATH') && <span className="text-red-500">*</span>}
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={formData.mathScore === 0 ? '' : formData.mathScore}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                const num = val === '' ? 0 : Math.min(150, parseInt(val));
-                handleChange('mathScore', num);
-              }}
-              placeholder="如: 130"
-              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-              required={!sensitiveLocked && formData.subjects.includes('MATH')}
-              disabled={sensitiveLocked}
-            />
-            <p className="text-xs text-gray-500 mt-1">请填写分数，满分150分</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.mathScore === 0 ? '' : formData.mathScore}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  const num = val === '' ? 0 : Math.min(150, parseInt(val));
+                  handleChange('mathScore', num);
+                }}
+                placeholder="如: 130"
+                className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                required={!sensitiveLocked && formData.subjects.includes('MATH')}
+                disabled={sensitiveLocked}
+              />
+              <span className="text-sm text-gray-400 shrink-0">／总分</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.mathScoreTotal}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleChange('mathScoreTotal', val);
+                }}
+                placeholder="150"
+                className={`input w-24 shrink-0${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                disabled={sensitiveLocked}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">请填写分数与该科卷面总分（如 130／150）</p>
           </div>
 
-          {/* 高考物理成绩 */}
+          {/* 高考物理成绩 + 卷面总分 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               高考物理成绩 {formData.subjects.includes('PHYSICS') && <span className="text-red-500">*</span>}
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={formData.physicsScore === 0 ? '' : formData.physicsScore}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                const num = val === '' ? 0 : Math.min(110, parseInt(val));
-                handleChange('physicsScore', num);
-              }}
-              placeholder="如: 95"
-              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-              required={!sensitiveLocked && formData.subjects.includes('PHYSICS')}
-              disabled={sensitiveLocked}
-            />
-            <p className="text-xs text-gray-500 mt-1">请填写分数</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.physicsScore === 0 ? '' : formData.physicsScore}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  const num = val === '' ? 0 : Math.min(110, parseInt(val));
+                  handleChange('physicsScore', num);
+                }}
+                placeholder="如: 95"
+                className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                required={!sensitiveLocked && formData.subjects.includes('PHYSICS')}
+                disabled={sensitiveLocked}
+              />
+              <span className="text-sm text-gray-400 shrink-0">／总分</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.physicsScoreTotal}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleChange('physicsScoreTotal', val);
+                }}
+                placeholder="100"
+                className={`input w-24 shrink-0${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                disabled={sensitiveLocked}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">请填写分数与该科卷面总分（如 95／100）</p>
           </div>
 
-          {/* 高考化学成绩 */}
+          {/* 高考化学成绩 + 卷面总分 */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               高考化学成绩 {formData.subjects.includes('CHEMISTRY') && <span className="text-red-500">*</span>}
             </label>
-            <input
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              value={formData.chemistryScore === 0 ? '' : formData.chemistryScore}
-              onChange={(e) => {
-                const val = e.target.value.replace(/[^0-9]/g, '');
-                const num = val === '' ? 0 : Math.min(110, parseInt(val));
-                handleChange('chemistryScore', num);
-              }}
-              placeholder="如: 88"
-              className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
-              required={!sensitiveLocked && formData.subjects.includes('CHEMISTRY')}
-              disabled={sensitiveLocked}
-            />
-            <p className="text-xs text-gray-500 mt-1">请填写分数</p>
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.chemistryScore === 0 ? '' : formData.chemistryScore}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  const num = val === '' ? 0 : Math.min(110, parseInt(val));
+                  handleChange('chemistryScore', num);
+                }}
+                placeholder="如: 88"
+                className={`input${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                required={!sensitiveLocked && formData.subjects.includes('CHEMISTRY')}
+                disabled={sensitiveLocked}
+              />
+              <span className="text-sm text-gray-400 shrink-0">／总分</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
+                value={formData.chemistryScoreTotal}
+                onChange={(e) => {
+                  const val = e.target.value.replace(/[^0-9]/g, '');
+                  handleChange('chemistryScoreTotal', val);
+                }}
+                placeholder="100"
+                className={`input w-24 shrink-0${sensitiveLocked ? ' bg-gray-100 text-gray-500 cursor-not-allowed' : ''}`}
+                disabled={sensitiveLocked}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">请填写分数与该科卷面总分（如 88／100）</p>
           </div>
           
           {/* 数理化竞赛经历 */}
@@ -709,6 +838,16 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
           </p>
         </div>
       </div>
+
+      {/* 资质证明（选填）：学历/在读证明、教师资格证、普通话等级证 */}
+      <TaskQualifications
+        isInServiceTeacher={teacher.isInServiceTeacher === true}
+        initialItems={initialQualifications}
+        onChange={(payload, dirty) => {
+          setQualificationPayload(payload)
+          setQualificationDirty(dirty)
+        }}
+      />
       
       {/* 信息真实性承诺（提交前必须确认） */}
       <AuthenticityDeclaration

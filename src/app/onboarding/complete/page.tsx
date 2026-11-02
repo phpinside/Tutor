@@ -9,6 +9,7 @@ import {
   ensureCoachReview,
   getCoachReviewForTeacher,
   getCoachReviewRejectionForReferred,
+  getCoachReviewChallenge,
 } from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs } from '@/lib/config'
@@ -44,7 +45,9 @@ export default async function CompletePage() {
 
   const rejectedReferral = await getRejectedDirectReferralForReferred(teacherId)
   const coachReviewRejection = await getCoachReviewRejectionForReferred(teacherId)
-  if (rejectedReferral || coachReviewRejection) {
+  // 质疑取证中的教练需在引导页补交材料，不允许进入完成页
+  const coachReviewChallenge = await getCoachReviewChallenge(teacherId)
+  if (rejectedReferral || coachReviewRejection || coachReviewChallenge) {
     redirect('/onboarding')
   }
 

@@ -23,8 +23,17 @@ const FIELD_ORDER: SensitiveField[] = [
   'name',
   'gaokaoProvince',
   'mathScore',
+  'mathScoreTotal',
   'physicsScore',
+  'physicsScoreTotal',
   'chemistryScore',
+  'chemistryScoreTotal',
+]
+
+const SCORE_TOTAL_FIELDS: [SensitiveField, SensitiveField][] = [
+  ['mathScore', 'mathScoreTotal'],
+  ['physicsScore', 'physicsScoreTotal'],
+  ['chemistryScore', 'chemistryScoreTotal'],
 ]
 
 function formatValue(value: unknown): string {
@@ -95,8 +104,11 @@ export default function InfoChangeRequestSection({
     name: currentValues.name ?? '',
     gaokaoProvince: currentValues.gaokaoProvince ?? '',
     mathScore: currentValues.mathScore ?? '',
+    mathScoreTotal: currentValues.mathScoreTotal ?? '',
     physicsScore: currentValues.physicsScore ?? '',
+    physicsScoreTotal: currentValues.physicsScoreTotal ?? '',
     chemistryScore: currentValues.chemistryScore ?? '',
+    chemistryScoreTotal: currentValues.chemistryScoreTotal ?? '',
   })
   const [reason, setReason] = useState('')
   const [proofImages, setProofImages] = useState<{ key: string; previewUrl: string }[]>([])
@@ -113,8 +125,11 @@ export default function InfoChangeRequestSection({
       name: currentValues.name ?? '',
       gaokaoProvince: currentValues.gaokaoProvince ?? '',
       mathScore: currentValues.mathScore ?? '',
+      mathScoreTotal: currentValues.mathScoreTotal ?? '',
       physicsScore: currentValues.physicsScore ?? '',
+      physicsScoreTotal: currentValues.physicsScoreTotal ?? '',
       chemistryScore: currentValues.chemistryScore ?? '',
+      chemistryScoreTotal: currentValues.chemistryScoreTotal ?? '',
     })
     setReason('')
     setProofImages([])
@@ -191,16 +206,33 @@ export default function InfoChangeRequestSection({
     if (form.gaokaoProvince && form.gaokaoProvince !== (currentValues.gaokaoProvince ?? '')) {
       changes.gaokaoProvince = form.gaokaoProvince
     }
-    for (const field of ['mathScore', 'physicsScore', 'chemistryScore'] as const) {
-      const raw = String(form[field]).trim()
-      if (raw === '') continue
-      const num = parseInt(raw, 10)
-      if (Number.isNaN(num)) {
-        setErrorMsg(`${SENSITIVE_FIELD_LABELS[field]}需填写数字`)
+    for (const [scoreField, totalField] of SCORE_TOTAL_FIELDS) {
+      const scoreRaw = String(form[scoreField]).trim()
+      const totalRaw = String(form[totalField]).trim()
+      if (!scoreRaw && !totalRaw) continue
+      if (!scoreRaw || !totalRaw) {
+        setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}与卷面总分需同时填写`)
         return
       }
-      if (String(num) !== (currentValues[field] ?? '')) {
-        changes[field] = num
+      const scoreNum = parseInt(scoreRaw, 10)
+      const totalNum = parseInt(totalRaw, 10)
+      if (Number.isNaN(scoreNum) || Number.isNaN(totalNum)) {
+        setErrorMsg('成绩与总分需填写数字')
+        return
+      }
+      if (totalNum < 30 || totalNum > 150) {
+        setErrorMsg('卷面总分需为 30-150 的整数')
+        return
+      }
+      if (scoreNum > totalNum) {
+        setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}（${scoreNum}）不能高于卷面总分（${totalNum}）`)
+        return
+      }
+      if (String(scoreNum) !== (currentValues[scoreField] ?? '')) {
+        changes[scoreField] = scoreNum
+      }
+      if (String(totalNum) !== (currentValues[totalField] ?? '')) {
+        changes[totalField] = totalNum
       }
     }
     if (Object.keys(changes).length === 0) {
@@ -277,7 +309,7 @@ export default function InfoChangeRequestSection({
       </div>
 
       {/* 当前值 */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
         {FIELD_ORDER.map((field) => (
           <div key={field} className="rounded-lg bg-white border border-gray-200 p-3">
             <p className="text-xs text-gray-500 mb-1">{SENSITIVE_FIELD_LABELS[field]}</p>
@@ -434,19 +466,37 @@ export default function InfoChangeRequestSection({
                   </select>
                   <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues.gaokaoProvince)}</p>
                 </div>
-                {(['mathScore', 'physicsScore', 'chemistryScore'] as const).map((field) => (
-                  <div key={field}>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      {SENSITIVE_FIELD_LABELS[field]}
-                    </label>
-                    <input
-                      type="number"
-                      value={form[field]}
-                      onChange={(e) => setForm((p) => ({ ...p, [field]: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
-                      placeholder="不修改则留空"
-                    />
-                    <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues[field])}</p>
+                {SCORE_TOTAL_FIELDS.map(([scoreField, totalField]) => (
+                  <div key={scoreField} className="sm:col-span-2 rounded-lg border border-gray-200 p-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          {SENSITIVE_FIELD_LABELS[scoreField]}
+                        </label>
+                        <input
+                          type="number"
+                          value={form[scoreField]}
+                          onChange={(e) => setForm((p) => ({ ...p, [scoreField]: e.target.value }))}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                          placeholder="不修改则留空"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues[scoreField])}</p>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          卷面总分
+                        </label>
+                        <input
+                          type="number"
+                          value={form[totalField]}
+                          onChange={(e) => setForm((p) => ({ ...p, [totalField]: e.target.value }))}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                          placeholder="如 150 / 100"
+                        />
+                        <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues[totalField])}</p>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">该科成绩与卷面总分需同时填写（成绩不能高于总分）</p>
                   </div>
                 ))}
                 <div>

@@ -73,6 +73,7 @@ enum LearningPlannerReviewDecision {
 enum CoachReviewStage {
   FIRST_REVIEW // 待初审（或合并审核）
   FINAL_REVIEW // 待复审（初审已通过）
+  CHALLENGED // 质疑取证中（审核人打回，要求补交证明后重新提交）
   APPROVED // 终审通过
   REJECTED // 已驳回，等待教练修改
   PERMANENTLY_REJECTED // 已永久拒绝入驻（终态，不可返工）
@@ -93,6 +94,20 @@ enum TeacherInfoChangeRequestStatus {
   APPROVED // 复审通过并生效
   REJECTED // 初审或复审驳回
   CANCELLED // 教练撤回
+}
+
+// 教练资质证明类型
+enum TeacherQualificationType {
+  DEGREE_CERT // 学历学位证或在读学生证（学信网在线验证报告）
+  TEACHER_CERT // 教师资格证
+  MANDARIN_CERT // 普通话等级证
+  GAOKAO_SCORE // 高考成绩查询结果（质疑取证补交用）
+}
+
+// 资质证明来源
+enum TeacherQualificationSource {
+  ONBOARDING // 入驻表单提交
+  CHALLENGE // 质疑取证补交
 }
 
 // 授课状态枚举
@@ -194,14 +209,27 @@ model Teacher {
 
   gaokaoProvince String? // 参加高考的省份（新手引导表单必填；存量老师为空）
 
+  // 资质申报（教练自报口径，供其它服务直接读取；随入驻审核整体把关）
+  hasTeacherCert     Boolean @default(false) // 是否持有教师资格证
+  teacherCertStage   String? // 教师资格证学段：PRIMARY / JUNIOR / SENIOR
+  teacherCertSubject String? // 教师资格证学科：MATH / PHYSICS / CHEMISTRY / OTHER
+  mandarinLevel      String? // 普通话等级（一级甲等~三级乙等）
+  hasDegreeCert      Boolean @default(false) // 是否已提交学历学位或在读证明（学信网在线验证报告）
+  isInServiceTeacher Boolean @default(false) // 是否在职教师
+
+  // 学科信息
+
   // 学科信息
   subjects       String[] // 可教学科列表，如 ["MATH","PHYSICS"]
   primarySubject String? // 最擅长学科，如 "PHYSICS"
 
   // 教学能力 & 资质
-  mathScore          Int? // 高考数学成绩
-  physicsScore       Int? // 高考物理成绩
-  chemistryScore     Int? // 高考化学成绩
+  mathScore          Int? // 高考数学成绩（卷面分）
+  physicsScore       Int? // 高考物理成绩（卷面分）
+  chemistryScore     Int? // 高考化学成绩（卷面分）
+  mathScoreTotal     Int? // 高考数学卷面总分（与 mathScore 成对）
+  physicsScoreTotal  Int? // 高考物理卷面总分
+  chemistryScoreTotal Int? // 高考化学卷面总分
   mathCompetition    String? // 数学竞赛经历（旧字段，保留向下兼容）
   scienceCompetition String? // 数理化竞赛经历
   teachingExperience String? // 教学经验
@@ -252,6 +280,8 @@ model Teacher {
   caseImageRecords           CaseImageRecord[]
   studentCertificateRecords  StudentCertificateRecord[]
   infoChangeRequests         TeacherInfoChangeRequest[]
+  qualifications             TeacherQualification[]
+  teachingApproval           TeacherTeachingApproval?
 
   @@index([phone])
   @@index([currentTaskIndex])
@@ -713,6 +743,14 @@ model CoachReview {
   stage        CoachReviewStage @default(FIRST_REVIEW)
   attemptCount Int              @default(1) // 返工轮次
 
+  // 质疑取证（审核人对数据存疑时打回，要求补交证明后原审核人继续审）
+  challengeFromStage String? // 质疑发起阶段：FIRST_REVIEW / FINAL_REVIEW（补证后回到该阶段）
+  challengeItems     Json?   // 要求补交的证明类型数组（TeacherQualificationType），必含 GAOKAO_SCORE
+  challengeNote      String? @db.Text
+  challengedById     String? // Operator.id 或 'super_admin'
+  challengedByName   String?
+  challengedAt       DateTime?
+
   // 学管解析记录
   resolvedManagerPhone String? // API 返回的学管手机号
   resolveSource        String? // 'api' | 'inviter_chain' | 'merged' | 'team_assignment' | 'random_assignment'
@@ -764,6 +802,49 @@ model TeacherInfoChangeRequest {
   @@index([status, createdAt])
   @@index([teacherId])
   @@map("teacher_info_change_requests")
+}
+
+// 教练资质证明（学历学位/在读证明、教师资格证、普通话等级证；含质疑取证补交的高考成绩查询结果）
+model TeacherQualification {
+  id        String @id @default(cuid())
+  teacherId String
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  type   TeacherQualificationType
+  source TeacherQualificationSource @default(ONBOARDING)
+
+  // 证明文件（七牛 key 数组，图片/PDF，1-2 个，私有桶需签名访问）
+  files Json
+  // 附加信息：{ degreeLevel?, verifyCode?, certStage?, certSubject?, mandarinLevel? }
+  meta Json?
+
+  // source=CHALLENGE 时：对应 CoachReview.attemptCount 轮次
+  challengeRound Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([teacherId, type])
+  @@map("teacher_qualifications")
+}
+
+// 运营特批授课能力（用于教练可派单资格审查）
+// 可见性：教练不可见（独立表，教练端查询不触碰）；学管可见但不可修改；仅运营（OPERATOR）与超管可设置
+model TeacherTeachingApproval {
+  id        String @id @default(cuid())
+  teacherId String @unique
+  teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+
+  // 特批授课学段（逗号分隔 code）：PRIMARY / JUNIOR / JUNIOR_3 / SENIOR / SENIOR_3
+  levels String
+
+  updatedById   String? // Operator.id 或 'super_admin'
+  updatedByName String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("teacher_teaching_approvals")
 }
 
 // 系统配置表

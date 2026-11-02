@@ -7,9 +7,12 @@ import {
   submitFirstReview,
   submitFinalReview,
   updateFirstReviewer,
+  challengeCoachReview,
 } from '@/app/actions/coachReview'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
 import { formatDateTime } from '@/lib/utils'
+import { QUALIFICATION_TYPE_LABELS } from '@/lib/teacherQualificationShared'
+import type { QualificationType } from '@/lib/teacherQualificationShared'
 import OperatorPickerModal from './OperatorPickerModal'
 
 type Viewer = {
@@ -25,6 +28,7 @@ type RejectTarget =
 const STAGE_LABELS: Record<string, string> = {
   FIRST_REVIEW: '待初审',
   FINAL_REVIEW: '待复审',
+  CHALLENGED: '质疑取证中',
   APPROVED: '审核通过',
   REJECTED: '已驳回',
   PERMANENTLY_REJECTED: '已永久拒绝',
@@ -47,6 +51,9 @@ export default function CoachReviewPanel({
   const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
   const [rejectTarget, setRejectTarget] = useState<RejectTarget>(null)
+  const [challengeOpen, setChallengeOpen] = useState(false)
+  const [challengeItems, setChallengeItems] = useState<QualificationType[]>(['GAOKAO_SCORE'])
+  const [challengeNote, setChallengeNote] = useState('')
   const [error, setError] = useState<string | null>(null)
 
   const isFirstReviewer =
@@ -117,12 +124,32 @@ export default function CoachReviewPanel({
     return false
   }
 
+  const handleChallengeSubmit = async (): Promise<boolean> => {
+    setIsLoading(true)
+    setError(null)
+    const result = await challengeCoachReview(review.id, challengeItems, challengeNote)
+    setIsLoading(false)
+    if (result.success) {
+      setChallengeOpen(false)
+      setChallengeNote('')
+      setChallengeItems(['GAOKAO_SCORE'])
+      router.refresh()
+      return true
+    }
+    setError(result.error || '操作失败')
+    return false
+  }
+
   const stageBadgeClass =
     review.stage === 'APPROVED'
       ? 'bg-success-100 text-success-800'
       : review.stage === 'REJECTED' || review.stage === 'PERMANENTLY_REJECTED'
         ? 'bg-red-100 text-red-800'
-        : 'bg-amber-100 text-amber-800'
+        : review.stage === 'CHALLENGED'
+          ? 'bg-orange-100 text-orange-800'
+          : 'bg-amber-100 text-amber-800'
+
+  const canChallengeFinal = canDoFinalReview && review.stage === 'FINAL_REVIEW'
 
   return (
     <div className="card mb-8">
@@ -138,6 +165,81 @@ export default function CoachReviewPanel({
         }
         initialText={rejectTarget?.permanent ? '' : null}
       />
+
+      {/* 质疑取证弹窗 */}
+      {challengeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="p-5 border-b border-gray-100">
+              <h3 className="text-base font-bold text-gray-900">质疑取证</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                将入驻申请打回，要求教练补交指定证明材料；补齐后重新提交，由您继续审核。
+              </p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <p className="text-sm font-medium text-gray-700 mb-2">要求补交的证明（可多选）</p>
+                <div className="space-y-2">
+                  <label className="flex items-start gap-2 text-sm text-gray-700 cursor-not-allowed">
+                    <input type="checkbox" checked disabled className="mt-0.5" />
+                    <span>
+                      {QUALIFICATION_TYPE_LABELS.GAOKAO_SCORE}
+                      <span className="ml-1 text-xs text-gray-400">（默认必选）</span>
+                    </span>
+                  </label>
+                  {(['DEGREE_CERT', 'TEACHER_CERT', 'MANDARIN_CERT'] as QualificationType[]).map(
+                    (type) => (
+                      <label key={type} className="flex items-start gap-2 text-sm text-gray-700 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={challengeItems.includes(type)}
+                          onChange={(e) =>
+                            setChallengeItems((prev) =>
+                              e.target.checked ? [...prev, type] : prev.filter((t) => t !== type)
+                            )
+                          }
+                          className="mt-0.5"
+                        />
+                        <span>{QUALIFICATION_TYPE_LABELS[type]}</span>
+                      </label>
+                    )
+                  )}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  质疑说明（必填，教练可见）
+                </label>
+                <textarea
+                  value={challengeNote}
+                  onChange={(e) => setChallengeNote(e.target.value)}
+                  rows={3}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none resize-none"
+                  placeholder="例如：数学成绩与提交的视频水平差距较大，请提供高考成绩查询结果予以证明"
+                />
+              </div>
+            </div>
+            <div className="p-5 border-t border-gray-100 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setChallengeOpen(false)}
+                disabled={isLoading}
+                className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-50"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleChallengeSubmit}
+                disabled={isLoading || !challengeNote.trim()}
+                className="px-4 py-2 rounded-lg bg-orange-600 hover:bg-orange-700 text-white text-sm font-medium disabled:opacity-50"
+              >
+                {isLoading ? '处理中…' : '打回并要求补证'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-900">教练审核</h2>
@@ -273,6 +375,14 @@ export default function CoachReviewPanel({
               >
                 永久拒绝入驻
               </button>
+              <button
+                type="button"
+                onClick={() => setChallengeOpen(true)}
+                disabled={isLoading}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 disabled:opacity-50 transition-colors"
+              >
+                质疑取证
+              </button>
             </>
           )}
           {canDoFinalReview && (
@@ -305,8 +415,27 @@ export default function CoachReviewPanel({
               >
                 永久拒绝入驻
               </button>
+              {canChallengeFinal && (
+                <button
+                  type="button"
+                  onClick={() => setChallengeOpen(true)}
+                  disabled={isLoading}
+                  className="px-4 py-2 text-sm font-medium rounded-lg bg-orange-100 text-orange-700 hover:bg-orange-200 disabled:opacity-50 transition-colors"
+                >
+                  质疑取证
+                </button>
+              )}
             </>
           )}
+        </div>
+      )}
+
+      {review.stage === 'CHALLENGED' && (
+        <div className="rounded-lg border border-orange-200 bg-orange-50 px-4 py-3 text-sm text-orange-900">
+          <p className="font-medium text-orange-950 mb-1">质疑取证中，等待教练补交材料</p>
+          <p className="text-orange-800">
+            教练补齐材料并重新提交后，将回到{review.challengeFromStage === 'FINAL_REVIEW' ? '复审' : '初审'}由您继续审核。
+          </p>
         </div>
       )}
 

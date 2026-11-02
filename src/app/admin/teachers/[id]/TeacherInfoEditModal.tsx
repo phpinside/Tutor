@@ -30,6 +30,9 @@ interface TeacherData {
   mathScore: number | null
   physicsScore: number | null
   chemistryScore: number | null
+  mathScoreTotal: number | null
+  physicsScoreTotal: number | null
+  chemistryScoreTotal: number | null
   scienceCompetition: string | null
   teachingExperience: string | null
   gradePreference: string | null
@@ -68,6 +71,9 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
     mathScore: teacher.mathScore ?? 0,
     physicsScore: teacher.physicsScore ?? 0,
     chemistryScore: teacher.chemistryScore ?? 0,
+    mathScoreTotal: teacher.mathScoreTotal != null ? String(teacher.mathScoreTotal) : '',
+    physicsScoreTotal: teacher.physicsScoreTotal != null ? String(teacher.physicsScoreTotal) : '',
+    chemistryScoreTotal: teacher.chemistryScoreTotal != null ? String(teacher.chemistryScoreTotal) : '',
     scienceCompetition: teacher.scienceCompetition || '',
     teachingExperience: teacher.teachingExperience || '',
     gradePreference: teacher.gradePreference ? teacher.gradePreference.split(',') : [],
@@ -117,6 +123,9 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
       mathScore: teacher.mathScore ?? 0,
       physicsScore: teacher.physicsScore ?? 0,
       chemistryScore: teacher.chemistryScore ?? 0,
+      mathScoreTotal: teacher.mathScoreTotal != null ? String(teacher.mathScoreTotal) : '',
+      physicsScoreTotal: teacher.physicsScoreTotal != null ? String(teacher.physicsScoreTotal) : '',
+      chemistryScoreTotal: teacher.chemistryScoreTotal != null ? String(teacher.chemistryScoreTotal) : '',
       scienceCompetition: teacher.scienceCompetition || '',
       teachingExperience: teacher.teachingExperience || '',
       gradePreference: teacher.gradePreference ? teacher.gradePreference.split(',') : [],
@@ -163,6 +172,9 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
         mathScore: formData.mathScore || undefined,
         physicsScore: formData.physicsScore || undefined,
         chemistryScore: formData.chemistryScore || undefined,
+        mathScoreTotal: formData.mathScoreTotal.trim() === '' ? undefined : parseInt(formData.mathScoreTotal, 10) || undefined,
+        physicsScoreTotal: formData.physicsScoreTotal.trim() === '' ? undefined : parseInt(formData.physicsScoreTotal, 10) || undefined,
+        chemistryScoreTotal: formData.chemistryScoreTotal.trim() === '' ? undefined : parseInt(formData.chemistryScoreTotal, 10) || undefined,
         scienceCompetition: formData.scienceCompetition || undefined,
         teachingExperience: formData.teachingExperience || undefined,
         gradePreference: (formData.gradePreference as string[]).join(',') || undefined,
@@ -200,6 +212,22 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
         const num = val === '' ? 0 : Math.min(max, parseInt(val))
         handleChange(field, num)
       }}
+      className={`input${sensitiveEditable ? '' : ' bg-gray-100 text-gray-500 cursor-not-allowed'}`}
+    />
+  )
+
+  const totalInput = (field: 'mathScoreTotal' | 'physicsScoreTotal' | 'chemistryScoreTotal') => (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      disabled={!sensitiveEditable}
+      value={formData[field]}
+      onChange={(e) => {
+        const val = e.target.value.replace(/[^0-9]/g, '')
+        handleChange(field, val)
+      }}
+      placeholder="总分"
       className={`input${sensitiveEditable ? '' : ' bg-gray-100 text-gray-500 cursor-not-allowed'}`}
     />
   )
@@ -341,17 +369,29 @@ export default function TeacherInfoEditModal({ teacherId, teacher, sensitiveEdit
                   <h4 className="text-sm font-semibold text-gray-700 mb-3 pb-1 border-b border-gray-100">教学能力 & 资质</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">高考数学成绩</label>
-                      {scoreInput('mathScore', 150)}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">高考数学成绩／总分</label>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 min-w-0">{scoreInput('mathScore', 150)}</div>
+                        <span className="text-xs text-gray-400 shrink-0">/</span>
+                        <div className="w-20 shrink-0">{totalInput('mathScoreTotal')}</div>
+                      </div>
                       <p className="text-xs text-gray-400 mt-1">满分 150 分</p>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">高考物理成绩</label>
-                      {scoreInput('physicsScore', 150)}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">高考物理成绩／总分</label>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 min-w-0">{scoreInput('physicsScore', 150)}</div>
+                        <span className="text-xs text-gray-400 shrink-0">/</span>
+                        <div className="w-20 shrink-0">{totalInput('physicsScoreTotal')}</div>
+                      </div>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">高考化学成绩</label>
-                      {scoreInput('chemistryScore', 150)}
+                      <label className="block text-sm font-medium text-gray-700 mb-1">高考化学成绩／总分</label>
+                      <div className="flex items-center gap-1.5">
+                        <div className="flex-1 min-w-0">{scoreInput('chemistryScore', 150)}</div>
+                        <span className="text-xs text-gray-400 shrink-0">/</span>
+                        <div className="w-20 shrink-0">{totalInput('chemistryScoreTotal')}</div>
+                      </div>
                     </div>
                     <div className="sm:col-span-3">
                       <label className="block text-sm font-medium text-gray-700 mb-1">数理化竞赛经历</label>

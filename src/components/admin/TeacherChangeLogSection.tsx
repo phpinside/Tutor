@@ -24,6 +24,11 @@ const ACTION_LABELS: Record<string, string> = {
   FIRST_REVIEW_INFO_CHANGE_REQUEST: '资料修改申请初审',
   FINAL_REVIEW_INFO_CHANGE_REQUEST: '资料修改申请复审',
   ACCEPT_AUTHENTICITY_COMMITMENT: '确认信息真实性承诺',
+  CHALLENGE_COACH_REVIEW: '入驻质疑取证打回',
+  RESUBMIT_COACH_REVIEW: '入驻重新提交审核',
+  SAVE_TEACHER_QUALIFICATIONS: '提交资质证明',
+  SUBMIT_CHALLENGE_EVIDENCE: '补交质疑取证材料',
+  UPDATE_TEACHING_APPROVAL: '设置特批授课能力',
 }
 
 const FIELD_LABELS: Record<string, string> = {

@@ -20,7 +20,10 @@ import { canPerformFinalReview } from '@/app/actions/coachReview'
 import NoPermission from '@/components/admin/NoPermission'
 import TeacherChangeLogSection from '@/components/admin/TeacherChangeLogSection'
 import TeacherInfoChangeRequestHistory from './TeacherInfoChangeRequestHistory'
+import TeacherQualificationsSection from './TeacherQualificationsSection'
+import TeachingApprovalSection from './TeachingApprovalSection'
 import { toInfoChangeReviewItemView } from '@/lib/teacherInfoChangeServer'
+import { parseTeachingApprovalLevels } from '@/lib/teachingApprovalShared'
 import { getTeacherChangeLogs } from '@/app/actions/auditLogActions'
 import {
   getLearningPlannerStatusBadgeClass,
@@ -162,11 +165,20 @@ export default async function TeacherDetailPage({
           mathScore: true,
           physicsScore: true,
           chemistryScore: true,
+          mathScoreTotal: true,
+          physicsScoreTotal: true,
+          chemistryScoreTotal: true,
         },
       },
     },
   })
   const infoChangeItems = infoChangeRows.map(toInfoChangeReviewItemView)
+
+  // 运营特批授课能力（教练不可见；学管只读）
+  const teachingApproval = await prisma.teacherTeachingApproval.findUnique({
+    where: { teacherId: id },
+  })
+  const teachingApprovalLevels = parseTeachingApprovalLevels(teachingApproval?.levels ?? null)
 
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
@@ -335,15 +347,53 @@ export default async function TeacherDetailPage({
             </div>
             <div>
               <p className="text-gray-500 mb-1">高考数学成绩</p>
-              <p className="font-medium text-gray-900">{teacher.mathScore ? `${teacher.mathScore}分` : '未填写'}</p>
+              <p className="font-medium text-gray-900">
+                {teacher.mathScore
+                  ? teacher.mathScoreTotal
+                    ? `${teacher.mathScore}／${teacher.mathScoreTotal}分`
+                    : `${teacher.mathScore}分`
+                  : '未填写'}
+              </p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">高考物理成绩</p>
-              <p className="font-medium text-gray-900">{teacher.physicsScore ? `${teacher.physicsScore}分` : '未填写'}</p>
+              <p className="font-medium text-gray-900">
+                {teacher.physicsScore
+                  ? teacher.physicsScoreTotal
+                    ? `${teacher.physicsScore}／${teacher.physicsScoreTotal}分`
+                    : `${teacher.physicsScore}分`
+                  : '未填写'}
+              </p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">高考化学成绩</p>
-              <p className="font-medium text-gray-900">{teacher.chemistryScore ? `${teacher.chemistryScore}分` : '未填写'}</p>
+              <p className="font-medium text-gray-900">
+                {teacher.chemistryScore
+                  ? teacher.chemistryScoreTotal
+                    ? `${teacher.chemistryScore}／${teacher.chemistryScoreTotal}分`
+                    : `${teacher.chemistryScore}分`
+                  : '未填写'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">教师资格证</p>
+              <p className="font-medium text-gray-900">
+                {teacher.hasTeacherCert
+                  ? `有（${teacher.teacherCertStage ? { PRIMARY: '小学', JUNIOR: '初中', SENIOR: '高中' }[teacher.teacherCertStage] ?? teacher.teacherCertStage : '学段未填'}·${teacher.teacherCertSubject ? { MATH: '数学', PHYSICS: '物理', CHEMISTRY: '化学', OTHER: '其它' }[teacher.teacherCertSubject] ?? teacher.teacherCertSubject : '学科未填'}）`
+                  : '未申报'}
+              </p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">普通话等级</p>
+              <p className="font-medium text-gray-900">{teacher.mandarinLevel || '未申报'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">学历/在读证明</p>
+              <p className="font-medium text-gray-900">{teacher.hasDegreeCert ? '已提交' : '未申报'}</p>
+            </div>
+            <div>
+              <p className="text-gray-500 mb-1">是否在职教师</p>
+              <p className="font-medium text-gray-900">{teacher.isInServiceTeacher ? '是' : '否'}</p>
             </div>
             <div>
               <p className="text-gray-500 mb-1">数理化竞赛经历</p>
@@ -842,6 +892,23 @@ export default async function TeacherDetailPage({
         viewerName={viewerInfo.name}
         initialRemarks={remarks}
       />
+
+      {/* 运营特批授课能力（教练不可见；学管只读） */}
+      <div className="mt-8">
+        <TeachingApprovalSection
+          teacherId={id}
+          initialLevels={teachingApprovalLevels}
+          updatedByName={teachingApproval?.updatedByName ?? null}
+          updatedAt={teachingApproval?.updatedAt.toISOString() ?? null}
+          canEdit={viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR'}
+          viewerIsLearnerManager={viewerOperatorRole === 'LEARNER_MANAGER'}
+        />
+      </div>
+
+      {/* 资质证明 */}
+      <div className="mt-8">
+        <TeacherQualificationsSection teacherId={id} />
+      </div>
 
       {/* 资料修改申请历史 */}
       <div className="mt-8">

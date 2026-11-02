@@ -3,6 +3,7 @@
 import { cookies } from 'next/headers'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
+import { Prisma } from '@prisma/client'
 import {
   isCoachReviewEligible,
   resolveFirstReviewerUnified,
@@ -12,6 +13,8 @@ import {
 import { updateReferralStats } from './teacher'
 import { recordAudit } from '@/lib/auditLog'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
+import { QUALIFICATION_TYPE_LABELS } from '@/lib/teacherQualificationShared'
+import type { QualificationType } from '@/lib/teacherQualificationShared'
 
 // 与 coachReviewConfigActions.ts 中的开关键保持一致（该文件为 "use server"，不可导出常量）
 const OPERATOR_FINAL_REVIEW_KEY = 'OPERATOR_FINAL_REVIEW_ENABLED'
@@ -167,6 +170,7 @@ function toSnapshot(
     finalReviewNote: review.finalReviewNote,
     stage: review.stage,
     attemptCount: review.attemptCount,
+    challengeFromStage: review.challengeFromStage,
     resolvedManagerPhone: review.resolvedManagerPhone,
     resolveSource: review.resolveSource,
     firstReviewOperatorName: null,
@@ -751,6 +755,118 @@ export async function batchSubmitFinalReview(
   }
 }
 
+const CHALLENGEABLE_TYPES = ['GAOKAO_SCORE', 'DEGREE_CERT', 'TEACHER_CERT', 'MANDARIN_CERT']
+
+function parseChallengeItems(value: unknown): string[] {
+  if (!Array.isArray(value)) return []
+  return value.filter((v): v is string => typeof v === 'string')
+}
+
+/**
+ * 质疑取证：初审人（学管/运营）或复审人（运营/超管）对数据存疑时打回，
+ * 教练按要求补交证明后重新提交，回到发起质疑的阶段由原审核人继续审。
+ */
+export async function challengeCoachReview(
+  reviewId: string,
+  items: string[],
+  note?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const normalizedItems = Array.from(new Set((items ?? []).map((t) => String(t).trim()).filter(Boolean)))
+    if (!normalizedItems.includes('GAOKAO_SCORE')) {
+      return { success: false, error: '质疑取证必须包含「高考成绩查询结果」' }
+    }
+    if (normalizedItems.some((t) => !CHALLENGEABLE_TYPES.includes(t))) {
+      return { success: false, error: '包含不支持的证明类型' }
+    }
+    const trimmedNote = note?.trim()
+    if (!trimmedNote) {
+      return { success: false, error: '请填写质疑说明（将展示给教练）' }
+    }
+
+    const review = await prisma.coachReview.findUnique({
+      where: { id: reviewId },
+      select: {
+        id: true,
+        teacherId: true,
+        stage: true,
+        firstReviewVerdict: true,
+        finalReviewVerdict: true,
+        firstReviewOperatorId: true,
+        finalReviewOperatorId: true,
+      },
+    })
+    if (!review) return { success: false, error: '审核记录不存在' }
+
+    let challengeFromStage: 'FIRST_REVIEW' | 'FINAL_REVIEW'
+    let actorType: 'OPERATOR' | 'ADMIN'
+    let actorId: string
+    let actorName: string
+
+    if (review.stage === 'FIRST_REVIEW') {
+      const operatorSession = await getOperatorSession()
+      if (!operatorSession || operatorSession.operatorId !== review.firstReviewOperatorId) {
+        return { success: false, error: '仅该教练的初审人可发起质疑取证' }
+      }
+      if (review.firstReviewVerdict !== 'PENDING') {
+        return { success: false, error: '初审已完成' }
+      }
+      challengeFromStage = 'FIRST_REVIEW'
+      actorType = 'OPERATOR'
+      actorId = operatorSession.operatorId
+      actorName = operatorSession.name
+    } else if (review.stage === 'FINAL_REVIEW') {
+      const finalReviewSession = await getFinalReviewSession(review)
+      if (!finalReviewSession) {
+        return { success: false, error: '无权限，复审质疑仅限超管、被分配的复审人或已授权的运营' }
+      }
+      if (review.finalReviewVerdict !== 'PENDING') {
+        return { success: false, error: '复审已完成' }
+      }
+      challengeFromStage = 'FINAL_REVIEW'
+      actorType = finalReviewSession.operatorId ? 'OPERATOR' : 'ADMIN'
+      actorId = finalReviewSession.operatorId ?? 'super_admin'
+      actorName = finalReviewSession.operatorId ? finalReviewSession.reviewerLabel : '管理员'
+    } else {
+      return { success: false, error: '该记录当前不可发起质疑取证' }
+    }
+
+    const result = await prisma.coachReview.updateMany({
+      where: { id: reviewId, stage: review.stage },
+      data: {
+        stage: 'CHALLENGED',
+        challengeFromStage,
+        challengeItems: normalizedItems as never,
+        challengeNote: trimmedNote,
+        challengedById: actorId,
+        challengedByName: actorName,
+        challengedAt: new Date(),
+      },
+    })
+    if (result.count !== 1) {
+      return { success: false, error: '该记录已被处理，请刷新后重试' }
+    }
+
+    await recordAudit({
+      actorType,
+      actorId,
+      actorName,
+      action: 'CHALLENGE_COACH_REVIEW',
+      targetType: 'TEACHER',
+      targetId: review.teacherId,
+      detail: { items: normalizedItems, note: trimmedNote, fromStage: review.stage },
+    })
+
+    revalidatePath('/admin/teachers')
+    revalidatePath(`/admin/teachers/${review.teacherId}`)
+    revalidatePath('/onboarding')
+    return { success: true }
+  } catch (error) {
+    console.error('质疑取证打回失败:', error)
+    return { success: false, error: '操作失败，请重试' }
+  }
+}
+
 export async function resubmitCoachReview(): Promise<{
   success: boolean
   error?: string
@@ -761,10 +877,97 @@ export async function resubmitCoachReview(): Promise<{
 
     const review = await prisma.coachReview.findUnique({
       where: { teacherId },
-      select: { id: true, stage: true },
+      select: {
+        id: true,
+        stage: true,
+        challengeFromStage: true,
+        challengeItems: true,
+        challengedAt: true,
+      },
     })
 
     if (!review) return { success: false, error: '审核记录不存在' }
+
+    // 质疑取证补证后重新提交：必须补齐全部要求项，且回到发起质疑的阶段
+    if (review.stage === 'CHALLENGED') {
+      if (!review.challengedAt) {
+        return { success: false, error: '质疑记录异常，请联系运营处理' }
+      }
+      const requiredTypes = parseChallengeItems(review.challengeItems)
+      if (requiredTypes.length === 0) {
+        return { success: false, error: '质疑要求清单异常，请联系运营处理' }
+      }
+
+      const missingTypes: string[] = []
+      for (const type of requiredTypes) {
+        const count = await prisma.teacherQualification.count({
+          where: {
+            teacherId,
+            type: type as never,
+            createdAt: { gt: review.challengedAt },
+          },
+        })
+        if (count === 0) missingTypes.push(type)
+      }
+      if (missingTypes.length > 0) {
+        const labels = missingTypes.map(
+          (t) => QUALIFICATION_TYPE_LABELS[t as QualificationType] ?? t
+        )
+        return { success: false, error: `请先补交：${labels.join('、')}` }
+      }
+
+      const nextStage = review.challengeFromStage === 'FINAL_REVIEW' ? 'FINAL_REVIEW' : 'FIRST_REVIEW'
+      await prisma.coachReview.update({
+        where: { id: review.id },
+        data: {
+          stage: nextStage,
+          // 初审质疑：初审人不变，仅重置结论待其复核
+          ...(nextStage === 'FIRST_REVIEW'
+            ? {
+                firstReviewVerdict: 'PENDING' as const,
+                firstReviewedBy: null,
+                firstReviewedAt: null,
+                firstReviewNote: null,
+              }
+            : {
+                finalReviewVerdict: 'PENDING' as const,
+                finalReviewedBy: null,
+                finalReviewedAt: null,
+                finalReviewNote: null,
+              }),
+          challengeFromStage: null,
+          challengeItems: Prisma.JsonNull,
+          challengeNote: null,
+          challengedById: null,
+          challengedByName: null,
+          challengedAt: null,
+          attemptCount: { increment: 1 },
+        },
+      })
+
+      const reviewRecord = await prisma.coachReview.findUnique({
+        where: { id: review.id },
+        select: { teacher: { select: { name: true } } },
+      })
+
+      await recordAudit({
+        actorType: 'TEACHER',
+        actorId: teacherId,
+        actorName: reviewRecord?.teacher.name ?? null,
+        action: 'RESUBMIT_COACH_REVIEW',
+        targetType: 'TEACHER',
+        targetId: teacherId,
+        detail: { mode: 'CHALLENGE', nextStage },
+      })
+
+      revalidatePath('/onboarding')
+      revalidatePath('/onboarding/complete')
+      revalidatePath('/admin/teachers')
+      revalidatePath(`/admin/teachers/${teacherId}`)
+
+      return { success: true }
+    }
+
     if (review.stage !== 'REJECTED') {
       return { success: false, error: '当前状态不可重新提交' }
     }
@@ -796,6 +999,44 @@ export async function resubmitCoachReview(): Promise<{
   } catch (error) {
     console.error('重新提交教练审核失败:', error)
     return { success: false, error: '提交失败，请重试' }
+  }
+}
+
+export type CoachReviewChallenge = {
+  note: string
+  items: string[]
+  challengedByName: string | null
+  challengedAt: Date
+  attemptCount: number
+}
+
+/** 教练端：质疑取证要求（stage = CHALLENGED 时返回） */
+export async function getCoachReviewChallenge(
+  teacherId: string
+): Promise<CoachReviewChallenge | null> {
+  try {
+    const review = await prisma.coachReview.findUnique({
+      where: { teacherId },
+      select: {
+        stage: true,
+        challengeNote: true,
+        challengeItems: true,
+        challengedByName: true,
+        challengedAt: true,
+        attemptCount: true,
+      },
+    })
+    if (!review || review.stage !== 'CHALLENGED' || !review.challengedAt) return null
+    return {
+      note: review.challengeNote ?? '',
+      items: parseChallengeItems(review.challengeItems),
+      challengedByName: review.challengedByName,
+      challengedAt: review.challengedAt,
+      attemptCount: review.attemptCount,
+    }
+  } catch (error) {
+    console.error('查询质疑取证要求失败:', error)
+    return null
   }
 }
 

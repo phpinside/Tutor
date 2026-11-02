@@ -12,8 +12,11 @@ import {
   SENSITIVE_FIELDS,
   SENSITIVE_FIELD_LABELS,
   SENSITIVE_FIELD_SET,
+  SCORE_TOTAL_MIN,
+  SCORE_TOTAL_MAX,
   hasPassedOnboarding,
   isSameValue,
+  validateScoreTotalPair,
 } from '@/lib/teacherSensitiveFields'
 import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
@@ -61,6 +64,20 @@ function validateSensitiveValue(field: SensitiveField, value: unknown): string |
       // 物理/化学满分因省份与年代而异（老高考理综可达 110/100），上限放宽到 300
       if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 300) {
         return `${SENSITIVE_FIELD_LABELS[field]}需为 0-300 的整数`
+      }
+      return null
+    }
+    case 'mathScoreTotal':
+    case 'physicsScoreTotal':
+    case 'chemistryScoreTotal': {
+      // 卷面总分：单科最高 150 分
+      if (
+        typeof value !== 'number' ||
+        !Number.isInteger(value) ||
+        value < SCORE_TOTAL_MIN ||
+        value > SCORE_TOTAL_MAX
+      ) {
+        return `${SENSITIVE_FIELD_LABELS[field]}需为 ${SCORE_TOTAL_MIN}-${SCORE_TOTAL_MAX} 的整数`
       }
       return null
     }
@@ -145,6 +162,9 @@ export async function submitInfoChangeRequest(input: InfoChangeRequestInput) {
     if (Object.keys(changes).length === 0) {
       return { success: false as const, error: '未检测到任何修改内容' }
     }
+
+    const pairInvalid = validateScoreTotalPair(record, changes)
+    if (pairInvalid) return { success: false as const, error: pairInvalid }
 
     const pending = await prisma.teacherInfoChangeRequest.findFirst({
       where: {
@@ -345,11 +365,26 @@ export async function finalReviewInfoChangeRequest(
       if (invalid) return { success: false as const, error: `申请数据异常：${invalid}` }
     }
 
-    const teacherExists = await prisma.teacher.findUnique({
+    const teacherRecord = await prisma.teacher.findUnique({
       where: { id: request.teacherId },
-      select: { id: true },
+      select: {
+        id: true,
+        mathScore: true,
+        physicsScore: true,
+        chemistryScore: true,
+        mathScoreTotal: true,
+        physicsScoreTotal: true,
+        chemistryScoreTotal: true,
+      },
     })
-    if (!teacherExists) return { success: false as const, error: '老师不存在' }
+    if (!teacherRecord) return { success: false as const, error: '老师不存在' }
+
+    // 生效前以「变更后」的成对值复核成绩与总分
+    const pairInvalid = validateScoreTotalPair(
+      teacherRecord as unknown as Record<string, unknown>,
+      changes
+    )
+    if (pairInvalid) return { success: false as const, error: `申请数据异常：${pairInvalid}` }
 
     if (decision === 'REJECTED') {
       const result = await prisma.teacherInfoChangeRequest.updateMany({
@@ -409,6 +444,9 @@ export async function finalReviewInfoChangeRequest(
             ...(toValues.has('mathScore') ? { mathScore: toValues.get('mathScore') as number } : {}),
             ...(toValues.has('physicsScore') ? { physicsScore: toValues.get('physicsScore') as number } : {}),
             ...(toValues.has('chemistryScore') ? { chemistryScore: toValues.get('chemistryScore') as number } : {}),
+            ...(toValues.has('mathScoreTotal') ? { mathScoreTotal: toValues.get('mathScoreTotal') as number } : {}),
+            ...(toValues.has('physicsScoreTotal') ? { physicsScoreTotal: toValues.get('physicsScoreTotal') as number } : {}),
+            ...(toValues.has('chemistryScoreTotal') ? { chemistryScoreTotal: toValues.get('chemistryScoreTotal') as number } : {}),
           },
         })
       })

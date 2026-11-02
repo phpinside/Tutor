@@ -11,9 +11,12 @@ import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import {
   SENSITIVE_FIELDS,
   SENSITIVE_FIELD_LABELS,
+  SCORE_TOTAL_MIN,
+  SCORE_TOTAL_MAX,
   canDirectEditSensitiveFields,
   hasPassedOnboarding,
   isSameValue,
+  validateScoreTotalPair,
 } from '@/lib/teacherSensitiveFields'
 import { AUTHENTICITY_COMMITMENT_VERSION } from '@/lib/teacherInfoChangeShared'
 import { recordAudit } from '@/lib/auditLog'
@@ -241,6 +244,10 @@ export async function updateTeacherInfo(teacherId: string, data: {
   mathScore?: number
   physicsScore?: number
   chemistryScore?: number
+  mathScoreTotal?: number
+  physicsScoreTotal?: number
+  chemistryScoreTotal?: number
+  isInServiceTeacher?: boolean
   mathCompetition?: string
   scienceCompetition?: string
   teachingExperience?: string
@@ -333,6 +340,28 @@ export async function updateTeacherInfo(teacherId: string, data: {
         success: false,
         error: '请先阅读并勾选「信息真实性承诺」后再提交',
       }
+    }
+
+    // 卷面总分范围校验（单科最高 150 分；直改路径同样生效）
+    const totalFields = ['mathScoreTotal', 'physicsScoreTotal', 'chemistryScoreTotal'] as const
+    for (const field of totalFields) {
+      const value = updateData[field]
+      if (value === undefined) continue
+      if (typeof value !== 'number' || !Number.isInteger(value) || value < SCORE_TOTAL_MIN || value > SCORE_TOTAL_MAX) {
+        return { success: false, error: `${SENSITIVE_FIELD_LABELS[field]}需为 ${SCORE_TOTAL_MIN}-${SCORE_TOTAL_MAX} 的整数` }
+      }
+    }
+
+    // 成绩-总分交叉校验（直改路径同样生效；以变更后成对值判断）
+    const partialChanges: Record<string, { to: unknown }> = {}
+    for (const field of ['mathScore', 'physicsScore', 'chemistryScore', ...totalFields] as const) {
+      if (updateData[field] !== undefined) {
+        partialChanges[field] = { to: updateData[field] }
+      }
+    }
+    const pairInvalid = validateScoreTotalPair(existing as unknown as Record<string, unknown>, partialChanges)
+    if (pairInvalid) {
+      return { success: false, error: pairInvalid }
     }
 
     // 承诺确认留痕：记录确认人、入口与文案版本（文案变更时递增 AUTHENTICITY_COMMITMENT_VERSION）

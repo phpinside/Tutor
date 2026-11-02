@@ -12,6 +12,9 @@ export const SENSITIVE_FIELDS = [
   'mathScore',
   'physicsScore',
   'chemistryScore',
+  'mathScoreTotal',
+  'physicsScoreTotal',
+  'chemistryScoreTotal',
 ] as const
 
 export type SensitiveField = (typeof SENSITIVE_FIELDS)[number]
@@ -24,6 +27,9 @@ export const SENSITIVE_FIELD_LABELS: Record<SensitiveField, string> = {
   mathScore: '高考数学成绩',
   physicsScore: '高考物理成绩',
   chemistryScore: '高考化学成绩',
+  mathScoreTotal: '高考数学卷面总分',
+  physicsScoreTotal: '高考物理卷面总分',
+  chemistryScoreTotal: '高考化学卷面总分',
 }
 
 /**
@@ -49,4 +55,35 @@ export function canDirectEditSensitiveFields(operatorRole: string | null | undef
 /** 值是否等价（null/undefined 归一化后比较，兼容对象/数组/标量） */
 export function isSameValue(a: unknown, b: unknown): boolean {
   return JSON.stringify(a ?? null) === JSON.stringify(b ?? null)
+}
+
+/** 成绩-卷面总分成对关系 */
+export const SCORE_TOTAL_PAIRS: [SensitiveField, SensitiveField][] = [
+  ['mathScore', 'mathScoreTotal'],
+  ['physicsScore', 'physicsScoreTotal'],
+  ['chemistryScore', 'chemistryScoreTotal'],
+]
+
+/** 卷面总分取值范围（单科最高 150 分） */
+export const SCORE_TOTAL_MIN = 30
+export const SCORE_TOTAL_MAX = 150
+
+/**
+ * 成绩-总分交叉校验：以「变更后」的成对值判断（变更值优先，缺省取当前值）。
+ * record 为当前教师记录，changes 为本次变更（key → { to }），仅要求提供发生变更的 key。
+ * 返回 null 表示通过。
+ */
+export function validateScoreTotalPair(
+  record: Record<string, unknown>,
+  changes: Record<string, { to: unknown }>
+): string | null {
+  for (const [scoreKey, totalKey] of SCORE_TOTAL_PAIRS) {
+    const score = changes[scoreKey] ? changes[scoreKey].to : record[scoreKey]
+    const total = changes[totalKey] ? changes[totalKey].to : record[totalKey]
+    if (typeof score === 'number' && typeof total === 'number' && score > total) {
+      const label = SENSITIVE_FIELD_LABELS[scoreKey]
+      return `${label}（${score}）不能高于卷面总分（${total}）`
+    }
+  }
+  return null
 }

@@ -16,6 +16,7 @@ export type CoachReviewSnapshot = {
   finalReviewNote: string | null
   stage: string
   attemptCount: number
+  challengeFromStage: string | null
   resolvedManagerPhone: string | null
   resolveSource: string | null
   firstReviewOperatorName: string | null

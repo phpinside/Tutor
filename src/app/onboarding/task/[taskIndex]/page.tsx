@@ -1,9 +1,15 @@
 import { cookies } from 'next/headers'
 import { redirect, notFound } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskSubmission } from '@/app/actions/task'
 import { getTaskConfigs, QINIU_CONFIG } from '@/lib/config'
 import { hasPassedOnboarding } from '@/lib/teacherSensitiveFields'
+import {
+  parseQualificationFiles,
+  parseQualificationMeta,
+} from '@/lib/teacherQualificationShared'
+import type { QualificationType } from '@/lib/teacherQualificationShared'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import TaskIntro from '@/components/tasks/TaskIntro'
 import TaskForm from '@/components/tasks/TaskForm'
@@ -41,6 +47,17 @@ export default async function TaskPage({
   const submission = await getTaskSubmission(teacherId, taskIndex)
   // 入驻审核通过后，任务表单中的敏感字段（姓名/高考省份/高考成绩）锁定
   const sensitiveLocked = await hasPassedOnboarding(teacherId)
+  // 已提交的资质证明（入驻申报来源），回填表单资质区块
+  const qualificationRows = await prisma.teacherQualification.findMany({
+    where: { teacherId, source: 'ONBOARDING' },
+    orderBy: { createdAt: 'desc' },
+    take: 10,
+  })
+  const onboardingQualifications = qualificationRows.map((row) => ({
+    type: row.type as QualificationType,
+    files: parseQualificationFiles(row.files),
+    meta: parseQualificationMeta(row.meta),
+  }))
   const useNarrowLayout = task.type === 'ONLINE_TEST'
 
   // 为学管老师二维码生成签名 URL（私有 bucket 需要签名才能访问）
@@ -66,6 +83,7 @@ export default async function TaskPage({
             teacher={teacher}
             submission={submission}
             sensitiveLocked={sensitiveLocked}
+            initialQualifications={onboardingQualifications}
           />
         )
       

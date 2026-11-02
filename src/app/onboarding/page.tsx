@@ -1,7 +1,11 @@
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
+import { prisma } from '@/lib/prisma'
 import { getRejectedDirectReferralForReferred } from '@/app/actions/referral'
-import { getCoachReviewRejectionForReferred } from '@/app/actions/coachReview'
+import {
+  getCoachReviewRejectionForReferred,
+  getCoachReviewChallenge,
+} from '@/app/actions/coachReview'
 import { getTeacher } from '@/app/actions/teacher'
 import { getTaskConfigs, getPhaseConfigs } from '@/lib/config'
 import { formatDateTime } from '@/lib/utils'
@@ -10,6 +14,8 @@ import PhaseIndicator from '@/components/ui/PhaseIndicator'
 import TaskCard from '@/components/ui/TaskCard'
 import ReferralCodeSaver from './ReferralCodeSaver'
 import ReferralRevisionResubmit from './ReferralRevisionResubmit'
+import ChallengeEvidencePanel from './ChallengeEvidencePanel'
+import type { QualificationType } from '@/lib/teacherQualificationShared'
 
 export default async function OnboardingPage({
   searchParams
@@ -47,21 +53,41 @@ export default async function OnboardingPage({
 
   // 优先检查 CoachReview 两级审核的驳回
   const coachReviewRejection = await getCoachReviewRejectionForReferred(teacherId)
-  // 没有 CoachReview 驳回时，回退到原有邀请驳回检查
-  const rejectedReferral = coachReviewRejection
-    ? null
-    : await getRejectedDirectReferralForReferred(teacherId)
+  // 质疑取证（打回待补证）：优先级与驳回同级，均高于邀请驳回检查
+  const coachReviewChallenge = await getCoachReviewChallenge(teacherId)
+  // 没有 CoachReview 驳回/质疑时，回退到原有邀请驳回检查
+  const rejectedReferral =
+    coachReviewRejection || coachReviewChallenge
+      ? null
+      : await getRejectedDirectReferralForReferred(teacherId)
 
   const isCoachReviewRejected = coachReviewRejection !== null
+  const isCoachReviewChallenged = coachReviewChallenge !== null
 
   const allTasksDone =
     teacher.status === 'COMPLETED' ||
     teacher.status === 'UNLOCKED' ||
     teacher.currentTaskIndex >= TASKS_CONFIG.length
 
-  // 如果已完成所有任务且未被驳回，跳转到完成页
-  if (allTasksDone && !rejectedReferral && !isCoachReviewRejected) {
+  // 如果已完成所有任务且未被驳回/质疑，跳转到完成页
+  if (allTasksDone && !rejectedReferral && !isCoachReviewRejected && !isCoachReviewChallenged) {
     redirect('/onboarding/complete')
+  }
+
+  // 质疑取证：统计质疑发起后各要求项的补交份数
+  let challengeEvidenceCounts: Record<string, number> = {}
+  if (coachReviewChallenge) {
+    const evidences = await prisma.teacherQualification.findMany({
+      where: {
+        teacherId,
+        createdAt: { gt: coachReviewChallenge.challengedAt },
+      },
+      select: { type: true },
+    })
+    challengeEvidenceCounts = evidences.reduce<Record<string, number>>((acc, e) => {
+      acc[e.type] = (acc[e.type] ?? 0) + 1
+      return acc
+    }, {})
   }
   
   // 获取当前任务
@@ -101,6 +127,19 @@ export default async function OnboardingPage({
     <div className="animate-fade-in">
       {/* 保存邀请码到 localStorage */}
       {refCode && <ReferralCodeSaver refCode={refCode} />}
+
+      {/* 质疑取证：补交证明材料 */}
+      {coachReviewChallenge && (
+        <ChallengeEvidencePanel
+          challenge={{
+            note: coachReviewChallenge.note,
+            items: coachReviewChallenge.items as QualificationType[],
+            challengedByName: coachReviewChallenge.challengedByName,
+            challengedAt: coachReviewChallenge.challengedAt.toISOString(),
+          }}
+          evidenceCounts={challengeEvidenceCounts}
+        />
+      )}
 
       {hasRejection && (
         <div className="mb-8 p-5 rounded-xl border-2 border-red-300 bg-red-50 text-red-950 shadow-sm">

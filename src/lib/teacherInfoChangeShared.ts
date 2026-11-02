@@ -49,8 +49,16 @@ export interface InfoChangeReviewItemView extends InfoChangeItemView {
   proofUrls: Record<string, string>
 }
 
-/** 教练资料修改申请涉及的敏感字段 key */
-export type SensitiveFieldKey = 'name' | 'gaokaoProvince' | 'mathScore' | 'physicsScore' | 'chemistryScore'
+/** 教练资料修改申请涉及的敏感字段 key（与 SENSITIVE_FIELDS 保持一致） */
+export type SensitiveFieldKey =
+  | 'name'
+  | 'gaokaoProvince'
+  | 'mathScore'
+  | 'physicsScore'
+  | 'chemistryScore'
+  | 'mathScoreTotal'
+  | 'physicsScoreTotal'
+  | 'chemistryScoreTotal'
 
 /**
  * 「信息真实性承诺」文案版本号：文案发生实质变更时递增，

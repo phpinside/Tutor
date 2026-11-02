@@ -31,6 +31,9 @@ type Teacher = {
   mathScore: number | null
   physicsScore: number | null
   chemistryScore: number | null
+  mathScoreTotal: number | null
+  physicsScoreTotal: number | null
+  chemistryScoreTotal: number | null
   subjects: string[]
   primarySubject: string | null
   status: string
@@ -314,17 +317,26 @@ export default function TeachersManagementClient({
     router.push(`/admin/teachers?${params.toString()}`)
   }
 
-  // 已填写的高考科目分数（数/理/化，仅展示有分的科目；标注最擅长科目）
-  const scoreParts = (teacher: Teacher): { label: string; score: number; isPrimary: boolean }[] => {
-    const parts: { label: string; score: number; isPrimary: boolean }[] = []
-    const entries: { label: string; key: string; score: number | null }[] = [
-      { label: '数', key: 'MATH', score: teacher.mathScore },
-      { label: '理', key: 'PHYSICS', score: teacher.physicsScore },
-      { label: '化', key: 'CHEMISTRY', score: teacher.chemistryScore },
+  // 已填写的高考科目分数（数/理/化，仅展示有分的科目；有总分时展示 142/150；标注最擅长科目）
+  const scoreParts = (teacher: Teacher): { label: string; score: string; isPrimary: boolean }[] => {
+    const parts: { label: string; score: string; isPrimary: boolean }[] = []
+    const entries: {
+      label: string
+      key: string
+      score: number | null
+      total: number | null
+    }[] = [
+      { label: '数', key: 'MATH', score: teacher.mathScore, total: teacher.mathScoreTotal },
+      { label: '理', key: 'PHYSICS', score: teacher.physicsScore, total: teacher.physicsScoreTotal },
+      { label: '化', key: 'CHEMISTRY', score: teacher.chemistryScore, total: teacher.chemistryScoreTotal },
     ]
     for (const entry of entries) {
       if (entry.score != null) {
-        parts.push({ label: entry.label, score: entry.score, isPrimary: teacher.primarySubject === entry.key })
+        parts.push({
+          label: entry.label,
+          score: entry.total != null ? `${entry.score}/${entry.total}` : String(entry.score),
+          isPrimary: teacher.primarySubject === entry.key,
+        })
       }
     }
     return parts

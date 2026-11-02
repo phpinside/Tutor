@@ -4,14 +4,9 @@ import type {
   InfoChangeReviewItemView,
   SensitiveFieldKey,
 } from '@/lib/teacherInfoChangeShared'
+import { SENSITIVE_FIELDS } from '@/lib/teacherSensitiveFields'
 
-const SENSITIVE_KEYS: SensitiveFieldKey[] = [
-  'name',
-  'gaokaoProvince',
-  'mathScore',
-  'physicsScore',
-  'chemistryScore',
-]
+const SENSITIVE_KEYS: SensitiveFieldKey[] = [...SENSITIVE_FIELDS]
 
 /**
  * 服务端专用：申请单 + 教练当前值 + 证明图签名 URL（2 小时有效）。
