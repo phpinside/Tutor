@@ -251,11 +251,14 @@ export default async function TeacherDetailPage({
             </p>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <TeacherInfoEditModal
-              teacherId={teacher.id}
-              teacher={teacher}
-              sensitiveEditable={viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR'}
-            />
+            {/* 学管仅可查看与审核，不可编辑教练资料；仅超管/运营可打开编辑弹窗 */}
+            {(viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR') && (
+              <TeacherInfoEditModal
+                teacherId={teacher.id}
+                teacher={teacher}
+                sensitiveEditable={viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR'}
+              />
+            )}
             {(viewerInfo.isSuperAdmin || viewerInfo.id) && (
               <ResetTeacherPasswordModal teacherId={teacher.id} teacherName={teacher.name} />
             )}

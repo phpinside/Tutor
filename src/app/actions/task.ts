@@ -2,6 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
+import { cookies } from 'next/headers'
 import { TASK_VIDEOS } from '@/lib/config'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { ensureCoachReview } from './coachReview'
@@ -306,6 +307,12 @@ export async function updateTaskStatus(
   feedback?: string
 ) {
   try {
+    // 任务评审属运营能力：仅超管或运营/学管会话可执行（当前无页面调用，服务端兜底防直调越权）
+    const adminSession = (await cookies()).get('admin_session')
+    const operatorSession = (await cookies()).get('operator_session')
+    if (!adminSession && !operatorSession) {
+      return { success: false, error: '无权限执行此操作' }
+    }
     const submission = await prisma.taskSubmission.update({
       where: {
         teacherId_taskIndex: {

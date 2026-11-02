@@ -300,13 +300,22 @@ export async function updateTeacherInfo(teacherId: string, data: {
     }
 
     // 敏感字段（姓名/高考省份/高考成绩）直改权限：
-    // 超管 / 运营（OPERATOR）可直改；教练本人仅在通过入驻审核前可直改；学管（LEARNER_MANAGER）一律不可直改
+    // 超管 / 运营（OPERATOR）可直改；教练本人仅在通过入驻审核前可直改
     const operatorRole = actor.type === 'OPERATOR'
       ? (await prisma.operator.findUnique({
           where: { id: actor.id },
           select: { role: true },
         }))?.role ?? null
       : null
+
+    // 学管（LEARNER_MANAGER）仅可查看与审核（初审/质疑等），不可修改教练任何资料
+    if (actor.type === 'OPERATOR' && operatorRole === 'LEARNER_MANAGER') {
+      return {
+        success: false,
+        error: '学管仅可查看与审核教练资料，不可修改。如需调整请联系运营处理',
+      }
+    }
+
     const canDirectEditSensitive =
       actor.type === 'ADMIN' ||
       (actor.type === 'OPERATOR' && canDirectEditSensitiveFields(operatorRole)) ||
@@ -414,9 +423,12 @@ export async function updateTeacherInfo(teacherId: string, data: {
   }
 }
 
-// 更新老师状态
+// 更新老师状态（当前无页面调用；服务端兜底仅超管，防直调越权）
 export async function updateTeacherStatus(teacherId: string, status: string) {
   try {
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可操作' }
+    }
     const teacher = await prisma.teacher.update({
       where: { id: teacherId },
       data: { 
@@ -433,9 +445,12 @@ export async function updateTeacherStatus(teacherId: string, status: string) {
   }
 }
 
-// 更新当前任务进度
+// 更新当前任务进度（当前无页面调用；服务端兜底仅超管，防直调越权）
 export async function updateCurrentTask(teacherId: string, taskIndex: number) {
   try {
+    if (!(await isSuperAdmin())) {
+      return { success: false, error: '仅超级管理员可操作' }
+    }
     // 总共6个任务(索引0-5)，当taskIndex为6时表示全部完成
     const TOTAL_TASKS = 6
     const isCompleted = taskIndex >= TOTAL_TASKS
