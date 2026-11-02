@@ -23,7 +23,7 @@ import TeacherInfoChangeRequestHistory from './TeacherInfoChangeRequestHistory'
 import TeacherQualificationsSection from './TeacherQualificationsSection'
 import TeachingApprovalSection from './TeachingApprovalSection'
 import { toInfoChangeReviewItemView } from '@/lib/teacherInfoChangeServer'
-import { parseTeachingApprovalLevels } from '@/lib/teachingApprovalShared'
+import { parseTeachingApprovalLevels, parseTeachingApprovalSubjects } from '@/lib/teachingApprovalShared'
 import { getTeacherChangeLogs } from '@/app/actions/auditLogActions'
 import {
   getLearningPlannerStatusBadgeClass,
@@ -179,6 +179,7 @@ export default async function TeacherDetailPage({
     where: { teacherId: id },
   })
   const teachingApprovalLevels = parseTeachingApprovalLevels(teachingApproval?.levels ?? null)
+  const teachingApprovalSubjects = parseTeachingApprovalSubjects(teachingApproval?.subjects ?? null)
 
   const [remarks, directReferralSnapshot, coachReviewResult] = await Promise.all([
     getTeacherRemarks(id),
@@ -898,6 +899,7 @@ export default async function TeacherDetailPage({
         <TeachingApprovalSection
           teacherId={id}
           initialLevels={teachingApprovalLevels}
+          initialSubjects={teachingApprovalSubjects}
           updatedByName={teachingApproval?.updatedByName ?? null}
           updatedAt={teachingApproval?.updatedAt.toISOString() ?? null}
           canEdit={viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR'}

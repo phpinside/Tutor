@@ -837,6 +837,8 @@ model TeacherTeachingApproval {
 
   // 特批授课学段（逗号分隔 code）：PRIMARY / JUNIOR / JUNIOR_3 / SENIOR / SENIOR_3
   levels String
+  // 特批授课科目（逗号分隔 code）：MATH / PHYSICS / CHEMISTRY
+  subjects String @default("")
 
   updatedById   String? // Operator.id 或 'super_admin'
   updatedByName String?

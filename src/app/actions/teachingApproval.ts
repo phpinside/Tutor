@@ -6,18 +6,20 @@ import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'
 import {
-  TEACHING_APPROVAL_CODES,
   parseTeachingApprovalLevels,
+  parseTeachingApprovalSubjects,
 } from '@/lib/teachingApprovalShared'
+import { TEACHING_APPROVAL_CODES, TEACHING_APPROVAL_SUBJECT_CODES } from '@/lib/teachingApprovalShared'
 
-// 运营特批授课能力（可派单资格审查用）
+// 运营特批授课能力（学段 + 科目，可派单资格审查用）
 // 权限：仅超管与运营（OPERATOR 角色）可设置；学管（LEARNER_MANAGER）可见但明确不可修改
 // 可见性：数据存独立表，教练端页面/接口不读取（教练不可见）
 
-// 设置特批授课学段（空数组 = 清空特批）
+// 设置特批授课学段与科目（两者均传空 = 清空特批）
 export async function updateTeachingApproval(
   teacherId: string,
-  levels: string[]
+  levels: string[],
+  subjects: string[]
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // 鉴权：超管或运营（OPERATOR 角色）；学管一律拒绝（以 DB 角色为准）
@@ -45,11 +47,18 @@ export async function updateTeachingApproval(
     }
 
     // 校验：去重 + 过滤非法值 + 按选项顺序存储
-    const normalized = parseTeachingApprovalLevels(levels.join(','))
-    const provided = Array.from(new Set((levels ?? []).map((l) => String(l).trim()).filter(Boolean)))
-    if (provided.some((l) => !TEACHING_APPROVAL_CODES.includes(l))) {
+    const providedLevels = Array.from(new Set((levels ?? []).map((l) => String(l).trim()).filter(Boolean)))
+    if (providedLevels.some((l) => !TEACHING_APPROVAL_CODES.includes(l))) {
       return { success: false, error: '包含不支持的授课学段选项' }
     }
+    const providedSubjects = Array.from(
+      new Set((subjects ?? []).map((s) => String(s).trim()).filter(Boolean))
+    )
+    if (providedSubjects.some((s) => !TEACHING_APPROVAL_SUBJECT_CODES.includes(s))) {
+      return { success: false, error: '包含不支持的授课科目选项' }
+    }
+    const normalizedLevels = parseTeachingApprovalLevels(providedLevels.join(','))
+    const normalizedSubjects = parseTeachingApprovalSubjects(providedSubjects.join(','))
 
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
@@ -59,23 +68,25 @@ export async function updateTeachingApproval(
 
     const previous = await prisma.teacherTeachingApproval.findUnique({
       where: { teacherId },
-      select: { levels: true },
+      select: { levels: true, subjects: true },
     })
 
-    if (normalized.length === 0) {
-      // 清空：删除记录（未设置过则幂等跳过）
+    if (normalizedLevels.length === 0 && normalizedSubjects.length === 0) {
+      // 双维度均清空：删除记录（未设置过则幂等跳过）
       await prisma.teacherTeachingApproval.deleteMany({ where: { teacherId } })
     } else {
       await prisma.teacherTeachingApproval.upsert({
         where: { teacherId },
         create: {
           teacherId,
-          levels: normalized.join(','),
+          levels: normalizedLevels.join(','),
+          subjects: normalizedSubjects.join(','),
           updatedById: actorId,
           updatedByName: actorName,
         },
         update: {
-          levels: normalized.join(','),
+          levels: normalizedLevels.join(','),
+          subjects: normalizedSubjects.join(','),
           updatedById: actorId,
           updatedByName: actorName,
         },
@@ -90,8 +101,10 @@ export async function updateTeachingApproval(
       targetType: 'TEACHER',
       targetId: teacherId,
       detail: {
-        levels: normalized,
+        levels: normalizedLevels,
+        subjects: normalizedSubjects,
         previousLevels: previous ? parseTeachingApprovalLevels(previous.levels) : [],
+        previousSubjects: previous ? parseTeachingApprovalSubjects(previous.subjects) : [],
       },
     })
 
