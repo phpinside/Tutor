@@ -286,7 +286,7 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
       <AuthenticityDeclaration variant="banner" />
       {sensitiveLocked && (
         <div className="rounded-xl bg-amber-50 border border-amber-200 px-4 py-3 text-sm text-amber-800">
-          🔒 入驻审核已通过：姓名、高考省份、高考成绩已锁定，如需修改请在
+          🔒 入驻审核已通过：姓名已锁定（如需修改请联系运营）；高考省份、高考成绩如需修改请在
           <a href="/onboarding/complete" className="font-medium underline underline-offset-2 mx-1">完成页</a>
           提交「资料修改申请」。
         </div>

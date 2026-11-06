@@ -61,6 +61,7 @@ const ACTOR_LABELS: Record<string, string> = {
   TEACHER: '老师本人',
   OPERATOR: '学管/运营',
   ADMIN: '管理员',
+  SYSTEM: '系统',
 }
 
 function formatValue(value: unknown): string {

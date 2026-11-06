@@ -145,6 +145,11 @@ export async function submitInfoChangeRequest(input: InfoChangeRequestInput) {
       return { success: false as const, error: '申请包含不可修改的字段' }
     }
 
+    // 姓名不支持教练自行申请修改（入驻完成后锁定，仅运营/超管可改）
+    if (rawChanges.name !== undefined) {
+      return { success: false as const, error: '姓名不可自行申请修改，如有需要请联系运营处理' }
+    }
+
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
     if (!teacher) return { success: false as const, error: '老师不存在' }
 
@@ -356,6 +361,13 @@ export async function finalReviewInfoChangeRequest(
     }
 
     const changes = parseChanges(request.changes)
+    // 姓名已全面锁定为运营/超管直改，存量的含姓名申请不可再通过生效
+    if (changes.name) {
+      return {
+        success: false as const,
+        error: '姓名不支持通过申请修改，请驳回该申请；如教练确需改名，请由运营在详情页直接修改',
+      }
+    }
     // 生效前复核申请数据合法性（防提交后被篡改）
     for (const [field, change] of Object.entries(changes)) {
       if (!SENSITIVE_FIELD_SET.has(field)) {

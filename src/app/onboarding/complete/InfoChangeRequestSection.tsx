@@ -30,7 +30,10 @@ const FIELD_ORDER: SensitiveField[] = [
   'chemistryScoreTotal',
 ]
 
-const SCORE_TOTAL_FIELDS: [SensitiveField, SensitiveField][] = [
+type EditableScoreField = 'mathScore' | 'physicsScore' | 'chemistryScore'
+type EditableTotalField = 'mathScoreTotal' | 'physicsScoreTotal' | 'chemistryScoreTotal'
+
+const SCORE_TOTAL_FIELDS: [EditableScoreField, EditableTotalField][] = [
   ['mathScore', 'mathScoreTotal'],
   ['physicsScore', 'physicsScoreTotal'],
   ['chemistryScore', 'chemistryScoreTotal'],
@@ -99,9 +102,8 @@ export default function InfoChangeRequestSection({
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // 表单状态
+  // 表单状态（姓名已锁定为运营直改，不在申请范围）
   const [form, setForm] = useState({
-    name: currentValues.name ?? '',
     gaokaoProvince: currentValues.gaokaoProvince ?? '',
     mathScore: currentValues.mathScore ?? '',
     mathScoreTotal: currentValues.mathScoreTotal ?? '',
@@ -122,7 +124,6 @@ export default function InfoChangeRequestSection({
 
   const openModal = () => {
     setForm({
-      name: currentValues.name ?? '',
       gaokaoProvince: currentValues.gaokaoProvince ?? '',
       mathScore: currentValues.mathScore ?? '',
       mathScoreTotal: currentValues.mathScoreTotal ?? '',
@@ -198,11 +199,8 @@ export default function InfoChangeRequestSection({
       return
     }
 
-    // 仅提交有实际变化的字段
+    // 仅提交有实际变化的字段（姓名已锁定为运营直改，不在申请范围）
     const changes: Record<string, string | number> = {}
-    if (form.name.trim() && form.name.trim() !== (currentValues.name ?? '')) {
-      changes.name = form.name.trim()
-    }
     if (form.gaokaoProvince && form.gaokaoProvince !== (currentValues.gaokaoProvince ?? '')) {
       changes.gaokaoProvince = form.gaokaoProvince
     }
@@ -442,15 +440,12 @@ export default function InfoChangeRequestSection({
 
               {/* 字段表单 */}
               <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
-                  <input
-                    value={form.name}
-                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
-                    placeholder={formatValue(currentValues.name)}
-                  />
-                  <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues.name)}</p>
+                <div className="sm:col-span-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5 text-sm text-gray-600">
+                  <span className="font-medium text-gray-800">姓名：</span>
+                  {formatValue(currentValues.name)}
+                  <span className="text-xs text-gray-400 ml-2">
+                    （已锁定，不支持在线申请修改；如需修改请联系运营）
+                  </span>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">高考省份</label>
