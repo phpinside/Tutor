@@ -82,6 +82,37 @@ export default async function CompletePage() {
 
   const profileTaskHref = `/onboarding/task/1`
 
+  // 2026-11：EDU 注册引导——学管的伴学教练ID。
+  // 学管归属与完成页展示同口径（初审负责人 APPROVED → 团队认领人），
+  // 以学管手机号反查 teachers.id，即 eduflow 注册时要填的「学管的伴学教练ID」。
+  // 学管在 Tutor 中可能没有教师记录（未走过教师入驻），此时置 null 由前端提示联系学管。
+  const managerOperator =
+    coachReview?.firstReviewVerdict === 'APPROVED' && coachReview.firstReviewOperatorId
+      ? await prisma.operator.findUnique({
+          where: { id: coachReview.firstReviewOperatorId },
+          select: { id: true, name: true, phone: true },
+        })
+      : teacher.teamAssignment?.operator?.id
+        ? {
+            id: teacher.teamAssignment.operator.id,
+            name: teacher.teamAssignment.operator.name,
+            phone: teacher.teamAssignment.operator.phone,
+          }
+        : null
+
+  let managerTutorId: string | null = null
+  if (managerOperator?.phone) {
+    const managerTeacher = await prisma.teacher.findUnique({
+      where: { phone: managerOperator.phone },
+      select: { id: true },
+    })
+    managerTutorId = managerTeacher?.id ?? null
+  }
+
+  // EDU 注册页完整地址（.env 配置，如 https://manager.chulu.net/register/tutor）；
+  // 未配置则不放直达链接。
+  const eduRegisterUrl = (process.env.EDU_REGISTER_URL || '').trim().replace(/\/+$/, '')
+
   // 高考资料修改申请：仅在入驻审核通过后开放（教练本人此时不可直改敏感字段）
   const sensitivePassed = coachReview?.stage === 'APPROVED'
   let infoChangeCurrentValues: Record<SensitiveField, string> | null = null
@@ -116,6 +147,9 @@ export default async function CompletePage() {
       inviteApproved={inviteApproved}
       profileTaskHref={profileTaskHref}
       coachReviewStatus={coachReviewStatus}
+      managerName={managerOperator?.name ?? null}
+      managerTutorId={managerTutorId}
+      eduRegisterUrl={eduRegisterUrl}
       infoChangeSection={
         sensitivePassed && infoChangeCurrentValues
           ? {

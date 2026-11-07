@@ -39,6 +39,7 @@ export async function getTeacher(teacherId: string) {
               select: {
                 id: true,
                 name: true,
+                phone: true,
                 wechatQrCode: true
               }
             }

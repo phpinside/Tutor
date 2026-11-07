@@ -41,6 +41,12 @@ interface CompletionContentProps {
   inviteApproved: boolean
   profileTaskHref: string
   coachReviewStatus: CoachReviewStatus
+  /** 已解析的学管姓名（null = 学管待分配）；归属口径见 assignedManagerName */
+  managerName: string | null
+  /** 学管的伴学教练ID（按学管手机号反查 teachers.id；null = 无法解析，提示联系学管） */
+  managerTutorId: string | null
+  /** EDU 注册页完整地址（.env EDU_REGISTER_URL，如 https://manager.chulu.net/register/tutor）；空串则不放直达链接 */
+  eduRegisterUrl: string
   infoChangeSection: {
     teacherId: string
     currentValues: Record<SensitiveField, string>
@@ -59,10 +65,14 @@ export default function CompletionContent({
   inviteApproved,
   profileTaskHref,
   coachReviewStatus,
+  managerName,
+  managerTutorId,
+  eduRegisterUrl,
   infoChangeSection,
 }: CompletionContentProps) {
   const router = useRouter()
   const [copied, setCopied] = useState(false)
+  const [managerCopied, setManagerCopied] = useState(false)
   const [groupQrUrl, setGroupQrUrl] = useState<string | null>(null)
   const [introCopied, setIntroCopied] = useState(false)
 
@@ -86,7 +96,7 @@ export default function CompletionContent({
       : null) ?? teamLeaderName ?? null
 
   const buildIntroText = () =>
-    `大家好，我是刚完成伴学引导任务的伴学教练${teacherName ?? ''}。\n最擅长学科：${subjectLabel}\n伴学教练ID：${teacherId}\n邀请人：${inviterName ?? '无'}\n团队认领人：${teamLeaderName ?? '无'}\n\n很高兴加入伴学团队，后续请大家多多指导与支持！`
+    `大家好，我是刚完成伴学引导任务的伴学教练${teacherName ?? ''}。\n最擅长学科：${subjectLabel}\n伴学教练ID：${teacherId}\n邀请人：${inviterName ?? '无'}\n团队认领人：${teamLeaderName ?? '无'}\n学管的伴学教练ID：${managerTutorId ?? '待补充（请向学管索取）'}\n\n很高兴加入伴学团队，后续请大家多多指导与支持！`
 
   const [introText, setIntroText] = useState(buildIntroText)
 
@@ -104,6 +114,13 @@ export default function CompletionContent({
     navigator.clipboard.writeText(teacherId)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
+  }
+
+  const handleCopyManagerId = () => {
+    if (!managerTutorId) return
+    navigator.clipboard.writeText(managerTutorId)
+    setManagerCopied(true)
+    setTimeout(() => setManagerCopied(false), 2000)
   }
 
   const handleCopyIntro = () => {
@@ -291,6 +308,81 @@ export default function CompletionContent({
                 </div>
               </div>
 
+              {/* 2026-11：注册接单系统（EDU）引导卡。
+                  注册需同时填写本人与学管的伴学教练ID，学管的 ID 此前无任何入口可查，
+                  这里按学管归属（跟进人/初审负责人）直接给出，避免教练注册被卡住。 */}
+              <div className="bg-primary-50 border-2 border-primary-400 rounded-xl p-6 mb-8 shadow-md">
+                <div className="flex items-start gap-3 mb-4">
+                  <div className="text-2xl">📝</div>
+                  <div className="flex-1">
+                    <h3 className="text-lg font-bold text-primary-900 mb-1">
+                      下一步：注册接单系统（EDU）开始接单
+                    </h3>
+                    <p className="text-sm text-primary-800">
+                      注册 EDU 时需要填写以下两个 ID，请复制保存：
+                    </p>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-3">
+                  <div className="bg-white rounded-lg p-4 border-2 border-primary-200">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-600 mb-1">我的伴学教练ID</p>
+                        <p className="text-base sm:text-lg font-bold text-gray-900 font-mono tracking-wide break-all">
+                          {teacherId}
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleCopyId}
+                        className="shrink-0 self-start sm:self-center px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors text-sm font-medium"
+                      >
+                        {copied ? '已复制' : '复制'}
+                      </button>
+                    </div>
+                  </div>
+                  <div className="bg-white rounded-lg p-4 border-2 border-primary-200">
+                    {managerTutorId ? (
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs text-gray-600 mb-1">学管的伴学教练ID（{managerName ?? '学管'}老师）</p>
+                          <p className="text-base sm:text-lg font-bold text-gray-900 font-mono tracking-wide break-all">
+                            {managerTutorId}
+                          </p>
+                        </div>
+                        <button
+                          onClick={handleCopyManagerId}
+                          className="shrink-0 self-start sm:self-center px-3 py-1.5 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors text-sm font-medium"
+                        >
+                          {managerCopied ? '已复制' : '复制'}
+                        </button>
+                      </div>
+                    ) : managerName ? (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        您的学管是 <span className="font-semibold">{managerName}老师</span>，
+                        其伴学教练ID暂无法自动获取，请联系学管索取后再注册。
+                      </p>
+                    ) : (
+                      <p className="text-sm text-gray-700 leading-relaxed">
+                        您的学管当前待分配：请进群后联系群主确定学管，并索取其伴学教练ID后再注册。
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <p className="mt-3 text-xs text-primary-800 leading-relaxed">
+                  ⚠️ 注册 EDU 使用的手机号必须能注册企业微信，且与在引导系统使用的手机号一致。
+                </p>
+                {eduRegisterUrl ? (
+                  <a
+                    href={eduRegisterUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-4 inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-primary-600 hover:bg-primary-700 text-white text-sm font-medium transition-colors"
+                  >
+                    前往注册接单系统 →
+                  </a>
+                ) : null}
+              </div>
+
               <div className="mb-8 rounded-xl border border-gray-200 bg-gray-50/80 p-5">
                 <h2 className="text-lg font-semibold text-gray-900 mb-1">回顾新手任务</h2>
                 <p className="text-sm text-gray-600 mb-4">
@@ -335,12 +427,6 @@ export default function CompletionContent({
                       <p className="text-sm text-amber-800 leading-relaxed mb-3">
                         下一步请您入群后根据群公告完成学管的复试工作。
                       </p>
-                      <div className="rounded-lg bg-white/70 border border-amber-200 p-3">
-                        <p className="text-sm text-amber-900 leading-relaxed">
-                          <span className="font-semibold">⚠️ 注册EDU系统时，请注意您所使用的手机号：</span>
-                          您所使用的手机号必须能注册企业微信，且与注册EDU时使用的手机号一致。
-                        </p>
-                      </div>
                     </div>
                   </div>
                 </div>
