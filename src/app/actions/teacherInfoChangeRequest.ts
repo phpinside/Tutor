@@ -7,6 +7,7 @@ import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
+import { pushCoachScoreSyncById, touchesName, touchesScores } from '@/lib/eduflowScoreSync'
 import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import {
   SENSITIVE_FIELDS,
@@ -488,6 +489,12 @@ export async function finalReviewInfoChangeRequest(
       targetId: requestId,
       detail: { decision: 'APPROVED', note: trimmedNote, teacherId: request.teacherId },
     })
+
+    // 2026-11：分数（含卷面总分）或姓名变更生效后推送 eduflow，
+    // 保持接单系统教练展示页分数/昵称一致（fire-and-forget，失败仅记日志）。
+    if (touchesScores(changes) || touchesName(changes)) {
+      await pushCoachScoreSyncById(request.teacherId)
+    }
 
     revalidatePath('/admin/teachers/info-change-requests')
     revalidatePath(`/admin/teachers/${request.teacherId}`)

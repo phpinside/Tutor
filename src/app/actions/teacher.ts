@@ -7,6 +7,7 @@ import bcrypt from 'bcryptjs'
 import { cookies } from 'next/headers'
 import { sanitizeInput } from '@/lib/utils'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
+import { pushCoachScoreSync, touchesName, touchesScores } from '@/lib/eduflowScoreSync'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
 import {
   SENSITIVE_FIELDS,
@@ -422,6 +423,13 @@ export async function updateTeacherInfo(teacherId: string, data: {
           ...(editSource ? { source: editSource } : {}),
         },
       })
+    }
+
+    // 2026-11：分数（含卷面总分）或姓名发生变化时推送 eduflow，
+    // 保持接单系统教练展示页分数/昵称一致（fire-and-forget，失败仅记日志）。
+    // 姓名变更在 Tutor 侧必须经资料修改申请审核或由运营直改，均走本入口。
+    if (touchesScores(changes) || touchesName(changes)) {
+      void pushCoachScoreSync(teacher)
     }
 
     revalidatePath('/onboarding')
