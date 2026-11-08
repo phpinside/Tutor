@@ -1,9 +1,18 @@
 import { SENSITIVE_FIELD_LABELS } from '@/lib/teacherSensitiveFields'
-import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 import {
   INFO_CHANGE_STATUS_LABELS,
   INFO_CHANGE_STATUS_BADGE,
+  INFO_CHANGE_KIND_LABELS,
+  QUALIFICATION_FLAG_LABELS,
 } from '@/lib/teacherInfoChangeShared'
+
+function fieldLabel(field: string): string {
+  return (
+    QUALIFICATION_FLAG_LABELS[field as keyof typeof QUALIFICATION_FLAG_LABELS] ??
+    SENSITIVE_FIELD_LABELS[field as keyof typeof SENSITIVE_FIELD_LABELS] ??
+    field
+  )
+}
 import type { InfoChangeReviewItemView } from '@/lib/teacherInfoChangeShared'
 
 function formatValue(value: unknown): string {
@@ -46,6 +55,9 @@ export default function TeacherInfoChangeRequestHistory({
                   <span className={`badge text-xs ${INFO_CHANGE_STATUS_BADGE[item.status]}`}>
                     {INFO_CHANGE_STATUS_LABELS[item.status]}
                   </span>
+                  <span className="text-xs px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800">
+                    {INFO_CHANGE_KIND_LABELS[item.requestKind]}
+                  </span>
                   <span className="text-xs text-gray-400">提交于 {formatTime(item.createdAt)}</span>
                   {item.appliedAt && (
                     <span className="text-xs text-gray-400">生效于 {formatTime(item.appliedAt)}</span>
@@ -61,9 +73,7 @@ export default function TeacherInfoChangeRequestHistory({
               <div className="mt-2 space-y-1">
                 {Object.entries(item.changes).map(([field, change]) => (
                   <p key={field} className="text-sm text-gray-700">
-                    <span className="text-gray-500">
-                      {SENSITIVE_FIELD_LABELS[field as SensitiveField] ?? field}：
-                    </span>
+                    <span className="text-gray-500">{fieldLabel(field)}：</span>
                     {formatValue(change.from)} → <span className="font-medium">{formatValue(change.to)}</span>
                   </p>
                 ))}

@@ -51,6 +51,18 @@ interface CompletionContentProps {
     teacherId: string
     currentValues: Record<SensitiveField, string>
     initialRequests: InfoChangeItemView[]
+    initialQualifications: {
+      type: 'DEGREE_CERT' | 'TEACHER_CERT' | 'MANDARIN_CERT'
+      files: string[]
+      meta: {
+        degreeLevel?: string
+        verifyCode?: string
+        certStage?: string
+        certSubject?: string
+        mandarinLevel?: string
+      }
+    }[]
+    isInServiceTeacher: boolean
   } | null
 }
 
@@ -410,6 +422,8 @@ export default function CompletionContent({
                   teacherId={infoChangeSection.teacherId}
                   currentValues={infoChangeSection.currentValues}
                   initialRequests={infoChangeSection.initialRequests}
+                  initialQualifications={infoChangeSection.initialQualifications}
+                  isInServiceTeacher={infoChangeSection.isInServiceTeacher}
                 />
               )}
 

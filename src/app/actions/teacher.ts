@@ -329,28 +329,28 @@ export async function updateTeacherInfo(teacherId: string, data: {
       const blockedFields = SENSITIVE_FIELDS.filter(
         (field) => fieldData[field] !== undefined && !isSameValue(existingRecord[field], fieldData[field])
       )
+      // 已通过入驻的教练：资质专项字段（在职教师等）同样仅能通过「资质变更申请」修改，随敏感字段一并拦截
+      if (
+        actor.type === 'TEACHER' &&
+        fieldData.isInServiceTeacher !== undefined &&
+        !isSameValue(existingRecord.isInServiceTeacher, fieldData.isInServiceTeacher)
+      ) {
+        blockedFields.push('isInServiceTeacher' as never)
+      }
       if (blockedFields.length > 0) {
         const isSelf = actor.type === 'TEACHER'
-        // 姓名已全面锁定（不可自行申请修改），提示语单独引导至运营
-        const nameBlocked = blockedFields.includes('name')
-        const otherBlocked = blockedFields.filter((f) => f !== 'name')
-        const selfMessages = [
-          otherBlocked.length > 0
-            ? `已通过入驻审核，${otherBlocked.map((f) => SENSITIVE_FIELD_LABELS[f]).join('、')}不可直接修改，请前往完成页使用「资料修改申请」提交申请`
-            : null,
-          nameBlocked ? '姓名不可自行修改，如需修改请联系运营处理' : null,
-        ].filter(Boolean)
         return {
           success: false,
           error: isSelf
-            ? selfMessages.join('；')
-            : `学管不可直接修改${blockedFields.map((f) => SENSITIVE_FIELD_LABELS[f]).join('、')}，请由教练本人提交资料修改申请或由运营处理`,
+            ? `已通过入驻审核，${blockedFields.map((f) => SENSITIVE_FIELD_LABELS[f as keyof typeof SENSITIVE_FIELD_LABELS] ?? f).join('、')}不可直接修改，请前往完成页使用「资料修改申请」提交申请`
+            : `学管不可直接修改${blockedFields.map((f) => SENSITIVE_FIELD_LABELS[f as keyof typeof SENSITIVE_FIELD_LABELS] ?? f).join('、')}，请由教练本人提交资料修改申请或由运营处理`,
           blockedFields,
         }
       }
-      // 无实际变化的敏感字段剥离后照常更新其余字段（兼容表单全量提交）
+      // 无实际变化的敏感字段剥离后照常更新其余字段（兼容表单全量提交）；isInServiceTeacher 一并剥离（锁定态走申请流程）
       const stripped: Record<string, unknown> = { ...fieldData }
       for (const field of SENSITIVE_FIELDS) delete stripped[field]
+      delete stripped.isInServiceTeacher
       updateData = stripped as typeof fieldData
     }
 

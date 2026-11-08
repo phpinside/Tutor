@@ -24,20 +24,70 @@ import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
 import {
   toInfoChangeItemView,
   parseChanges,
+  parseQualificationChangePayload,
   AUTHENTICITY_COMMITMENT_VERSION,
   MAX_PROOF_IMAGES,
   MAX_REASON_LENGTH,
 } from '@/lib/teacherInfoChangeShared'
+import type {
+  InfoChangeRequestKind,
+  QualificationChangePayload,
+  QualificationFlagKey,
+} from '@/lib/teacherInfoChangeShared'
+import {
+  TEACHER_CERT_STAGES,
+  TEACHER_CERT_SUBJECTS,
+  MANDARIN_LEVELS,
+  parseQualificationFiles,
+  parseQualificationMeta,
+} from '@/lib/teacherQualificationShared'
+import { QUALIFICATION_FLAG_KEYS } from '@/lib/teacherInfoChangeShared'
 
 // 教练资料修改申请（敏感字段：姓名/高考省份/高考成绩）
 // 流程：教练提交 → 学管初审（运营可兜底）→ 运营复审 → 事务内生效
 
 export type InfoChangeRequestInput = {
+  requestKind?: 'SCORE_INFO' | 'QUALIFICATION'
+  /** SCORE_INFO：高考信息字段变更（含姓名） */
   changes: Partial<Record<SensitiveField, string | number>>
+  /** QUALIFICATION：目标资质集合（整体替换入驻申报，复审通过后由系统同步） */
+  qualificationChanges?: QualificationChangePayload
   proofImages: string[]
   reason?: string
   /** 必须为 true：已在 UI 阅读并勾选「信息真实性承诺」 */
   commitmentAccepted?: boolean
+}
+
+const QUALIFICATION_KEY_PREFIX = 'uploads/qualifications/'
+const MAX_FILES_PER_QUALIFICATION_ITEM = 2
+
+/** 校验资质变更材料清单（文件归属、数量、配套选择） */
+function validateQualificationItems(
+  teacherId: string,
+  items: QualificationChangePayload['items']
+): string | null {
+  if (items.length > 3) return '资质材料最多 3 类'
+  const seen = new Set<string>()
+  for (const item of items) {
+    if (seen.has(item.type)) return '同一资质类型重复提交'
+    seen.add(item.type)
+    if (item.files.length === 0) return '存在未上传证明文件的资质项'
+    if (item.files.length > MAX_FILES_PER_QUALIFICATION_ITEM) {
+      return `每类资质最多 ${MAX_FILES_PER_QUALIFICATION_ITEM} 个文件`
+    }
+    const foreign = item.files.find((k) => !k.startsWith(`${QUALIFICATION_KEY_PREFIX}${teacherId}-`))
+    if (foreign) return '资质材料无效，请重新上传'
+    if (item.type === 'TEACHER_CERT') {
+      const stageValid = (TEACHER_CERT_STAGES as readonly string[]).includes(item.meta.certStage ?? '')
+      const subjectValid = (TEACHER_CERT_SUBJECTS as readonly string[]).includes(item.meta.certSubject ?? '')
+      if (!stageValid || !subjectValid) return '教师资格证需选择对应的学段与学科'
+    }
+    if (item.type === 'MANDARIN_CERT') {
+      const levelValid = (MANDARIN_LEVELS as readonly string[]).includes(item.meta.mandarinLevel ?? '')
+      if (!levelValid) return '普通话等级证需选择对应等级'
+    }
+  }
+  return null
 }
 
 /** 校验单个敏感字段取值合法性；返回 null 表示合法 */
@@ -118,59 +168,112 @@ export async function submitInfoChangeRequest(input: InfoChangeRequestInput) {
       return { success: false as const, error: '请先阅读并勾选「信息真实性承诺」后再提交' }
     }
 
-    const proofKeys = (input.proofImages ?? [])
-      .map((k) => String(k).trim())
-      .filter(Boolean)
-    if (proofKeys.length === 0) {
-      return { success: false as const, error: '请上传高考成绩查询截图作为证明材料' }
-    }
-    if (proofKeys.length > MAX_PROOF_IMAGES) {
-      return { success: false as const, error: `证明材料最多 ${MAX_PROOF_IMAGES} 张` }
-    }
-    // 证明材料必须来自本人在申请通道上传的文件（key 由 /api/upload/info-change-proof 生成）
-    const foreignProof = proofKeys.find(
-      (key) => !key.startsWith(`uploads/info-change-proof/${teacherId}-`)
-    )
-    if (foreignProof) {
-      return { success: false as const, error: '证明材料无效，请重新上传截图' }
-    }
+    const kind: InfoChangeRequestKind =
+      input.requestKind === 'QUALIFICATION' ? 'QUALIFICATION' : 'SCORE_INFO'
 
     const reason = input.reason?.trim() || null
     if (reason && reason.length > MAX_REASON_LENGTH) {
       return { success: false as const, error: `修改说明不能超过 ${MAX_REASON_LENGTH} 字` }
     }
 
-    const rawChanges = input.changes ?? {}
-    const invalidKeys = Object.keys(rawChanges).filter((k) => !SENSITIVE_FIELD_SET.has(k))
-    if (invalidKeys.length > 0) {
-      return { success: false as const, error: '申请包含不可修改的字段' }
-    }
-
-    // 姓名不支持教练自行申请修改（入驻完成后锁定，仅运营/超管可改）
-    if (rawChanges.name !== undefined) {
-      return { success: false as const, error: '姓名不可自行申请修改，如有需要请联系运营处理' }
-    }
-
     const teacher = await prisma.teacher.findUnique({ where: { id: teacherId } })
     if (!teacher) return { success: false as const, error: '老师不存在' }
-
     const record = teacher as unknown as Record<string, unknown>
-    const changes: Record<string, { from: unknown; to: unknown }> = {}
-    for (const field of SENSITIVE_FIELDS) {
-      const to = rawChanges[field]
-      if (to === undefined) continue
-      const invalid = validateSensitiveValue(field, to)
+
+    let changes: Record<string, { from: unknown; to: unknown }> = {}
+    let proofKeys: string[] = []
+    let qualificationPayload: QualificationChangePayload | null = null
+
+    if (kind === 'SCORE_INFO') {
+      // —— 高考信息（含姓名）：证明材料 = 高考成绩查询截图 ——
+      proofKeys = (input.proofImages ?? [])
+        .map((k) => String(k).trim())
+        .filter(Boolean)
+      if (proofKeys.length === 0) {
+        return { success: false as const, error: '请上传高考成绩查询截图作为证明材料' }
+      }
+      if (proofKeys.length > MAX_PROOF_IMAGES) {
+        return { success: false as const, error: `证明材料最多 ${MAX_PROOF_IMAGES} 张` }
+      }
+      // 证明材料必须来自本人在申请通道上传的文件（key 由 /api/upload/info-change-proof 生成）
+      const foreignProof = proofKeys.find(
+        (key) => !key.startsWith(`uploads/info-change-proof/${teacherId}-`)
+      )
+      if (foreignProof) {
+        return { success: false as const, error: '证明材料无效，请重新上传截图' }
+      }
+
+      const rawChanges = input.changes ?? {}
+      const invalidKeys = Object.keys(rawChanges).filter((k) => !SENSITIVE_FIELD_SET.has(k))
+      if (invalidKeys.length > 0) {
+        return { success: false as const, error: '申请包含不可修改的字段' }
+      }
+
+      for (const field of SENSITIVE_FIELDS) {
+        const to = rawChanges[field]
+        if (to === undefined) continue
+        const invalid = validateSensitiveValue(field, to)
+        if (invalid) return { success: false as const, error: invalid }
+        if (!isSameValue(record[field], to)) {
+          changes[field] = { from: record[field] ?? null, to }
+        }
+      }
+      if (Object.keys(changes).length === 0) {
+        return { success: false as const, error: '未检测到任何修改内容' }
+      }
+
+      const pairInvalid = validateScoreTotalPair(record, changes)
+      if (pairInvalid) return { success: false as const, error: pairInvalid }
+    } else {
+      // —— 资质变更：证明材料 = 资质文件本身（qualificationChanges 携带） ——
+      qualificationPayload = parseQualificationChangePayload(input.qualificationChanges)
+      if (!qualificationPayload) {
+        return { success: false as const, error: '资质变更内容无效，请重新编辑后提交' }
+      }
+      const invalid = validateQualificationItems(teacherId, qualificationPayload.items)
       if (invalid) return { success: false as const, error: invalid }
-      if (!isSameValue(record[field], to)) {
-        changes[field] = { from: record[field] ?? null, to }
+
+      // 专项字段 diff（当前值 → 目标值）
+      const targetFlags: Record<QualificationFlagKey, unknown> = {
+        hasTeacherCert: qualificationPayload.items.some((i) => i.type === 'TEACHER_CERT'),
+        teacherCertStage:
+          qualificationPayload.items.find((i) => i.type === 'TEACHER_CERT')?.meta.certStage ?? null,
+        teacherCertSubject:
+          qualificationPayload.items.find((i) => i.type === 'TEACHER_CERT')?.meta.certSubject ?? null,
+        mandarinLevel:
+          qualificationPayload.items.find((i) => i.type === 'MANDARIN_CERT')?.meta.mandarinLevel ?? null,
+        hasDegreeCert: qualificationPayload.items.some((i) => i.type === 'DEGREE_CERT'),
+        isInServiceTeacher: qualificationPayload.isInServiceTeacher,
+      }
+      for (const key of QUALIFICATION_FLAG_KEYS) {
+        if (!isSameValue(record[key], targetFlags[key])) {
+          changes[key] = { from: record[key] ?? null, to: targetFlags[key] }
+        }
+      }
+
+      // 材料集合 diff（目标 vs 现有入驻申报）
+      const existingItems = await prisma.teacherQualification.findMany({
+        where: { teacherId, source: 'ONBOARDING' },
+        orderBy: { type: 'asc' },
+      })
+      const normalize = (list: { type: string; files: unknown; meta: unknown }[]) =>
+        JSON.stringify(
+          list
+            .map((i) => ({
+              type: i.type,
+              files: parseQualificationFiles(i.files).slice().sort(),
+              meta: parseQualificationMeta(i.meta),
+            }))
+            .sort((a, b) => a.type.localeCompare(b.type))
+        )
+      const materialsChanged =
+        normalize(qualificationPayload.items.map((i) => ({ type: i.type, files: i.files, meta: i.meta }))) !==
+        normalize(existingItems)
+
+      if (Object.keys(changes).length === 0 && !materialsChanged) {
+        return { success: false as const, error: '未检测到任何修改内容' }
       }
     }
-    if (Object.keys(changes).length === 0) {
-      return { success: false as const, error: '未检测到任何修改内容' }
-    }
-
-    const pairInvalid = validateScoreTotalPair(record, changes)
-    if (pairInvalid) return { success: false as const, error: pairInvalid }
 
     const pending = await prisma.teacherInfoChangeRequest.findFirst({
       where: {
@@ -186,8 +289,12 @@ export async function submitInfoChangeRequest(input: InfoChangeRequestInput) {
     const created = await prisma.teacherInfoChangeRequest.create({
       data: {
         teacherId,
+        requestKind: kind,
         changes: changes as never,
         proofImages: proofKeys as never,
+        ...(qualificationPayload
+          ? { qualificationChanges: qualificationPayload as never }
+          : {}),
         reason,
       },
     })
@@ -210,7 +317,13 @@ export async function submitInfoChangeRequest(input: InfoChangeRequestInput) {
       action: 'SUBMIT_INFO_CHANGE_REQUEST',
       targetType: 'TEACHER_INFO_CHANGE_REQUEST',
       targetId: created.id,
-      detail: { teacherId, fields: Object.keys(changes), changes },
+      detail: {
+        teacherId,
+        requestKind: kind,
+        fields: Object.keys(changes),
+        changes,
+        ...(qualificationPayload ? { qualificationItems: qualificationPayload.items.map((i) => i.type) } : {}),
+      },
     })
 
     revalidatePath('/onboarding/complete')
@@ -362,20 +475,26 @@ export async function finalReviewInfoChangeRequest(
     }
 
     const changes = parseChanges(request.changes)
-    // 姓名已全面锁定为运营/超管直改，存量的含姓名申请不可再通过生效
-    if (changes.name) {
-      return {
-        success: false as const,
-        error: '姓名不支持通过申请修改，请驳回该申请；如教练确需改名，请由运营在详情页直接修改',
+    const isQualification = request.requestKind === 'QUALIFICATION'
+    let qualificationPayload: QualificationChangePayload | null = null
+
+    if (isQualification) {
+      // 资质变更：复核目标资质集合（防提交后被篡改）
+      qualificationPayload = parseQualificationChangePayload(request.qualificationChanges)
+      if (!qualificationPayload) {
+        return { success: false as const, error: '申请数据异常：资质变更内容缺失' }
       }
-    }
-    // 生效前复核申请数据合法性（防提交后被篡改）
-    for (const [field, change] of Object.entries(changes)) {
-      if (!SENSITIVE_FIELD_SET.has(field)) {
-        return { success: false as const, error: '申请包含非法字段' }
-      }
-      const invalid = validateSensitiveValue(field as SensitiveField, change.to)
+      const invalid = validateQualificationItems(request.teacherId, qualificationPayload.items)
       if (invalid) return { success: false as const, error: `申请数据异常：${invalid}` }
+    } else {
+      // 高考信息：逐字段复核取值合法性
+      for (const [field, change] of Object.entries(changes)) {
+        if (!SENSITIVE_FIELD_SET.has(field)) {
+          return { success: false as const, error: '申请包含非法字段' }
+        }
+        const invalid = validateSensitiveValue(field as SensitiveField, change.to)
+        if (invalid) return { success: false as const, error: `申请数据异常：${invalid}` }
+      }
     }
 
     const teacherRecord = await prisma.teacher.findUnique({
@@ -392,12 +511,14 @@ export async function finalReviewInfoChangeRequest(
     })
     if (!teacherRecord) return { success: false as const, error: '老师不存在' }
 
-    // 生效前以「变更后」的成对值复核成绩与总分
-    const pairInvalid = validateScoreTotalPair(
-      teacherRecord as unknown as Record<string, unknown>,
-      changes
-    )
-    if (pairInvalid) return { success: false as const, error: `申请数据异常：${pairInvalid}` }
+    if (!isQualification) {
+      // 生效前以「变更后」的成对值复核成绩与总分（仅高考信息类申请）
+      const pairInvalid = validateScoreTotalPair(
+        teacherRecord as unknown as Record<string, unknown>,
+        changes
+      )
+      if (pairInvalid) return { success: false as const, error: `申请数据异常：${pairInvalid}` }
+    }
 
     if (decision === 'REJECTED') {
       const result = await prisma.teacherInfoChangeRequest.updateMany({
@@ -448,20 +569,52 @@ export async function finalReviewInfoChangeRequest(
         })
         if (result.count !== 1) throw new Error('CONCURRENT_REVIEW')
 
-        const toValues = new Map(Object.entries(changes).map(([field, change]) => [field, change.to]))
-        await tx.teacher.update({
-          where: { id: request.teacherId },
-          data: {
-            ...(toValues.has('name') ? { name: toValues.get('name') as string } : {}),
-            ...(toValues.has('gaokaoProvince') ? { gaokaoProvince: toValues.get('gaokaoProvince') as string } : {}),
-            ...(toValues.has('mathScore') ? { mathScore: toValues.get('mathScore') as number } : {}),
-            ...(toValues.has('physicsScore') ? { physicsScore: toValues.get('physicsScore') as number } : {}),
-            ...(toValues.has('chemistryScore') ? { chemistryScore: toValues.get('chemistryScore') as number } : {}),
-            ...(toValues.has('mathScoreTotal') ? { mathScoreTotal: toValues.get('mathScoreTotal') as number } : {}),
-            ...(toValues.has('physicsScoreTotal') ? { physicsScoreTotal: toValues.get('physicsScoreTotal') as number } : {}),
-            ...(toValues.has('chemistryScoreTotal') ? { chemistryScoreTotal: toValues.get('chemistryScoreTotal') as number } : {}),
-          },
-        })
+        if (isQualification && qualificationPayload) {
+          // 资质变更生效：整体替换入驻申报记录，并由系统同步专项字段
+          await tx.teacherQualification.deleteMany({
+            where: { teacherId: request.teacherId, source: 'ONBOARDING' },
+          })
+          if (qualificationPayload.items.length > 0) {
+            await tx.teacherQualification.createMany({
+              data: qualificationPayload.items.map((item) => ({
+                teacherId: request.teacherId,
+                type: item.type,
+                source: 'ONBOARDING' as const,
+                files: item.files as never,
+                meta: item.meta as never,
+              })),
+            })
+          }
+          await tx.teacher.update({
+            where: { id: request.teacherId },
+            data: {
+              isInServiceTeacher: qualificationPayload.isInServiceTeacher,
+              hasDegreeCert: qualificationPayload.items.some((i) => i.type === 'DEGREE_CERT'),
+              hasTeacherCert: qualificationPayload.items.some((i) => i.type === 'TEACHER_CERT'),
+              teacherCertStage:
+                qualificationPayload.items.find((i) => i.type === 'TEACHER_CERT')?.meta.certStage ?? null,
+              teacherCertSubject:
+                qualificationPayload.items.find((i) => i.type === 'TEACHER_CERT')?.meta.certSubject ?? null,
+              mandarinLevel:
+                qualificationPayload.items.find((i) => i.type === 'MANDARIN_CERT')?.meta.mandarinLevel ?? null,
+            },
+          })
+        } else {
+          const toValues = new Map(Object.entries(changes).map(([field, change]) => [field, change.to]))
+          await tx.teacher.update({
+            where: { id: request.teacherId },
+            data: {
+              ...(toValues.has('name') ? { name: toValues.get('name') as string } : {}),
+              ...(toValues.has('gaokaoProvince') ? { gaokaoProvince: toValues.get('gaokaoProvince') as string } : {}),
+              ...(toValues.has('mathScore') ? { mathScore: toValues.get('mathScore') as number } : {}),
+              ...(toValues.has('physicsScore') ? { physicsScore: toValues.get('physicsScore') as number } : {}),
+              ...(toValues.has('chemistryScore') ? { chemistryScore: toValues.get('chemistryScore') as number } : {}),
+              ...(toValues.has('mathScoreTotal') ? { mathScoreTotal: toValues.get('mathScoreTotal') as number } : {}),
+              ...(toValues.has('physicsScoreTotal') ? { physicsScoreTotal: toValues.get('physicsScoreTotal') as number } : {}),
+              ...(toValues.has('chemistryScoreTotal') ? { chemistryScoreTotal: toValues.get('chemistryScoreTotal') as number } : {}),
+            },
+          })
+        }
       })
     } catch (txError) {
       if (txError instanceof Error && txError.message === 'CONCURRENT_REVIEW') {
@@ -478,7 +631,12 @@ export async function finalReviewInfoChangeRequest(
       action: 'UPDATE_TEACHER_INFO',
       targetType: 'TEACHER',
       targetId: request.teacherId,
-      detail: { changes, source: 'INFO_CHANGE_REQUEST', requestId },
+      detail: {
+        changes,
+        source: 'INFO_CHANGE_REQUEST',
+        requestId,
+        requestKind: isQualification ? 'QUALIFICATION' : 'SCORE_INFO',
+      },
     })
     await recordAudit({
       actorType: reviewer.role === 'ADMIN' ? 'ADMIN' : 'OPERATOR',
@@ -487,12 +645,13 @@ export async function finalReviewInfoChangeRequest(
       action: 'FINAL_REVIEW_INFO_CHANGE_REQUEST',
       targetType: 'TEACHER_INFO_CHANGE_REQUEST',
       targetId: requestId,
-      detail: { decision: 'APPROVED', note: trimmedNote, teacherId: request.teacherId },
+      detail: { decision: 'APPROVED', note: trimmedNote, teacherId: request.teacherId, requestKind: isQualification ? 'QUALIFICATION' : 'SCORE_INFO' },
     })
 
     // 2026-11：分数（含卷面总分）或姓名变更生效后推送 eduflow，
     // 保持接单系统教练展示页分数/昵称一致（fire-and-forget，失败仅记日志）。
-    if (touchesScores(changes) || touchesName(changes)) {
+    // 资质变更不涉及分数/姓名，无需推送。
+    if (!isQualification && (touchesScores(changes) || touchesName(changes))) {
       await pushCoachScoreSyncById(request.teacherId)
     }
 

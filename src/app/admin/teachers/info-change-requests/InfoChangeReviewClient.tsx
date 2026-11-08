@@ -7,6 +7,8 @@ import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 import {
   INFO_CHANGE_STATUS_LABELS,
   INFO_CHANGE_STATUS_BADGE,
+  INFO_CHANGE_KIND_LABELS,
+  QUALIFICATION_FLAG_LABELS,
 } from '@/lib/teacherInfoChangeShared'
 import type { InfoChangeReviewItemView } from '@/lib/teacherInfoChangeShared'
 import {
@@ -29,6 +31,15 @@ const FIELD_ORDER: SensitiveField[] = [
 function formatValue(value: unknown): string {
   if (value === null || value === undefined || value === '') return '（空）'
   return String(value)
+}
+
+/** 资质变更单的字段标签（专项字段），非资质字段回退到敏感字段标签 */
+function fieldLabel(field: string): string {
+  return (
+    QUALIFICATION_FLAG_LABELS[field as keyof typeof QUALIFICATION_FLAG_LABELS] ??
+    SENSITIVE_FIELD_LABELS[field as SensitiveField] ??
+    field
+  )
 }
 
 function formatTime(iso: string | null): string {
@@ -125,8 +136,8 @@ export default function InfoChangeReviewClient({
     const tip =
       stage === 'final'
         ? `确认通过并生效？\n将把申请内容写入该教练的资料：\n${Object.entries(item.changes)
-            .map(([field, change]) => `${SENSITIVE_FIELD_LABELS[field as SensitiveField] ?? field}：${formatValue(change.from)} → ${formatValue(change.to)}`)
-            .join('\n')}`
+            .map(([field, change]) => `${fieldLabel(field)}：${formatValue(change.from)} → ${formatValue(change.to)}`)
+            .join('\n')}${item.requestKind === 'QUALIFICATION' ? '\n（同时以申请的资质材料整体替换其入驻申报资质）' : ''}`
         : '确认初审通过？通过后将进入运营复审。'
     if (!confirm(tip)) return
     if (stage === 'first') handleFirstReview(item.id, 'APPROVED')
@@ -199,7 +210,7 @@ export default function InfoChangeReviewClient({
 
             return (
               <div key={item.id} className="card">
-                {/* 头部：教练信息 + 状态 */}
+                {/* 头部：教练信息 + 类别 + 状态 */}
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between mb-4">
                   <div>
                     <a
@@ -211,38 +222,54 @@ export default function InfoChangeReviewClient({
                     <span className="ml-2 text-sm text-gray-500">{item.teacher.phone}</span>
                     <span className="ml-2 text-xs text-gray-400">提交于 {formatTime(item.createdAt)}</span>
                   </div>
-                  <span className={`badge text-xs self-start sm:self-auto ${INFO_CHANGE_STATUS_BADGE[item.status]}`}>
-                    {INFO_CHANGE_STATUS_LABELS[item.status]}
-                  </span>
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        item.requestKind === 'QUALIFICATION'
+                          ? 'bg-blue-100 text-blue-800'
+                          : 'bg-indigo-100 text-indigo-800'
+                      }`}
+                    >
+                      {INFO_CHANGE_KIND_LABELS[item.requestKind]}
+                    </span>
+                    <span className={`badge text-xs ${INFO_CHANGE_STATUS_BADGE[item.status]}`}>
+                      {INFO_CHANGE_STATUS_LABELS[item.status]}
+                    </span>
+                  </div>
                 </div>
 
-                {/* 字段变更 */}
-                <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 mb-3">
-                  {Object.entries(item.changes).map(([field, change]) => {
-                    const key = field as SensitiveField
-                    const current = item.teacherCurrent[key]
-                    const fromStr = change.from === null || change.from === undefined ? '' : String(change.from)
-                    const toStr = change.to === null || change.to === undefined ? '' : String(change.to)
-                    const drifted = current !== fromStr && current !== toStr
-                    return (
-                      <div key={field} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-3 py-2">
-                        <span className="text-sm text-gray-500 sm:w-32 shrink-0">
-                          {SENSITIVE_FIELD_LABELS[key] ?? field}
-                        </span>
-                        <span className="text-sm">
-                          <span className="text-gray-500">{formatValue(change.from)}</span>
-                          <span className="mx-2 text-gray-400">→</span>
-                          <span className="font-semibold text-gray-900">{formatValue(change.to)}</span>
-                        </span>
-                        {drifted && (
-                          <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 sm:ml-auto">
-                            注意：当前实际值已为「{formatValue(current)}」，与提交时不一致
+                {/* 字段变更（资质变更单显示专项字段 diff，可能为空——仅材料替换） */}
+                {Object.keys(item.changes).length > 0 && (
+                  <div className="rounded-lg border border-gray-200 divide-y divide-gray-100 mb-3">
+                    {Object.entries(item.changes).map(([field, change]) => {
+                      const key = field as SensitiveField
+                      const current = item.teacherCurrent[key]
+                      const fromStr = change.from === null || change.from === undefined ? '' : String(change.from)
+                      const toStr = change.to === null || change.to === undefined ? '' : String(change.to)
+                      const drifted = current !== fromStr && current !== toStr
+                      return (
+                        <div key={field} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 px-3 py-2">
+                          <span className="text-sm text-gray-500 sm:w-32 shrink-0">
+                            {fieldLabel(field)}
                           </span>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
+                          <span className="text-sm">
+                            <span className="text-gray-500">{formatValue(change.from)}</span>
+                            <span className="mx-2 text-gray-400">→</span>
+                            <span className="font-semibold text-gray-900">{formatValue(change.to)}</span>
+                          </span>
+                          {drifted && (
+                            <span className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-0.5 sm:ml-auto">
+                              注意：当前实际值已为「{formatValue(current)}」，与提交时不一致
+                            </span>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+                {item.requestKind === 'QUALIFICATION' && Object.keys(item.changes).length === 0 && (
+                  <p className="text-xs text-gray-400 mb-3">本次申请仅替换资质材料文件，专项字段无变化。</p>
+                )}
 
                 {item.reason && (
                   <p className="text-sm text-gray-600 mb-2">
@@ -251,22 +278,45 @@ export default function InfoChangeReviewClient({
                   </p>
                 )}
 
-                {/* 证明截图 */}
-                <div className="mb-3">
-                  <p className="text-xs text-gray-400 mb-2">高考成绩查询截图（证明材料）</p>
-                  <div className="flex flex-wrap gap-2">
-                    {item.proofImages.map((key) => (
-                      <a key={key} href={item.proofUrls[key]} target="_blank" rel="noopener noreferrer">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
-                          src={item.proofUrls[key]}
-                          alt="证明材料"
-                          className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"
-                        />
-                      </a>
-                    ))}
+                {/* 证明材料：高考信息单 = 成绩截图；资质变更单 = 资质文件 */}
+                {item.requestKind === 'QUALIFICATION' ? (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-400 mb-2">资质材料（申请后的目标资质集合）</p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.qualificationFiles.length > 0 ? (
+                        item.qualificationFiles.map((file, idx) => (
+                          <a
+                            key={file.key}
+                            href={file.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-primary-600 hover:underline underline-offset-2"
+                          >
+                            {file.key.endsWith('.pdf') ? `查看 PDF ${idx + 1}` : `查看图片 ${idx + 1}`}
+                          </a>
+                        ))
+                      ) : (
+                        <span className="text-xs text-gray-400">未提交任何资质材料（将清空现有申报）</span>
+                      )}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="mb-3">
+                    <p className="text-xs text-gray-400 mb-2">高考成绩查询截图（证明材料）</p>
+                    <div className="flex flex-wrap gap-2">
+                      {item.proofImages.map((key) => (
+                        <a key={key} href={item.proofUrls[key]} target="_blank" rel="noopener noreferrer">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={item.proofUrls[key]}
+                            alt="证明材料"
+                            className="w-24 h-24 object-cover rounded-lg border border-gray-200 hover:opacity-90"
+                          />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 审核链 */}
                 {(item.firstReviewerName || item.finalReviewerName) && (

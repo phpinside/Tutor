@@ -771,12 +771,17 @@ model TeacherInfoChangeRequest {
   teacherId String // 申请人
   teacher   Teacher @relation(fields: [teacherId], references: [id], onDelete: Cascade)
 
-  status TeacherInfoChangeRequestStatus @default(PENDING_FIRST_REVIEW)
+  status  TeacherInfoChangeRequestStatus @default(PENDING_FIRST_REVIEW)
 
-  // 申请的字段变更：key → { from, to }；key 仅限 SENSITIVE_FIELDS（name/gaokaoProvince/mathScore/physicsScore/chemistryScore）
+  // 申请类别：SCORE_INFO 高考信息（省份/成绩/总分/姓名）；QUALIFICATION 资质变更（教师资格证/普通话/学历证明/在职教师）
+  requestKind String @default("SCORE_INFO")
+
+  // 申请的字段变更：key → { from, to }；SCORE_INFO 限敏感字段（含姓名），QUALIFICATION 限资质专项字段
   changes     Json
-  // 证明材料：高考成绩查询截图（七牛 key，1-3 张，私有桶需签名访问）
-  proofImages Json
+  // 证明材料：SCORE_INFO = 高考成绩查询截图；QUALIFICATION 不使用（证明即资质文件，见 qualificationChanges）
+  proofImages Json    // 七牛 key，1-3 张，私有桶需签名访问
+  // QUALIFICATION 专用：目标资质集合 { items: [{ type, files, meta }], isInServiceTeacher }（整体替换 ONBOARDING 申报）
+  qualificationChanges Json?
   // 教练填写的修改说明
   reason String? @db.Text
 

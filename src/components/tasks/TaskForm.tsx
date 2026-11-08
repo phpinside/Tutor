@@ -248,8 +248,8 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
         return
       }
 
-      // 资质证明（选填）：有变更时整体替换入驻申报记录并同步专项字段
-      if (qualificationDirty) {
+      // 资质证明（选填）：有变更时整体替换入驻申报记录并同步专项字段（锁定态不可变更，跳过）
+      if (qualificationDirty && !sensitiveLocked) {
         const qualResult = await saveTeacherQualifications({
           items: qualificationPayload.items,
           isInServiceTeacher: qualificationPayload.isInServiceTeacher,
@@ -839,10 +839,11 @@ export default function TaskForm({ task, teacherId, teacher, submission, sensiti
         </div>
       </div>
 
-      {/* 资质证明（选填）：学历/在读证明、教师资格证、普通话等级证 */}
+      {/* 资质证明：入驻通过后锁定为只读，变更走完成页「资质变更申请」 */}
       <TaskQualifications
         isInServiceTeacher={teacher.isInServiceTeacher === true}
         initialItems={initialQualifications}
+        locked={sensitiveLocked}
         onChange={(payload, dirty) => {
           setQualificationPayload(payload)
           setQualificationDirty(dirty)

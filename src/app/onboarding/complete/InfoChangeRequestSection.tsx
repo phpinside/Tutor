@@ -6,13 +6,16 @@ import { GAOKAO_PROVINCE_OPTIONS } from '@/lib/gaokaoProvinces'
 import { SENSITIVE_FIELD_LABELS } from '@/lib/teacherSensitiveFields'
 import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 import AuthenticityDeclaration from '@/components/AuthenticityDeclaration'
+import TaskQualifications from '@/components/tasks/TaskQualifications'
+import type { TaskQualificationsPayload } from '@/components/tasks/TaskQualifications'
 import {
   INFO_CHANGE_STATUS_LABELS,
   INFO_CHANGE_STATUS_BADGE,
+  INFO_CHANGE_KIND_LABELS,
   MAX_PROOF_IMAGES,
   MAX_REASON_LENGTH,
 } from '@/lib/teacherInfoChangeShared'
-import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
+import type { InfoChangeItemView, InfoChangeRequestKind } from '@/lib/teacherInfoChangeShared'
 import {
   submitInfoChangeRequest,
   cancelInfoChangeRequest,
@@ -54,6 +57,9 @@ interface Props {
   teacherId: string
   currentValues: Record<SensitiveField, string>
   initialRequests: InfoChangeItemView[]
+  /** 已提交的入驻申报资质（用于资质变更编辑器回填） */
+  initialQualifications: { type: 'DEGREE_CERT' | 'TEACHER_CERT' | 'MANDARIN_CERT'; files: string[]; meta: { degreeLevel?: string; verifyCode?: string; certStage?: string; certSubject?: string; mandarinLevel?: string } }[]
+  isInServiceTeacher: boolean
 }
 
 const CHECKLIST_ITEMS = [
@@ -94,6 +100,8 @@ export default function InfoChangeRequestSection({
   teacherId,
   currentValues,
   initialRequests,
+  initialQualifications,
+  isInServiceTeacher,
 }: Props) {
   const router = useRouter()
   const [requests, setRequests] = useState<InfoChangeItemView[]>(initialRequests)
@@ -102,8 +110,12 @@ export default function InfoChangeRequestSection({
   const [cancellingId, setCancellingId] = useState<string | null>(null)
   const [errorMsg, setErrorMsg] = useState('')
 
-  // 表单状态（姓名已锁定为运营直改，不在申请范围）
+  // 申请类别（弹窗内切换）
+  const [requestKind, setRequestKind] = useState<InfoChangeRequestKind>('SCORE_INFO')
+
+  // 高考信息表单
   const [form, setForm] = useState({
+    name: currentValues.name ?? '',
     gaokaoProvince: currentValues.gaokaoProvince ?? '',
     mathScore: currentValues.mathScore ?? '',
     mathScoreTotal: currentValues.mathScoreTotal ?? '',
@@ -112,6 +124,15 @@ export default function InfoChangeRequestSection({
     chemistryScore: currentValues.chemistryScore ?? '',
     chemistryScoreTotal: currentValues.chemistryScoreTotal ?? '',
   })
+  // 资质变更编辑载荷（由内嵌 TaskQualifications 维护；初始 = 当前申报）
+  const [qualPayload, setQualPayload] = useState<TaskQualificationsPayload>(() => ({
+    items: initialQualifications.map((item) => ({
+      type: item.type,
+      files: item.files,
+      meta: item.meta,
+    })),
+    isInServiceTeacher,
+  }))
   const [reason, setReason] = useState('')
   const [proofImages, setProofImages] = useState<{ key: string; previewUrl: string }[]>([])
   const [uploading, setUploading] = useState(false)
@@ -123,7 +144,9 @@ export default function InfoChangeRequestSection({
   )
 
   const openModal = () => {
+    setRequestKind('SCORE_INFO')
     setForm({
+      name: currentValues.name ?? '',
       gaokaoProvince: currentValues.gaokaoProvince ?? '',
       mathScore: currentValues.mathScore ?? '',
       mathScoreTotal: currentValues.mathScoreTotal ?? '',
@@ -131,6 +154,14 @@ export default function InfoChangeRequestSection({
       physicsScoreTotal: currentValues.physicsScoreTotal ?? '',
       chemistryScore: currentValues.chemistryScore ?? '',
       chemistryScoreTotal: currentValues.chemistryScoreTotal ?? '',
+    })
+    setQualPayload({
+      items: initialQualifications.map((item) => ({
+        type: item.type,
+        files: item.files,
+        meta: item.meta,
+      })),
+      isInServiceTeacher,
     })
     setReason('')
     setProofImages([])
@@ -186,63 +217,103 @@ export default function InfoChangeRequestSection({
 
   const handleSubmit = async () => {
     setErrorMsg('')
-    if (!checklist.every(Boolean)) {
-      setErrorMsg('请先确认全部注意事项后勾选')
-      return
-    }
     if (!commitmentAccepted) {
       setErrorMsg('请先阅读「信息真实性承诺」并勾选确认')
       return
     }
-    if (proofImages.length === 0) {
-      setErrorMsg('请上传高考成绩查询截图作为证明材料')
+
+    if (requestKind === 'SCORE_INFO') {
+      if (!checklist.every(Boolean)) {
+        setErrorMsg('请先确认全部注意事项后勾选')
+        return
+      }
+      if (proofImages.length === 0) {
+        setErrorMsg('请上传高考成绩查询截图作为证明材料')
+        return
+      }
+
+      // 仅提交有实际变化的字段（含姓名）
+      const changes: Record<string, string | number> = {}
+      const nameRaw = form.name.trim()
+      if (nameRaw && nameRaw !== (currentValues.name ?? '')) {
+        changes.name = nameRaw
+      }
+      if (form.gaokaoProvince && form.gaokaoProvince !== (currentValues.gaokaoProvince ?? '')) {
+        changes.gaokaoProvince = form.gaokaoProvince
+      }
+      for (const [scoreField, totalField] of SCORE_TOTAL_FIELDS) {
+        const scoreRaw = String(form[scoreField]).trim()
+        const totalRaw = String(form[totalField]).trim()
+        if (!scoreRaw && !totalRaw) continue
+        if (!scoreRaw || !totalRaw) {
+          setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}与卷面总分需同时填写`)
+          return
+        }
+        const scoreNum = parseInt(scoreRaw, 10)
+        const totalNum = parseInt(totalRaw, 10)
+        if (Number.isNaN(scoreNum) || Number.isNaN(totalNum)) {
+          setErrorMsg('成绩与总分需填写数字')
+          return
+        }
+        if (totalNum < 30 || totalNum > 150) {
+          setErrorMsg('卷面总分需为 30-150 的整数')
+          return
+        }
+        if (scoreNum > totalNum) {
+          setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}（${scoreNum}）不能高于卷面总分（${totalNum}）`)
+          return
+        }
+        if (String(scoreNum) !== (currentValues[scoreField] ?? '')) {
+          changes[scoreField] = scoreNum
+        }
+        if (String(totalNum) !== (currentValues[totalField] ?? '')) {
+          changes[totalField] = totalNum
+        }
+      }
+      if (Object.keys(changes).length === 0) {
+        setErrorMsg('请至少修改一项内容后再提交')
+        return
+      }
+
+      setSubmitting(true)
+      try {
+        const result = await submitInfoChangeRequest({
+          requestKind: 'SCORE_INFO',
+          changes: changes as never,
+          proofImages: proofImages.map((p) => p.key),
+          reason: reason.trim() || undefined,
+          commitmentAccepted: true,
+        })
+        if (!result.success) {
+          setErrorMsg(result.error || '提交失败，请重试')
+          return
+        }
+        setModalOpen(false)
+        await refreshRequests()
+      } catch {
+        setErrorMsg('提交失败，请重试')
+      } finally {
+        setSubmitting(false)
+      }
       return
     }
 
-    // 仅提交有实际变化的字段（姓名已锁定为运营直改，不在申请范围）
-    const changes: Record<string, string | number> = {}
-    if (form.gaokaoProvince && form.gaokaoProvince !== (currentValues.gaokaoProvince ?? '')) {
-      changes.gaokaoProvince = form.gaokaoProvince
-    }
-    for (const [scoreField, totalField] of SCORE_TOTAL_FIELDS) {
-      const scoreRaw = String(form[scoreField]).trim()
-      const totalRaw = String(form[totalField]).trim()
-      if (!scoreRaw && !totalRaw) continue
-      if (!scoreRaw || !totalRaw) {
-        setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}与卷面总分需同时填写`)
-        return
-      }
-      const scoreNum = parseInt(scoreRaw, 10)
-      const totalNum = parseInt(totalRaw, 10)
-      if (Number.isNaN(scoreNum) || Number.isNaN(totalNum)) {
-        setErrorMsg('成绩与总分需填写数字')
-        return
-      }
-      if (totalNum < 30 || totalNum > 150) {
-        setErrorMsg('卷面总分需为 30-150 的整数')
-        return
-      }
-      if (scoreNum > totalNum) {
-        setErrorMsg(`${SENSITIVE_FIELD_LABELS[scoreField]}（${scoreNum}）不能高于卷面总分（${totalNum}）`)
-        return
-      }
-      if (String(scoreNum) !== (currentValues[scoreField] ?? '')) {
-        changes[scoreField] = scoreNum
-      }
-      if (String(totalNum) !== (currentValues[totalField] ?? '')) {
-        changes[totalField] = totalNum
-      }
-    }
-    if (Object.keys(changes).length === 0) {
-      setErrorMsg('请至少修改一项内容后再提交')
-      return
-    }
-
+    // 资质变更：整包提交编辑器当前目标集（服务端 diff 判定是否有实际变化）
     setSubmitting(true)
     try {
       const result = await submitInfoChangeRequest({
-        changes: changes as never,
-        proofImages: proofImages.map((p) => p.key),
+        requestKind: 'QUALIFICATION',
+        changes: {} as never,
+        qualificationChanges: {
+          items: qualPayload.items.map((i) => ({
+            // TaskQualifications 仅发出三类可申报资质（GAOKAO_SCORE 仅用于质疑取证，不会出现在此）
+            type: i.type as 'DEGREE_CERT' | 'TEACHER_CERT' | 'MANDARIN_CERT',
+            files: i.files,
+            meta: i.meta,
+          })),
+          isInServiceTeacher: qualPayload.isInServiceTeacher,
+        },
+        proofImages: [],
         reason: reason.trim() || undefined,
         commitmentAccepted: true,
       })
@@ -373,16 +444,38 @@ export default function InfoChangeRequestSection({
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 overflow-y-auto">
           <div className="bg-white rounded-2xl w-full max-w-2xl my-8">
             <div className="p-6 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">申请修改高考资料</h3>
+              <h3 className="text-lg font-bold text-gray-900">资料修改申请</h3>
               <p className="text-sm text-gray-500 mt-1">
                 提交后由学管初审、运营复审，全部通过后自动生效；审核中不可重复提交。
               </p>
+              {/* 申请类别切换 */}
+              <div className="flex gap-2 mt-4">
+                {(['SCORE_INFO', 'QUALIFICATION'] as InfoChangeRequestKind[]).map((kind) => (
+                  <button
+                    key={kind}
+                    type="button"
+                    onClick={() => {
+                      setRequestKind(kind)
+                      setErrorMsg('')
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      requestKind === kind
+                        ? 'bg-primary-600 text-white'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    }`}
+                  >
+                    {INFO_CHANGE_KIND_LABELS[kind]}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="p-6 space-y-5 max-h-[60vh] overflow-y-auto">
               {/* 诚实申报提醒（显著横幅） */}
               <AuthenticityDeclaration variant="banner" />
 
+              {requestKind === 'SCORE_INFO' && (
+              <>
               {/* 示例截图示意 */}
               <div className="rounded-xl border-2 border-dashed border-primary-300 bg-primary-50/60 p-4">
                 <p className="text-sm font-semibold text-primary-900 mb-2">📸 证明材料要求：高考成绩查询结果截图</p>
@@ -440,12 +533,15 @@ export default function InfoChangeRequestSection({
 
               {/* 字段表单 */}
               <div className="grid gap-4 sm:grid-cols-2">
-                <div className="sm:col-span-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5 text-sm text-gray-600">
-                  <span className="font-medium text-gray-800">姓名：</span>
-                  {formatValue(currentValues.name)}
-                  <span className="text-xs text-gray-400 ml-2">
-                    （已锁定，不支持在线申请修改；如需修改请联系运营）
-                  </span>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">姓名</label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                    placeholder="请输入修改后的姓名"
+                  />
+                  <p className="text-xs text-gray-400 mt-1">当前：{formatValue(currentValues.name)}</p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">高考省份</label>
@@ -494,19 +590,6 @@ export default function InfoChangeRequestSection({
                     <p className="text-xs text-gray-400 mt-1">该科成绩与卷面总分需同时填写（成绩不能高于总分）</p>
                   </div>
                 ))}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    修改说明（选填，≤{MAX_REASON_LENGTH} 字）
-                  </label>
-                  <textarea
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value)}
-                    rows={3}
-                    maxLength={MAX_REASON_LENGTH}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none resize-none"
-                    placeholder="例如：当时填错了，现更正为实际成绩"
-                  />
-                </div>
               </div>
 
               {/* 上传截图 */}
@@ -578,6 +661,38 @@ export default function InfoChangeRequestSection({
                   ))}
                 </div>
               </div>
+              </>
+              )}
+
+              {/* 修改说明（两类申请共用） */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  修改说明（选填，≤{MAX_REASON_LENGTH} 字）
+                </label>
+                <textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  rows={3}
+                  maxLength={MAX_REASON_LENGTH}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:border-primary-400 focus:outline-none resize-none"
+                  placeholder="例如：当时填错了，现更正为实际成绩"
+                />
+              </div>
+
+              {/* 资质变更：材料编辑器（证书即证明材料） */}
+              {requestKind === 'QUALIFICATION' && (
+                <>
+                  <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
+                    📄 在下方直接调整需要申报的资质材料并勾选「确认」清单，
+                    提交后将整体替换你的入驻申报资质；经学管初审、运营复审通过后由系统生效。
+                  </div>
+                  <TaskQualifications
+                    isInServiceTeacher={qualPayload.isInServiceTeacher}
+                    initialItems={initialQualifications}
+                    onChange={(payload) => setQualPayload(payload)}
+                  />
+                </>
+              )}
 
               {/* 信息真实性承诺（提交前必须确认） */}
               <AuthenticityDeclaration

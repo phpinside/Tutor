@@ -4,6 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { cookies } from 'next/headers'
 import { recordAudit } from '@/lib/auditLog'
+import { hasPassedOnboarding } from '@/lib/teacherSensitiveFields'
 import {
   QUALIFICATION_TYPE_LABELS,
   TEACHER_CERT_STAGES,
@@ -83,6 +84,7 @@ export async function getMyQualifications(): Promise<{
 }
 
 // 入驻表单提交：整体替换 ONBOARDING 来源的资质，并同步 Teacher 专项字段（申报口径）
+// 入驻审核通过后教练不可再自助变更资质，需走「资料修改申请」流程（复审通过由系统同步）
 export async function saveTeacherQualifications(input: {
   items: {
     type: QualificationType
@@ -94,6 +96,13 @@ export async function saveTeacherQualifications(input: {
   try {
     const teacherId = (await cookies()).get('teacherId')?.value
     if (!teacherId) return { success: false as const, error: '请先登录' }
+
+    if (await hasPassedOnboarding(teacherId)) {
+      return {
+        success: false as const,
+        error: '入驻审核已通过，资质变更请前往完成页使用「资料修改申请」提交',
+      }
+    }
 
     const rawItems = Array.isArray(input.items) ? input.items : []
     const types = rawItems.map((i) => i?.type)

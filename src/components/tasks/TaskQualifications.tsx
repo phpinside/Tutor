@@ -32,6 +32,8 @@ interface Props {
   isInServiceTeacher: boolean
   initialItems: { type: QualificationType; files: string[]; meta: QualificationMeta }[]
   onChange: (payload: TaskQualificationsPayload, dirty: boolean) => void
+  /** 入驻审核通过后为 true：资质只读，变更需走「资料修改申请」 */
+  locked?: boolean
 }
 
 const TYPE_TITLES: Record<Exclude<QualificationType, 'GAOKAO_SCORE'>, { title: string; hint: string }> = {
@@ -49,8 +51,13 @@ const TYPE_TITLES: Record<Exclude<QualificationType, 'GAOKAO_SCORE'>, { title: s
   },
 }
 
-/** 入驻表单「资质证明（选填）」：学历/在读证明、教师资格证、普通话等级证 + 是否在职教师 */
-export default function TaskQualifications({ isInServiceTeacher, initialItems, onChange }: Props) {
+/** 入驻表单「资质证明」：学历/在读证明、教师资格证、普通话等级证 + 是否在职教师 */
+export default function TaskQualifications({
+  isInServiceTeacher,
+  initialItems,
+  onChange,
+  locked = false,
+}: Props) {
   const [drafts, setDrafts] = useState<Record<string, FileEntry[] | null>>(() => {
     const initial: Record<string, FileEntry[] | null> = {
       DEGREE_CERT: null,
@@ -165,10 +172,18 @@ export default function TaskQualifications({ isInServiceTeacher, initialItems, o
       <h2 className="text-lg font-semibold text-gray-900 mb-1">
         资质证明（选填）
       </h2>
-      <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 mb-4 text-sm text-green-800">
-        🎓 完善资质证明并通过审核后，将享有<span className="font-semibold">优先派单权</span>；
-        提交的证书与报告须真实有效，将随入驻资料一并审核。
-      </div>
+      {locked ? (
+        <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-4 text-sm text-amber-800">
+          🔒 入驻审核已通过：资质材料已锁定，如需变更请在
+          <a href="/onboarding/complete" className="font-medium underline underline-offset-2 mx-1">完成页</a>
+          提交「资质变更申请」，经学管初审、运营复审通过后生效。
+        </div>
+      ) : (
+        <div className="rounded-lg bg-green-50 border border-green-200 px-3 py-2 mb-4 text-sm text-green-800">
+          🎓 完善资质证明并通过审核后，将享有<span className="font-semibold">优先派单权</span>；
+          提交的证书与报告须真实有效，将随入驻资料一并审核。
+        </div>
+      )}
 
       <div className="space-y-4">
         {(['DEGREE_CERT', 'TEACHER_CERT', 'MANDARIN_CERT'] as const).map((type) => {
@@ -176,72 +191,98 @@ export default function TaskQualifications({ isInServiceTeacher, initialItems, o
           const conf = TYPE_TITLES[type]
           return (
             <div key={type} className="rounded-xl border border-gray-200 p-4">
-              <p className="text-sm font-medium text-gray-900">{conf.title}</p>
-              <p className="text-xs text-gray-500 mt-0.5 mb-3">{conf.hint}</p>
+              <p className="text-sm font-medium text-gray-900">
+                {conf.title}
+                {files.length === 0 && <span className="ml-2 text-xs text-gray-400">（未提交）</span>}
+              </p>
 
-              {/* 配套选择（移动端单列，≥sm 双列） */}
-              {type === 'DEGREE_CERT' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  {renderSelect(type, 'degreeLevel', DEGREE_LEVELS, undefined, '学历层次（选填）')}
-                  <input
-                    value={metas[type]?.verifyCode ?? ''}
-                    onChange={(e) => handleMeta(type, { verifyCode: e.target.value })}
-                    className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm focus:border-primary-400 focus:outline-none"
-                    placeholder="学信网在线验证码（选填）"
-                    maxLength={50}
-                  />
-                </div>
-              )}
-              {type === 'TEACHER_CERT' && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                  {renderSelect(type, 'certStage', TEACHER_CERT_STAGES, TEACHER_CERT_STAGE_LABELS, '学段')}
-                  {renderSelect(type, 'certSubject', TEACHER_CERT_SUBJECTS, TEACHER_CERT_SUBJECT_LABELS, '学科')}
-                </div>
-              )}
-              {type === 'MANDARIN_CERT' && (
-                <div className="mb-3">
-                  {renderSelect(type, 'mandarinLevel', MANDARIN_LEVELS, undefined, '等级')}
-                </div>
-              )}
+              {locked ? (
+                /* 锁定态：只读展示 */
+                <>
+                  {type === 'DEGREE_CERT' && metas[type]?.degreeLevel && (
+                    <p className="text-xs text-gray-600 mt-1">学历层次：{metas[type].degreeLevel}</p>
+                  )}
+                  {type === 'TEACHER_CERT' && (metas[type]?.certStage || metas[type]?.certSubject) && (
+                    <p className="text-xs text-gray-600 mt-1">
+                      {TEACHER_CERT_STAGE_LABELS[metas[type].certStage ?? ''] ?? metas[type].certStage}
+                      {' · '}
+                      {TEACHER_CERT_SUBJECT_LABELS[metas[type].certSubject ?? ''] ?? metas[type].certSubject}
+                    </p>
+                  )}
+                  {type === 'MANDARIN_CERT' && metas[type]?.mandarinLevel && (
+                    <p className="text-xs text-gray-600 mt-1">等级：{metas[type].mandarinLevel}</p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">已提交 {files.length} 个文件</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-gray-500 mt-0.5 mb-3">{conf.hint}</p>
 
-              {/* 文件 */}
-              <div className="flex flex-wrap items-center gap-2">
-                {files.map((file, idx) => (
-                  <span
-                    key={file.key}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-xs text-gray-700"
-                  >
-                    📎 文件{idx + 1}
-                    <button
-                      type="button"
-                      onClick={() => handleRemove(type, idx)}
-                      className="text-gray-400 hover:text-red-600"
-                      aria-label="删除文件"
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {files.length < MAX_FILES && (
-                  <label
-                    className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 cursor-pointer hover:border-primary-400 hover:text-primary-600 transition-colors ${
-                      uploadingType === type ? 'opacity-50 pointer-events-none' : ''
-                    }`}
-                  >
-                    {uploadingType === type ? '上传中…' : '＋ 上传（图片/PDF）'}
-                    <input
-                      type="file"
-                      accept="image/png,image/jpeg,image/webp,application/pdf"
-                      className="hidden"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0]
-                        if (file) handleUpload(type, file)
-                        e.target.value = ''
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
+                  {/* 配套选择（移动端单列，≥sm 双列） */}
+                  {type === 'DEGREE_CERT' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      {renderSelect(type, 'degreeLevel', DEGREE_LEVELS, undefined, '学历层次（选填）')}
+                      <input
+                        value={metas[type]?.verifyCode ?? ''}
+                        onChange={(e) => handleMeta(type, { verifyCode: e.target.value })}
+                        className="border border-gray-300 rounded-lg px-2.5 py-2 text-sm focus:border-primary-400 focus:outline-none"
+                        placeholder="学信网在线验证码（选填）"
+                        maxLength={50}
+                      />
+                    </div>
+                  )}
+                  {type === 'TEACHER_CERT' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      {renderSelect(type, 'certStage', TEACHER_CERT_STAGES, TEACHER_CERT_STAGE_LABELS, '学段')}
+                      {renderSelect(type, 'certSubject', TEACHER_CERT_SUBJECTS, TEACHER_CERT_SUBJECT_LABELS, '学科')}
+                    </div>
+                  )}
+                  {type === 'MANDARIN_CERT' && (
+                    <div className="mb-3">
+                      {renderSelect(type, 'mandarinLevel', MANDARIN_LEVELS, undefined, '等级')}
+                    </div>
+                  )}
+
+                  {/* 文件 */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {files.map((file, idx) => (
+                      <span
+                        key={file.key}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gray-100 border border-gray-200 text-xs text-gray-700"
+                      >
+                        📎 文件{idx + 1}
+                        <button
+                          type="button"
+                          onClick={() => handleRemove(type, idx)}
+                          className="text-gray-400 hover:text-red-600"
+                          aria-label="删除文件"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                    {files.length < MAX_FILES && (
+                      <label
+                        className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-dashed border-gray-300 text-xs text-gray-500 cursor-pointer hover:border-primary-400 hover:text-primary-600 transition-colors ${
+                          uploadingType === type ? 'opacity-50 pointer-events-none' : ''
+                        }`}
+                      >
+                        {uploadingType === type ? '上传中…' : '＋ 上传（图片/PDF）'}
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg,image/webp,application/pdf"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0]
+                            if (file) handleUpload(type, file)
+                            e.target.value = ''
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </>
+              )}
             </div>
           )
         })}
@@ -249,23 +290,27 @@ export default function TaskQualifications({ isInServiceTeacher, initialItems, o
         {/* 是否在职教师 */}
         <div className="rounded-xl border border-gray-200 p-4">
           <p className="text-sm font-medium text-gray-900 mb-2">是否在职教师</p>
-          <div className="flex gap-6">
-            {[{ v: false, label: '否' }, { v: true, label: '是' }].map((opt) => (
-              <label key={opt.label} className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="task-isInServiceTeacher"
-                  checked={inService === opt.v}
-                  onChange={() => {
-                    setInService(opt.v)
-                    emit(drafts, metas, opt.v)
-                  }}
-                  className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
-                />
-                <span className="text-sm text-gray-700">{opt.label}</span>
-              </label>
-            ))}
-          </div>
+          {locked ? (
+            <p className="text-sm text-gray-700">{inService ? '是' : '否'}</p>
+          ) : (
+            <div className="flex gap-6">
+              {[{ v: false, label: '否' }, { v: true, label: '是' }].map((opt) => (
+                <label key={opt.label} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="task-isInServiceTeacher"
+                    checked={inService === opt.v}
+                    onChange={() => {
+                      setInService(opt.v)
+                      emit(drafts, metas, opt.v)
+                    }}
+                    className="w-4 h-4 text-primary-600 border-gray-300 focus:ring-primary-500"
+                  />
+                  <span className="text-sm text-gray-700">{opt.label}</span>
+                </label>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </div>

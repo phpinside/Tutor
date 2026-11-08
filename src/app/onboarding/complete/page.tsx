@@ -17,6 +17,8 @@ import { SENSITIVE_FIELDS } from '@/lib/teacherSensitiveFields'
 import type { SensitiveField } from '@/lib/teacherSensitiveFields'
 import { toInfoChangeItemView } from '@/lib/teacherInfoChangeShared'
 import type { InfoChangeItemView } from '@/lib/teacherInfoChangeShared'
+import { parseQualificationFiles, parseQualificationMeta } from '@/lib/teacherQualificationShared'
+import type { QualificationType } from '@/lib/teacherQualificationShared'
 import CompletionContent from './CompletionContent'
 
 export const dynamic = 'force-dynamic'
@@ -117,6 +119,12 @@ export default async function CompletePage() {
   const sensitivePassed = coachReview?.stage === 'APPROVED'
   let infoChangeCurrentValues: Record<SensitiveField, string> | null = null
   let infoChangeRequests: InfoChangeItemView[] = []
+  let infoChangeQualifications: {
+    type: 'DEGREE_CERT' | 'TEACHER_CERT' | 'MANDARIN_CERT'
+    files: string[]
+    meta: ReturnType<typeof parseQualificationMeta>
+  }[] = []
+  let infoChangeIsInServiceTeacher = false
   if (sensitivePassed) {
     const teacherRecord = teacher as unknown as Record<string, unknown>
     infoChangeCurrentValues = Object.fromEntries(
@@ -133,6 +141,19 @@ export default async function CompletePage() {
       take: 20,
     })
     infoChangeRequests = rows.map(toInfoChangeItemView)
+
+    // 已提交的入驻申报资质（资质变更编辑器回填）
+    const qualificationRows = await prisma.teacherQualification.findMany({
+      where: { teacherId, source: 'ONBOARDING' },
+      orderBy: { createdAt: 'desc' },
+      take: 10,
+    })
+    infoChangeQualifications = qualificationRows.map((row) => ({
+      type: row.type as 'DEGREE_CERT' | 'TEACHER_CERT' | 'MANDARIN_CERT',
+      files: parseQualificationFiles(row.files),
+      meta: parseQualificationMeta(row.meta),
+    }))
+    infoChangeIsInServiceTeacher = teacher.isInServiceTeacher === true
   }
 
   return (
@@ -156,6 +177,8 @@ export default async function CompletePage() {
               teacherId,
               currentValues: infoChangeCurrentValues,
               initialRequests: infoChangeRequests,
+              initialQualifications: infoChangeQualifications,
+              isInServiceTeacher: infoChangeIsInServiceTeacher,
             }
           : null
       }

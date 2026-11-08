@@ -5,8 +5,11 @@ import type {
   SensitiveFieldKey,
 } from '@/lib/teacherInfoChangeShared'
 import { SENSITIVE_FIELDS } from '@/lib/teacherSensitiveFields'
+import { QUALIFICATION_FLAG_KEYS } from '@/lib/teacherInfoChangeShared'
 
 const SENSITIVE_KEYS: SensitiveFieldKey[] = [...SENSITIVE_FIELDS]
+const FLAG_KEYS = [...QUALIFICATION_FLAG_KEYS]
+const CURRENT_KEYS = [...SENSITIVE_KEYS, ...FLAG_KEYS]
 
 /**
  * 服务端专用：申请单 + 教练当前值 + 证明图签名 URL（2 小时有效）。
@@ -15,8 +18,10 @@ const SENSITIVE_KEYS: SensitiveFieldKey[] = [...SENSITIVE_FIELDS]
 export function toInfoChangeReviewItemView(row: {
   id: string
   status: InfoChangeReviewItemView['status']
+  requestKind: string
   changes: unknown
   proofImages: unknown
+  qualificationChanges: unknown
   reason: string | null
   createdAt: Date
   appliedAt: Date | null
@@ -34,6 +39,15 @@ export function toInfoChangeReviewItemView(row: {
     mathScore: number | null
     physicsScore: number | null
     chemistryScore: number | null
+    mathScoreTotal: number | null
+    physicsScoreTotal: number | null
+    chemistryScoreTotal: number | null
+    hasTeacherCert: boolean
+    teacherCertStage: string | null
+    teacherCertSubject: string | null
+    mandarinLevel: string | null
+    hasDegreeCert: boolean
+    isInServiceTeacher: boolean
   }
 }): InfoChangeReviewItemView {
   const view = toInfoChangeItemView(row)
@@ -43,15 +57,18 @@ export function toInfoChangeReviewItemView(row: {
     ...view,
     teacher: { id: row.teacher.id, name: row.teacher.name, phone: row.teacher.phone },
     teacherCurrent: Object.fromEntries(
-      SENSITIVE_KEYS.map((key) => [
+      CURRENT_KEYS.map((key) => [
         key,
         teacherRecord[key] === null || teacherRecord[key] === undefined
           ? ''
           : String(teacherRecord[key]),
       ])
-    ) as Record<SensitiveFieldKey, string>,
+    ),
     proofUrls: Object.fromEntries(
       view.proofImages.map((key) => [key, generatePrivateUrl(key, proofDeadline)])
+    ),
+    qualificationFiles: (view.qualificationChanges?.items ?? []).flatMap((item) =>
+      item.files.map((key) => ({ key, url: generatePrivateUrl(key, proofDeadline) }))
     ),
   }
 }
