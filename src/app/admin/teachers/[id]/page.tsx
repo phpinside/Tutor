@@ -13,6 +13,7 @@ import { getTeacherRemarks, updateTeacherFollower } from '@/app/actions/operator
 import TeacherRemarkSection from '@/components/admin/TeacherRemarkSection'
 import TeacherDirectReferralReview from './TeacherDirectReferralReview'
 import CoachReviewPanel from './CoachReviewPanel'
+import DirectApproveSection from './DirectApproveSection'
 import OperatorPickerModal from './OperatorPickerModal'
 import { getCoachReviewForTeacher } from '@/app/actions/coachReview'
 import { isTeacherInScope } from '@/lib/learnerManagerScope'
@@ -881,6 +882,15 @@ export default async function TeacherDetailPage({
           </div>
         )}
       </div>
+
+      {(viewerInfo.isSuperAdmin || viewerOperatorRole === 'OPERATOR') &&
+        coachReview?.stage !== 'APPROVED' && (
+          <DirectApproveSection
+            teacherId={teacher.id}
+            teacherStatus={teacher.status}
+            hasCoachReview={Boolean(coachReview)}
+          />
+        )}
 
       {coachReview ? (
         <CoachReviewPanel

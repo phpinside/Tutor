@@ -643,6 +643,135 @@ export async function submitFinalReview(
   }
 }
 
+/**
+ * 直接通过（管理员/运营专用）：
+ * 跳过任务流程与两级审核，直接将教练标记为审核通过，并归正入驻状态。
+ * 用于早期未走完整入驻流程的存量教练的状态修复。
+ * - 无 CoachReview 记录时补建一条已通过的记录（初审标记 SKIPPED）
+ * - Teacher.status 非 COMPLETED/UNLOCKED 时归正为 COMPLETED，并清除永久拒绝标记
+ * - 直接邀请/间接邀请记录置为 VALID
+ */
+export async function directApproveTeacher(
+  teacherId: string,
+  note?: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const adminSession = await getSuperAdminSession()
+    const operatorSession = adminSession ? null : await getOperatorSession()
+    if (!adminSession && !operatorSession) {
+      return { success: false, error: '无权限执行此操作' }
+    }
+
+    let reviewerLabel = adminSession?.reviewerLabel ?? ''
+    if (operatorSession) {
+      const operator = await prisma.operator.findUnique({
+        where: { id: operatorSession.operatorId },
+        select: { role: true, isEnabled: true },
+      })
+      if (!operator || !operator.isEnabled || operator.role !== 'OPERATOR') {
+        return { success: false, error: '仅管理员或运营可执行直接通过' }
+      }
+      reviewerLabel = operatorSession.name
+    }
+
+    const teacher = await prisma.teacher.findUnique({
+      where: { id: teacherId },
+      select: { id: true, status: true, permanentlyRejectedAt: true },
+    })
+    if (!teacher) return { success: false, error: '教练不存在' }
+
+    const review = await prisma.coachReview.findUnique({
+      where: { teacherId },
+      select: { id: true, stage: true, firstReviewVerdict: true },
+    })
+
+    const now = new Date()
+    const trimmedNote = note?.trim() || undefined
+
+    await prisma.$transaction(async (tx) => {
+      if (review) {
+        if (review.stage !== 'APPROVED') {
+          await tx.coachReview.update({
+            where: { id: review.id },
+            data: {
+              ...(review.firstReviewVerdict === 'PENDING'
+                ? { firstReviewVerdict: 'SKIPPED' as const }
+                : {}),
+              ...(operatorSession
+                ? { finalReviewOperatorId: operatorSession.operatorId }
+                : {}),
+              finalReviewVerdict: 'APPROVED',
+              finalReviewedBy: reviewerLabel,
+              finalReviewedAt: now,
+              finalReviewNote: trimmedNote,
+              stage: 'APPROVED',
+            },
+          })
+        }
+      } else {
+        await tx.coachReview.create({
+          data: {
+            teacherId,
+            firstReviewVerdict: 'SKIPPED',
+            ...(operatorSession
+              ? { finalReviewOperatorId: operatorSession.operatorId }
+              : {}),
+            finalReviewVerdict: 'APPROVED',
+            finalReviewedBy: reviewerLabel,
+            finalReviewedAt: now,
+            finalReviewNote: trimmedNote,
+            stage: 'APPROVED',
+          },
+        })
+      }
+
+      if (teacher.status !== 'COMPLETED' && teacher.status !== 'UNLOCKED') {
+        await tx.teacher.update({
+          where: { id: teacherId },
+          data: { status: 'COMPLETED' },
+        })
+      }
+
+      if (teacher.permanentlyRejectedAt) {
+        await tx.teacher.update({
+          where: { id: teacherId },
+          data: {
+            permanentlyRejectedAt: null,
+            permanentlyRejectedBy: null,
+          },
+        })
+      }
+    })
+
+    await markReferralStatus(teacherId, 'VALID')
+
+    await recordAudit({
+      actorType: operatorSession ? 'OPERATOR' : 'ADMIN',
+      actorId: operatorSession?.operatorId ?? 'super_admin',
+      actorName: reviewerLabel,
+      action: 'DIRECT_APPROVE',
+      targetType: 'TEACHER',
+      targetId: teacherId,
+      detail: {
+        note: trimmedNote ?? null,
+        fromTeacherStatus: teacher.status,
+        hadCoachReview: Boolean(review),
+      },
+    })
+
+    revalidatePath('/admin/teachers')
+    revalidatePath(`/admin/teachers/${teacherId}`)
+    revalidatePath('/onboarding')
+    revalidatePath('/onboarding/complete')
+    revalidatePath('/admin/referrals')
+
+    return { success: true }
+  } catch (error) {
+    console.error('直接通过失败:', error)
+    return { success: false, error: '操作失败，请重试' }
+  }
+}
+
 export async function batchSubmitFinalReview(
   teacherIds: string[],
   verdict: 'APPROVED' | 'REJECTED',
