@@ -12,6 +12,7 @@ import {
 } from '@/lib/externalTutor'
 import { updateReferralStats } from './teacher'
 import { recordAudit } from '@/lib/auditLog'
+import { TOTAL_TASK_COUNT } from '@/lib/config'
 import type { CoachReviewSnapshot } from '@/lib/coachReviewShared'
 import { QUALIFICATION_TYPE_LABELS } from '@/lib/teacherQualificationShared'
 import type { QualificationType } from '@/lib/teacherQualificationShared'
@@ -648,7 +649,7 @@ export async function submitFinalReview(
  * 跳过任务流程与两级审核，直接将教练标记为审核通过，并归正入驻状态。
  * 用于早期未走完整入驻流程的存量教练的状态修复。
  * - 无 CoachReview 记录时补建一条已通过的记录（初审标记 SKIPPED）
- * - Teacher.status 非 COMPLETED/UNLOCKED 时归正为 COMPLETED，并清除永久拒绝标记
+ * - Teacher.status 非 COMPLETED/UNLOCKED 时归正为 COMPLETED（currentTaskIndex 同步置为 TOTAL_TASK_COUNT），并清除永久拒绝标记
  * - 直接邀请/间接邀请记录置为 VALID
  */
 export async function directApproveTeacher(
@@ -725,12 +726,17 @@ export async function directApproveTeacher(
         })
       }
 
-      if (teacher.status !== 'COMPLETED' && teacher.status !== 'UNLOCKED') {
-        await tx.teacher.update({
-          where: { id: teacherId },
-          data: { status: 'COMPLETED' },
-        })
-      }
+      await tx.teacher.update({
+        where: { id: teacherId },
+        data: {
+          // 同步归正任务进度，使 /api/teacher/[id]/profile 的
+          // currentTaskIndex「任务完成」口径与 reviewStage「审核通过」口径对齐
+          currentTaskIndex: TOTAL_TASK_COUNT,
+          ...(teacher.status !== 'COMPLETED' && teacher.status !== 'UNLOCKED'
+            ? { status: 'COMPLETED' as const }
+            : {}),
+        },
+      })
 
       if (teacher.permanentlyRejectedAt) {
         await tx.teacher.update({
