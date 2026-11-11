@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { updateReferralStats } from './teacher'
 import { isSuperAdmin } from '@/lib/admin-auth'
+import { completeReferralTeaching } from '@/lib/referralTeaching'
 
 // 类型定义
 export type ReferralFilters = {
@@ -636,79 +637,7 @@ export async function markTeachingCompleted(
     if (!(await isSuperAdmin())) {
       return { success: false, error: '仅超级管理员可确认授课达标' }
     }
-    // 验证必填字段
-    if (!lessonNote?.trim()) {
-      return { success: false, error: '请填写授课备注' }
-    }
-
-    // 获取邀请记录
-    const referral = await prisma.referral.findUnique({
-      where: { id: referralId },
-      include: {
-        referred: {
-          select: {
-            id: true,
-            teachingStatus: true
-          }
-        }
-      }
-    })
-
-    if (!referral) {
-      return { success: false, error: '邀请记录不存在' }
-    }
-
-    // 检查该条邀请记录是否已标记授课完成（记录级幂等）
-    if (referral.teachingCompletedAt) {
-      return { success: false, error: '该邀请记录已标记为授课完成' }
-    }
-
-    // 更新被邀请人的授课状态（老师级标志表示已满足授课奖励课时门槛）
-    if (referral.referred.teachingStatus !== 'TAUGHT') {
-      await prisma.teacher.update({
-        where: { id: referral.referredId },
-        data: {
-          teachingStatus: 'TAUGHT'
-        }
-      })
-    }
-
-    // 更新邀请记录的授课备注与达标时间
-    await prisma.referral.update({
-      where: { id: referralId },
-      data: {
-        lessonNote,
-        verifiedBy: reviewedBy,
-        verifiedAt: new Date(),
-        teachingCompletedAt: new Date()
-      }
-    })
-
-    // 更新直接邀请人的统计
-    await updateReferralStats(referral.referrerId)
-
-    // 如果是直接邀请，也需要更新间接邀请人的统计
-    if (referral.type === 'DIRECT') {
-      const indirectReferrals = await prisma.referral.findMany({
-        where: {
-          referredId: referral.referredId,
-          type: 'INDIRECT'
-        },
-        select: {
-          referrerId: true
-        }
-      })
-
-      for (const ir of indirectReferrals) {
-        await updateReferralStats(ir.referrerId)
-      }
-    }
-
-    // 刷新相关页面
-    revalidatePath('/admin/referrals')
-    revalidatePath('/referral/dashboard')
-
-    return { success: true }
+    return await completeReferralTeaching(referralId, lessonNote, reviewedBy)
   } catch (error) {
     console.error('标记授课完成失败:', error)
     return { success: false, error: '操作失败，请重试' }

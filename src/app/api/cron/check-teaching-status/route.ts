@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAllReferrals, markTeachingCompleted } from '@/app/actions/referral'
+import { getPendingTeachingReferrals, completeReferralTeaching } from '@/lib/referralTeaching'
 import { getTeachingHoursRequirement } from '@/lib/referralRewards'
 
 // 外部 API 配置
@@ -45,9 +45,6 @@ async function getTutorInfo(phone: string, tutorId: string): Promise<{
       },
     })
 
-    // 打印curl请求
-    console.log(`curl -X GET -H "X-External-Token: ${API_TOKEN}" ${API_URL}?phone=${phone}&tutorId=${tutorId}`)
-
     if (!response.ok) {
       const errorText = await response.text().catch(() => '无法读取错误信息')
       console.error(`外部API调用失败: ${response.status} ${response.statusText}`)
@@ -90,27 +87,19 @@ async function checkAndMarkTeachingCompleted(): Promise<{
   try {
     let page = 1
     const pageSize = 50
-    let hasMore = true
+    let afterId: string | undefined
 
-    while (hasMore) {
-      const result = await getAllReferrals(
-        {
-          status: 'VALID',
-          teachingCompleted: false,
-        },
-        page,
-        pageSize
-      )
-
-      if (!result.success || !result.referrals) {
-        failed.push(`获取第${page}页邀请记录失败`)
+    while (true) {
+      let referrals: Awaited<ReturnType<typeof getPendingTeachingReferrals>>
+      try {
+        referrals = await getPendingTeachingReferrals(afterId, pageSize)
+      } catch (error) {
+        console.error(`获取第${page}页邀请记录失败:`, error)
+        failed.push(`获取第${page}页邀请记录失败: ${error instanceof Error ? error.message : String(error)}`)
         break
       }
 
-      const referrals = result.referrals
-
       if (referrals.length === 0) {
-        hasMore = false
         break
       }
 
@@ -143,7 +132,7 @@ async function checkAndMarkTeachingCompleted(): Promise<{
 
         // 检查是否满足该记录类型的授课门槛
         if (regularLessonHours >= requiredHours) {
-          const markResult = await markTeachingCompleted(
+          const markResult = await completeReferralTeaching(
             referral.id,
             `系统检测：已完成${regularLessonHours}课时`,
             '系统自动检测'
@@ -161,9 +150,9 @@ async function checkAndMarkTeachingCompleted(): Promise<{
         }
       }
 
-      // 检查是否还有更多数据
-      const totalCount = result.totalCount || 0
-      hasMore = page * pageSize < totalCount
+      // 标记会移除待处理记录，按稳定 ID 推进，避免 offset 分页跳过记录。
+      afterId = referrals[referrals.length - 1].id
+      if (referrals.length < pageSize) break
       page++
 
     }
@@ -219,8 +208,9 @@ export async function GET(request: NextRequest) {
     insufficient: result.insufficient.length,
   })
 
+  const succeeded = result.failed.length === 0
   return NextResponse.json({
-    success: true,
+    success: succeeded,
     data: {
       processed: result.processed,
       marked: result.marked,
@@ -229,7 +219,7 @@ export async function GET(request: NextRequest) {
       insufficient: result.insufficient,
       timestamp: new Date().toISOString(),
     },
-  })
+  }, { status: succeeded ? 200 : 500 })
 }
 
 // 允许 POST 方法（用于手动触发测试）
