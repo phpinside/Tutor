@@ -26,10 +26,12 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function AdminLayoutClient({
   children,
-  role
+  role,
+  accountMenu,
 }: {
   children: React.ReactNode
   role: string
+  accountMenu?: React.ReactNode
 }) {
   const pathname = usePathname()
   
@@ -77,7 +79,7 @@ export default function AdminLayoutClient({
                   {item.label}
                 </a>
               ))}
-              <span className="shrink-0"><LogoutButton /></span>
+              {accountMenu || <span className="shrink-0"><LogoutButton /></span>}
             </nav>
           </div>
         </div>

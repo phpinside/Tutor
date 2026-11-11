@@ -1,6 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { revalidatePath } from 'next/cache'
 import { prisma } from '@/lib/prisma'
 import { TOTAL_TASK_COUNT } from '@/lib/config'

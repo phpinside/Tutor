@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { isSuperAdmin } from '@/lib/admin-auth'

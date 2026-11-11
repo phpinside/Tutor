@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import CertificateSubNav from './CertificateSubNav'

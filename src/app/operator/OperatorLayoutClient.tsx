@@ -1,6 +1,6 @@
 'use client'
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams } from 'next/navigation'
 
 interface MenuItem {
   path: string
@@ -22,15 +22,16 @@ export default function OperatorLayoutClient({
   children,
   operatorName,
   canManageGroupQr = false,
+  accountMenu,
 }: {
   children: React.ReactNode
   operatorName: string
   /** 「运营复审权限」开关开启时为 true；此时展示「微信群二维码」配置入口 */
+  accountMenu?: React.ReactNode
   canManageGroupQr?: boolean
 }) {
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const router = useRouter()
 
   // 开关开启时，在「资料设置」前插入微信群二维码入口；关闭时完全隐藏
   const menuItems = canManageGroupQr
@@ -68,7 +69,7 @@ export default function OperatorLayoutClient({
 
   async function handleLogout() {
     await fetch('/api/operator/logout', { method: 'POST' })
-    router.push('/operator/login')
+    window.location.assign('/auth/login')
   }
 
   return (
@@ -90,12 +91,12 @@ export default function OperatorLayoutClient({
                   {item.label}
                 </a>
               ))}
-              <button
+              {accountMenu || <button
                 onClick={handleLogout}
                 className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
               >
                 退出
-              </button>
+              </button>}
             </nav>
           </div>
         </div>

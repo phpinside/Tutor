@@ -1,4 +1,6 @@
-import { cookies } from 'next/headers'
+import { requireWorkspacePage } from '@/lib/auth/page'
+import WorkspaceMenu from '@/components/auth/WorkspaceMenu'
+import { cookies } from '@/lib/auth/compat'
 import { redirect } from 'next/navigation'
 import { Suspense } from 'react'
 import { prisma } from '@/lib/prisma'
@@ -10,6 +12,7 @@ export default async function OnboardingLayout({
 }: {
   children: React.ReactNode
 }) {
+  await requireWorkspacePage('/onboarding')
   const cookieStore = await cookies()
   const teacherId = cookieStore.get('teacherId')?.value
 
@@ -36,6 +39,7 @@ export default async function OnboardingLayout({
             <div className="text-lg font-semibold text-gray-900">伴学新手引导</div>
             <div className="flex items-center gap-2">
               <ToolsEntryButton />
+              <WorkspaceMenu />
               <Suspense fallback={<div className="w-24 h-10" />}>
                 <ReferralEntryButton teacherId={teacherId} />
               </Suspense>

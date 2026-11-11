@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { getAllWithdrawals } from '@/app/actions/teacher'
 import WithdrawalManagementClient from './WithdrawalManagementClient'
 

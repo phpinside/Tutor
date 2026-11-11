@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { generatePrivateUrl } from '@/lib/qiniu'
 
 // 教练查看自己申请中的证明材料截图（私有桶签名临时 URL）

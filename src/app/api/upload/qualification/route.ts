@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { uploadToQiniu } from '@/lib/qiniu'
 
 // 教练资质证明上传：学历学位/在读证明、教师资格证、普通话等级证、质疑取证补交材料

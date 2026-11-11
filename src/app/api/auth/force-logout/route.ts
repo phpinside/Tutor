@@ -1,3 +1,4 @@
+import { cookies } from '@/lib/auth/compat'
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 
@@ -12,7 +13,7 @@ export async function GET(request: NextRequest) {
       ? nextPath
       : '/onboarding'
 
-  const teacherId = request.cookies.get('teacherId')?.value
+  const teacherId = (await cookies()).get('teacherId')?.value
   if (!teacherId) {
     return NextResponse.redirect(new URL('/auth/login', request.url))
   }

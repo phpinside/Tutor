@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { redirect, notFound } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import { getTeacher } from '@/app/actions/teacher'

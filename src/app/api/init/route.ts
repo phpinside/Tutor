@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { NextRequest } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { createReferralRecord } from '@/app/actions/teacher'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'

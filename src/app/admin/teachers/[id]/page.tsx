@@ -3,7 +3,7 @@ import { getTaskConfigs, TASK_VIDEO_UPLOADS, TOTAL_TASK_COUNT } from '@/lib/conf
 import { getTeacherStatusText, getTaskStatusText, formatDateTime } from '@/lib/utils'
 import { generatePrivateUrl, generateVideoPrivateUrl, extractQiniuKey } from '@/lib/qiniu'
 import { notFound } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import Link from 'next/link'
 import SetInviterModal from './SetInviterModal'
 import TeacherInfoEditModal from './TeacherInfoEditModal'

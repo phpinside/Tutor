@@ -2,7 +2,8 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
+import { assertTeacherAccess } from '@/lib/auth/teacherAccess'
 import { TASK_VIDEOS } from '@/lib/config'
 import { generatePrivateUrl } from '@/lib/qiniu'
 import { ensureCoachReview } from './coachReview'
@@ -10,6 +11,7 @@ import { ensureCoachReview } from './coachReview'
 // 获取任务提交记录
 export async function getTaskSubmission(teacherId: string, taskIndex: number) {
   try {
+    await assertTeacherAccess(teacherId)
     const submission = await prisma.taskSubmission.findUnique({
       where: {
         teacherId_taskIndex: {
@@ -35,6 +37,7 @@ export async function saveTrainingProgress(
   completedVideoKeys: string[]
 ) {
   try {
+    await assertTeacherAccess(teacherId, true)
     const [teacher, taskConfig] = await Promise.all([
       prisma.teacher.findUnique({ where: { id: teacherId } }),
       prisma.taskConfig.findFirst({
@@ -151,6 +154,7 @@ export async function submitTask(
   }
 ) {
   try {
+    await assertTeacherAccess(teacherId, true)
     // 调试日志：记录接收到的数据
     console.log('📝 提交任务数据:', { 
       teacherId, 
@@ -313,6 +317,7 @@ export async function updateTaskStatus(
     if (!adminSession && !operatorSession) {
       return { success: false, error: '无权限执行此操作' }
     }
+    await assertTeacherAccess(teacherId)
     const submission = await prisma.taskSubmission.update({
       where: {
         teacherId_taskIndex: {
@@ -341,6 +346,7 @@ export async function updateTaskStatus(
 // 标记任务为进行中
 export async function startTask(teacherId: string, taskIndex: number, taskType: string) {
   try {
+    await assertTeacherAccess(teacherId, true)
     // 检查是否已存在
     const existing = await prisma.taskSubmission.findUnique({
       where: {

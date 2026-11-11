@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import {
   resolveFirstReviewerUnified,

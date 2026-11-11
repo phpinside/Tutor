@@ -1,10 +1,8 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export default function LogoutButton() {
-  const router = useRouter()
   const [isLoading, setIsLoading] = useState(false)
 
   const handleLogout = async () => {
@@ -19,8 +17,7 @@ export default function LogoutButton() {
       })
 
       if (response.ok) {
-        router.push('/admin/login')
-        router.refresh()
+        window.location.assign('/auth/login')
       }
     } catch (error) {
       console.error('退出登录失败:', error)

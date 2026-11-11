@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { getSystemConfig as getSystemConfigFromDB } from './systemConfig'
 import bcrypt from 'bcryptjs'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { sanitizeInput } from '@/lib/utils'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { pushCoachScoreSync, touchesName, touchesScores } from '@/lib/eduflowScoreSync'
@@ -23,10 +23,14 @@ import { AUTHENTICITY_COMMITMENT_VERSION } from '@/lib/teacherInfoChangeShared'
 import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'
+import { getCurrentSession } from '@/lib/auth/session'
+import { canResetAccount, changeAccountPassword } from '@/lib/auth/accounts'
+import { assertTeacherAccess } from '@/lib/auth/teacherAccess'
 
 // 获取老师信息
 export async function getTeacher(teacherId: string) {
   try {
+    await assertTeacherAccess(teacherId)
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
       include: {
@@ -141,20 +145,6 @@ export async function registerAndCreateTeacher(formData: {
       return { success: false, error: '该手机号已被注册，请直接登录' }
     }
 
-    // 查找邀请人
-    let invitedById: string | null = null
-    let inviterPhone: string | null = null
-    if (referralCode) {
-      const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode.toUpperCase() },
-        select: { id: true, phone: true }
-      })
-      if (referrer) {
-        invitedById = referrer.id
-        inviterPhone = referrer.phone
-      }
-    }
-
     if (
       !Number.isInteger(teacherInfo.age) ||
       teacherInfo.age < 18 ||
@@ -163,31 +153,13 @@ export async function registerAndCreateTeacher(formData: {
       return { success: false, error: '年龄需在 18–60 之间的整数' }
     }
 
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    // 创建老师记录，包含所有基本信息
-    const teacher = await prisma.teacher.create({
-      data: {
-        phone,
-        password: hashedPassword,
-        invitedById,
-        status: 'NOT_STARTED',
-        currentTaskIndex: 1, // 已完成任务0，当前在任务1
-        ...teacherInfo
-      }
+    const { registerTeacher } = await import('./auth')
+    const registration = await registerTeacher({ phone, password, confirmPassword, name: teacherInfo.name, referralCode })
+    if (!registration.success || !registration.teacherId) return registration
+    const teacher = await prisma.teacher.update({
+      where: { id: registration.teacherId },
+      data: { ...teacherInfo, currentTaskIndex: 1 },
     })
-
-    // 生成邀请码和查看码
-    await ensureInviteCodes(teacher.id)
-
-    // 如果有邀请人，创建邀请记录
-    if (invitedById) {
-      await createReferralRecord(invitedById, teacher.id)
-    }
-
-    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
-    await syncFollowUpWithInviter(teacher.id, inviterPhone)
 
     // 提交任务1（标记为已完成）
     await prisma.taskSubmission.create({
@@ -204,15 +176,6 @@ export async function registerAndCreateTeacher(formData: {
     await prisma.teacher.update({
       where: { id: teacher.id },
       data: { currentTaskIndex: 2 }
-    })
-
-    // 设置认证 cookie
-    const cookieStore = await cookies()
-    cookieStore.set('teacherId', teacher.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 365 // 1年
     })
 
     return {
@@ -296,6 +259,9 @@ export async function updateTeacherInfo(teacherId: string, data: {
     const existing = await prisma.teacher.findUnique({ where: { id: teacherId } })
     if (!existing) {
       return { success: false, error: '老师不存在' }
+    }
+    if (existing.accountId && fieldData.phone !== undefined && fieldData.phone !== existing.phone) {
+      return { success: false, error: '登录手机号不能通过资料修改，请联系管理员核验后处理' }
     }
     if (actor.type === 'TEACHER') {
       actor.name = existing.name
@@ -1700,8 +1666,8 @@ export async function rejectWithdrawal(
 // 重置老师密码（管理员功能）
 export async function resetTeacherPassword(teacherId: string, newPassword: string = '123456') {
   try {
-    if (!newPassword || newPassword.length < 6) {
-      return { success: false, error: '密码至少 6 位' }
+    if (!newPassword || newPassword.length < 6 || newPassword.length > 72) {
+      return { success: false, error: '密码需为 6–72 位' }
     }
 
     // 验证权限：super_admin 可重置任意老师；学管仅可重置可见白名单内老师
@@ -1735,19 +1701,22 @@ export async function resetTeacherPassword(teacherId: string, newPassword: strin
     // 验证老师是否存在
     const teacher = await prisma.teacher.findUnique({
       where: { id: teacherId },
-      select: { id: true, name: true, phone: true }
+      select: { id: true, name: true, phone: true, accountId: true }
     })
 
     if (!teacher) {
       return { success: false, error: '老师不存在' }
     }
 
-    const hashedPassword = await bcrypt.hash(newPassword, 10)
-
-    await prisma.teacher.update({
-      where: { id: teacherId },
-      data: { password: hashedPassword }
-    })
+    if (teacher.accountId) {
+      const current = await getCurrentSession()
+      if (!current || !(await canResetAccount(current.accountId, current.activeRole, teacher.accountId))) {
+        return { success: false, error: '该教练关联管理账号，请由管理员重置统一密码' }
+      }
+      await changeAccountPassword(teacher.accountId, newPassword)
+    } else {
+      await prisma.teacher.update({ where: { id: teacherId }, data: { password: await bcrypt.hash(newPassword, 12) } })
+    }
 
     await recordAudit({
       actorType: actor.type,

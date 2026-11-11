@@ -2,7 +2,7 @@
 
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { recordAudit } from '@/lib/auditLog'
 import { isSuperAdmin } from '@/lib/admin-auth'
 import { getOperatorSessionInfo } from '@/lib/operatorAuth'

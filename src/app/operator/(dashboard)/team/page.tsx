@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { redirect } from 'next/navigation'
 import { getOperatorTeam } from '@/app/actions/operatorActions'
 import TeamManagementClient from '../../team/TeamManagementClient'

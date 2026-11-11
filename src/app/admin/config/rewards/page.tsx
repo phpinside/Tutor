@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { getRewardConfigs } from '@/app/actions/systemConfig'
 import RewardsConfigClient from './RewardsConfigClient'
 

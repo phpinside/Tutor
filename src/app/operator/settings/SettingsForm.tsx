@@ -28,8 +28,6 @@ export default function SettingsForm({
   // displayUrl 存储签名 URL，用于前端 <img> 预览
   const [displayUrl, setDisplayUrl] = useState(initialDisplayUrl || '')
   const [remarks, setRemarks] = useState(profile.remarks || '')
-  const [newPassword, setNewPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
   const [uploading, setUploading] = useState(false)
   const [uploadMsg, setUploadMsg] = useState('')
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -66,27 +64,15 @@ export default function SettingsForm({
     e.preventDefault()
     setMessage('')
 
-    if (newPassword && newPassword !== confirmPassword) {
-      setMessage('❌ 两次密码输入不一致')
-      return
-    }
-    if (newPassword && newPassword.length < 6) {
-      setMessage('❌ 密码至少 6 位')
-      return
-    }
-
     setLoading(true)
     const result = await updateOperatorProfile(operatorId, {
       name: name.trim(),
       wechatQrCode: wechatQrCode.trim() || undefined,
       remarks: remarks.trim() || undefined,
-      ...(newPassword ? { password: newPassword } : {}),
     })
 
     if (result.success) {
       setMessage('✅ 保存成功')
-      setNewPassword('')
-      setConfirmPassword('')
     } else {
       setMessage('❌ 保存失败，请重试')
     }
@@ -211,32 +197,7 @@ export default function SettingsForm({
         </div>
       </div>
 
-      <div className="card space-y-4">
-        <h2 className="font-semibold text-gray-800">修改密码</h2>
-        <p className="text-sm text-gray-500">不修改密码请留空</p>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">新密码</label>
-          <input
-            type="password"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="input w-full"
-            placeholder="至少 6 位"
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">确认新密码</label>
-          <input
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="input w-full"
-            placeholder="再次输入新密码"
-          />
-        </div>
-      </div>
+      <div className="card space-y-2"><h2 className="font-semibold text-gray-800">登录密码</h2><a href="/account" className="text-blue-600">前往账号设置修改统一密码 →</a></div>
 
       <button type="submit" disabled={loading} className="btn-primary w-full">
         {loading ? '保存中...' : '保存设置'}

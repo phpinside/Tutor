@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { uploadToQiniu } from '@/lib/qiniu'
 
 // 教练资料修改申请：上传高考成绩查询截图（证明材料）

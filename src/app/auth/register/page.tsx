@@ -14,6 +14,8 @@ function RegisterForm() {
   const [initialRefCode, setInitialRefCode] = useState('')
   
   useEffect(() => {
+    const phone = searchParams.get('phone'), name = searchParams.get('name')
+    if (phone) setFormData(prev => ({ ...prev, phone, name: name || prev.name }))
     // 优先从URL获取
     const refFromUrl = searchParams.get('ref')
     if (refFromUrl) {
@@ -129,7 +131,7 @@ function RegisterForm() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4">
+    <div className="px-4 py-8">
       <div className="max-w-md mx-auto">
         {/* 返回首页 */}
         <div className="mb-6">
@@ -217,7 +219,7 @@ function RegisterForm() {
                 className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent ${
                   errors.password ? 'border-red-300' : 'border-gray-300'
                 }`}
-                placeholder="请设置密码（至少6位）"
+                placeholder="请填写密码（已有账号请填当前密码）"
                 disabled={isSubmitting}
               />
               {errors.password && (
@@ -419,7 +421,7 @@ function RegisterForm() {
 export default function RegisterPage() {
   return (
     <Suspense fallback={
-      <div className="min-h-screen bg-gradient-to-b from-blue-50 to-white py-12 px-4 flex items-center justify-center">
+      <div className="px-4 py-8 flex items-center justify-center">
         <div className="text-gray-600">加载中...</div>
       </div>
     }>

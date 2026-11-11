@@ -207,9 +207,17 @@ async function syncManagers(): Promise<SyncSummary> {
       }
 
       try {
-        await prisma.operator.update({
-          where: { id: opId },
-          data: { phone: newPhone },
+        await prisma.$transaction(async tx => {
+          const linked = await tx.operator.findUniqueOrThrow({ where: { id: opId }, select: { accountId: true } })
+          if (linked.accountId) {
+            // 改号只更新已核验账号的登录标识，不合并目标号码对应的其他账号。
+            const conflictTeacher = await tx.teacher.findUnique({ where: { phone: newPhone }, select: { accountId: true } })
+            if (conflictTeacher && conflictTeacher.accountId !== linked.accountId) throw new Error('目标手机号已有教练账号，需人工核验')
+            await tx.account.update({ where: { id: linked.accountId }, data: { login: newPhone } })
+            await tx.teacher.updateMany({ where: { accountId: linked.accountId }, data: { phone: newPhone } })
+            await tx.authSession.deleteMany({ where: { accountId: linked.accountId } })
+          }
+          await tx.operator.update({ where: { id: opId }, data: { phone: newPhone } })
         })
         summary.phoneUpdated.push({ name: op.name, from: op.phone, to: newPhone })
         await recordAudit({

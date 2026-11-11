@@ -3,11 +3,13 @@
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import { revalidatePath } from 'next/cache'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { syncPendingFirstReviewer } from '@/lib/externalTutor'
 import { getOperatorSessionInfo, isSuperAdminRequest } from '@/lib/operatorAuth'
 import { isScopingEnabledFor, isTeacherInScope } from '@/lib/learnerManagerScope'
 import { recordAudit } from '@/lib/auditLog'
+import { changeAccountPassword, canResetAccount } from '@/lib/auth/accounts'
+import { getCurrentSession } from '@/lib/auth/session'
 
 /**
  * 校验「会话中的学管」与「client 传入的 operatorId」一致，防伪造直调。
@@ -372,7 +374,14 @@ export async function updateOperatorProfile(
   if (data.wechatQrCode !== undefined) updateData.wechatQrCode = data.wechatQrCode || null
   if (data.remarks !== undefined) updateData.remarks = data.remarks || null
   if (data.password) {
-    updateData.password = await bcrypt.hash(data.password, 10)
+    const operator = await prisma.operator.findUniqueOrThrow({ where: { id: operatorId } })
+    const viewer = await getCurrentSession()
+    if (data.password.length < 6 || data.password.length > 72) return { success: false, error: '密码需为6–72位' }
+    if (operator.accountId) {
+      if (!viewer || !(await canResetAccount(viewer.accountId, viewer.activeRole, operator.accountId))) return { success: false, error: '无权修改统一密码' }
+      if (viewer.accountId === operator.accountId) return { success: false, error: '请在「账号设置」中验证原密码后修改统一密码' }
+      await changeAccountPassword(operator.accountId, data.password)
+    } else updateData.password = await bcrypt.hash(data.password, 12)
   }
 
   await prisma.operator.update({ where: { id: operatorId }, data: updateData })

@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { getLearningPlannerApplications } from '@/app/actions/learningPlanner'
 import { extractQiniuKey, generatePrivateUrl } from '@/lib/qiniu'
 import PlannerReviewManagementClient from '../../planner-review/PlannerReviewManagementClient'

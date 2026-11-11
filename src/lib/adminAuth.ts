@@ -6,7 +6,7 @@ import bcrypt from 'bcryptjs'
  *   ADMIN_USERNAME        登录账号（默认 admin）
  *   ADMIN_PASSWORD_HASH   bcrypt 哈希（推荐；生成：npx bcryptjsCLI 或 node -e "console.log(require('bcryptjs').hashSync('新密码',10))"）
  *   ADMIN_PASSWORD        明文兜底（未配置 HASH 时使用）
- * 三者均未配置时，回退到旧默认口令并打印醒目警告（保证平滑迁移，请尽快在 .env 配置！）。
+ * 未配置凭据时禁止管理员登录。仅用于存量管理员首次迁移，迁移后以统一账号为准。
  */
 
 const ADMIN_USERNAME = process.env.ADMIN_USERNAME || 'admin'
@@ -49,9 +49,5 @@ export async function verifyAdminCredentials(
     return timingSafeEqualStr(password, plain) ? { role: 'super_admin' } : null
   }
 
-  // 兜底：未配置任何环境变量时保留旧默认口令，保证不锁死，但强提示
-  console.warn(
-    '[安全警告] 未配置 ADMIN_PASSWORD_HASH / ADMIN_PASSWORD，正在使用源码内置的默认口令。请尽快在 .env 中配置！'
-  )
-  return password === 'admin123' ? { role: 'super_admin' } : null
+  return null
 }

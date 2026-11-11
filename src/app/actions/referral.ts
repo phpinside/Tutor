@@ -1,6 +1,6 @@
 'use server'
 
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { revalidatePath } from 'next/cache'
 import { updateReferralStats } from './teacher'

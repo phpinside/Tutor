@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { uploadToQiniu } from '@/lib/qiniu'
 import type { CertificateForm } from '@/lib/student-certificate-config'

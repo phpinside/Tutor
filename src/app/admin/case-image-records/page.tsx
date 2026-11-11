@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { serializeCaseImageRecord } from '@/lib/case-image-records'
 import CaseImageRecordManagementClient from './CaseImageRecordManagementClient'

@@ -138,8 +138,70 @@ enum OperatorRole {
 }
 
 // 运营人员
+enum AccountRoleType {
+  TEACHER
+  LEARNER_MANAGER
+  OPERATOR
+  SUPER_ADMIN
+}
+
+// 登录标识全局唯一；业务档案通过 accountId 关联，同手机号存量账号须验证后关联。
+model Account {
+  id             String          @id @default(cuid())
+  login          String          @unique
+  passwordHash   String
+  name           String
+  isEnabled      Boolean         @default(true)
+  defaultRole    AccountRoleType  @default(TEACHER)
+  lastRole       AccountRoleType?
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  roles          AccountRole[]
+  sessions       AuthSession[]
+  teacher        Teacher?
+  operator       Operator?
+
+  @@map("accounts")
+}
+
+model AccountRole {
+  accountId String
+  role      AccountRoleType
+  isEnabled Boolean         @default(true)
+  account   Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@id([accountId, role])
+  @@map("account_roles")
+}
+
+model AuthSession {
+  id         String          @id @default(cuid())
+  tokenHash  String          @unique
+  accountId  String
+  activeRole AccountRoleType
+  expiresAt  DateTime
+  createdAt  DateTime        @default(now())
+  account    Account         @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@index([accountId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+// 多实例共享登录限流；key 为账号/IP 组合的摘要。
+model AuthRateLimit {
+  key      String   @id
+  count    Int
+  resetsAt DateTime
+
+  @@index([resetsAt])
+  @@map("auth_rate_limits")
+}
+
 model Operator {
   id           String       @id @default(cuid())
+  accountId    String?      @unique
+  account      Account?     @relation(fields: [accountId], references: [id], onDelete: SetNull)
   name         String
   phone        String       @unique
   password     String // bcrypt 加密
@@ -194,6 +256,8 @@ model TeacherRemark {
 // 老师信息
 model Teacher {
   id String @id @default(cuid())
+  accountId String? @unique
+  account Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
 
   // 基础信息（必填）
   name     String //姓名（必填）

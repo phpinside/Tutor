@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'

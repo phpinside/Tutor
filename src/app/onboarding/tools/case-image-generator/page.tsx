@@ -1,4 +1,4 @@
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { redirect } from 'next/navigation'
 import { prisma } from '@/lib/prisma'
 import ImageToolsTabHeader from '@/components/tools/ImageToolsTabHeader'

@@ -101,9 +101,12 @@ export default function NewOperatorPage() {
               required
               className="input w-full"
               placeholder="请设置初始密码"
+              minLength={6}
+              maxLength={72}
             />
           </div>
 
+          <p className="text-xs text-gray-500">已有统一账号将新增所选工作台，并继续使用原登录密码；存量同手机号账号需在首次登录时验证关联。</p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
               角色 <span className="text-red-500">*</span>
@@ -146,6 +149,7 @@ export default function NewOperatorPage() {
             </div>
           </div>
 
+          <p className="text-xs text-gray-500">已有统一账号将新增所选工作台，并继续使用原登录密码；存量同手机号账号需在首次登录时验证关联。</p>
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">启用状态</label>
             <div className="flex gap-4">

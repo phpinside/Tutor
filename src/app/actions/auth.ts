@@ -1,601 +1,181 @@
 'use server'
 
-import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
-import { cookies } from 'next/headers'
+import { headers } from 'next/headers'
+import { revalidatePath } from 'next/cache'
+import { prisma } from '@/lib/prisma'
+import { verifyAdminCredentials } from '@/lib/adminAuth'
+import { accountInclude, availableRoles, changeAccountPassword } from '@/lib/auth/accounts'
+import { getCurrentSession, startSession, endSession } from '@/lib/auth/session'
+import { chooseWorkspace, isRole, ROLE_HOME, type Role } from '@/lib/auth/policy'
+import { getClientIpFromForwarded } from '@/lib/rateLimit'
+import { checkAuthRateLimit } from '@/lib/auth/rateLimit'
+import { recordAudit } from '@/lib/auditLog'
 import { ensureInviteCodes, createReferralRecord } from './teacher'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
 import { sanitizeInput } from '@/lib/utils'
-import { PERMANENTLY_REJECTED_MESSAGE } from '@/lib/coachReviewShared'
-import { headers } from 'next/headers'
-import { checkRateLimit, getClientIpFromForwarded } from '@/lib/rateLimit'
 
-/** 登录限流：同一 IP+手机号 15 分钟内最多 5 次 */
-async function assertLoginRateLimit(scope: 'teacher' | 'referrer', phone: string): Promise<string | null> {
-  const ip = getClientIpFromForwarded((await headers()).get('x-forwarded-for'))
-  const rl = checkRateLimit(`login:${scope}:${ip}:${phone}`, 5, 15 * 60 * 1000)
-  if (!rl.allowed) {
-    return `尝试次数过多，请 ${Math.ceil(rl.retryAfterSec / 60)} 分钟后再试`
-  }
-  return null
-}
+type LoginInput = { identifier?: string; phone?: string; username?: string; password: string; linkedPassword?: string; redirect?: string | null }
+type LoginResult = { success: boolean; error?: string; requiresLink?: boolean; redirectTo?: string; teacherId?: string; name?: string }
+const INVALID_LOGIN = '账号或密码错误'
 
-// 验证手机号格式
-function isValidPhone(phone: string): boolean {
-  return /^1[3-9]\d{9}$/.test(phone)
-}
-
-// 邀请人注册
-export async function registerReferrer(formData: {
-  name: string
-  phone: string
-  password: string
-  confirmPassword: string
-  referralCode?: string
-  subjects?: string[]
-  primarySubject?: string
-}) {
+export async function login(input: LoginInput): Promise<LoginResult> {
   try {
-    const { password, confirmPassword, subjects, primarySubject } = formData
-    const name = sanitizeInput(formData.name)
-    const phone = sanitizeInput(formData.phone)
-    const referralCode = formData.referralCode ? sanitizeInput(formData.referralCode) : undefined
-
-    // 验证必填字段
-    if (!name) {
-      return { success: false, error: '请输入姓名' }
+    const rawIdentifier = input.identifier ?? input.phone ?? input.username
+    const identifier = typeof rawIdentifier === 'string' ? rawIdentifier.trim() : ''
+    if (!identifier || identifier.length > 100 || typeof input.password !== 'string' || !input.password || input.password.length > 72) {
+      return { success: false, error: '请输入有效的账号和密码（密码不超过72位）' }
     }
-    if (!phone) {
-      return { success: false, error: '请输入手机号' }
-    }
-    if (!password) {
-      return { success: false, error: '请输入密码' }
-    }
-    if (!confirmPassword) {
-      return { success: false, error: '请确认密码' }
-    }
-
-    // 验证手机号格式
-    if (!isValidPhone(phone)) {
-      return { success: false, error: '手机号格式不正确' }
-    }
-
-    // 验证密码长度
-    if (password.length < 6) {
-      return { success: false, error: '密码至少需要6位' }
-    }
-
-    // 验证密码确认
-    if (password !== confirmPassword) {
-      return { success: false, error: '两次密码输入不一致' }
-    }
-
-    // 查找邀请人（如果提供了邀请码）
-    let invitedById: string | null = null
-    let inviterPhone: string | null = null
-    if (referralCode) {
-      const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode.toUpperCase() },
-        select: { id: true, phone: true }
-      })
-      
-      if (!referrer) {
-        return { success: false, error: '邀请码无效' }
-      }
-      
-      invitedById = referrer.id
-      inviterPhone = referrer.phone
-    }
-
-    // 检查手机号是否已注册
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone }
-    })
-
-    if (existingTeacher) {
-      // 永久拒绝入驻的手机号禁止重新注册
-      if (existingTeacher.permanentlyRejectedAt) {
-        return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
-      }
-
-      // 如果已经设置了密码，说明已经注册过邀请人
-      if (existingTeacher.password) {
-        return { success: false, error: '该手机号已注册为邀请人，请直接登录' }
-      }
-
-      // 如果没有密码，说明是通过引导系统创建的，升级为邀请人
-      const hashedPassword = await bcrypt.hash(password, 10)
-
-      const teacher = await prisma.teacher.update({
-        where: { id: existingTeacher.id },
-        data: {
-          name,
-          password: hashedPassword,
-          // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
-          ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
+    const ip = getClientIpFromForwarded((await headers()).get('x-forwarded-for'))
+    const attempts = await checkAuthRateLimit(`login:unified:${ip}:${identifier}`, 10, 15 * 60 * 1000)
+    if (!attempts.allowed) return { success: false, error: `尝试次数过多，请 ${Math.ceil(attempts.retryAfterSec / 60)} 分钟后再试` }
+    let account = await prisma.account.findUnique({ where: { login: identifier }, include: accountInclude })
+    const [teacher, operator] = await Promise.all([
+      prisma.teacher.findUnique({ where: { phone: identifier }, omit: { password: false } }), prisma.operator.findUnique({ where: { phone: identifier }, omit: { password: false } }),
+    ])
+    if (account) {
+      if (!(await bcrypt.compare(input.password, account.passwordHash))) return { success: false, error: INVALID_LOGIN }
+      if (!account.isEnabled) return { success: false, error: '账号已停用，请联系管理员' }
+      const unlinked = [teacher, operator].filter(profile => profile && !profile.accountId)
+      if (unlinked.length) {
+        if (!input.linkedPassword) return { success: false, requiresLink: true, error: '账号验证成功，请输入另一套原密码，完成账号关联后继续' }
+        for (const profile of unlinked) {
+          if (!profile!.password || !(await bcrypt.compare(input.linkedPassword, profile!.password))) return { success: false, requiresLink: true, error: '关联密码错误，请重试或联系管理员核验' }
         }
-      })
-      
-      // 生成邀请码
-      await ensureInviteCodes(teacher.id)
-      
-      // 如果建立了新的邀请关系，创建邀请记录
-      if (invitedById && !existingTeacher.invitedById) {
-        await createReferralRecord(invitedById, teacher.id)
-      }
-
-      // 注册/升级完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）。
-      // 以最终生效的邀请关系为准（此前经邀请链接绑定的优先，本次邀请码不改变已有关系）。
-      const effectiveInviterId = existingTeacher.invitedById ?? invitedById
-      let effectiveInviterPhone: string | null = null
-      if (effectiveInviterId) {
-        const boundInviter = await prisma.teacher.findUnique({
-          where: { id: effectiveInviterId },
-          select: { phone: true },
+        await prisma.$transaction(async tx => {
+          if (teacher && !teacher.accountId) {
+            const changed = await tx.teacher.updateMany({ where: { id: teacher.id, accountId: null, password: teacher.password }, data: { accountId: account!.id, password: account!.passwordHash } })
+            if (changed.count !== 1) throw new Error('账号关联状态已变更')
+            await tx.accountRole.upsert({ where: { accountId_role: { accountId: account!.id, role: 'TEACHER' } }, create: { accountId: account!.id, role: 'TEACHER' }, update: {} })
+          }
+          if (operator && !operator.accountId) {
+            const changed = await tx.operator.updateMany({ where: { id: operator.id, accountId: null, password: operator.password }, data: { accountId: account!.id, password: account!.passwordHash } })
+            if (changed.count !== 1) throw new Error('账号关联状态已变更')
+            await tx.accountRole.upsert({ where: { accountId_role: { accountId: account!.id, role: operator.role } }, create: { accountId: account!.id, role: operator.role }, update: {} })
+          }
         })
-        effectiveInviterPhone = boundInviter?.phone ?? null
+        account = await prisma.account.findUniqueOrThrow({ where: { id: account.id }, include: accountInclude })
       }
-      await syncFollowUpWithInviter(teacher.id, effectiveInviterPhone)
-
-      // 设置认证 cookie（统一使用 teacherId）
-      const cookieStore = await cookies()
-      cookieStore.set('teacherId', teacher.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
+    } else if (teacher || operator) {
+      const teacherValid = Boolean(teacher?.password && await bcrypt.compare(input.password, teacher.password))
+      const operatorValid = Boolean(operator?.password && await bcrypt.compare(input.password, operator.password))
+      if (!teacherValid && !operatorValid) return { success: false, error: INVALID_LOGIN }
+      if (teacher?.accountId || operator?.accountId) return { success: false, error: '此账号已关联统一账号，请使用统一账号登录' }
+      if (teacher && operator) {
+        if (!input.linkedPassword) return { success: false, requiresLink: true, error: '账号验证成功，请输入另一套原密码，完成账号关联。关联后统一使用本次登录密码' }
+        const linkedValid = teacherValid ? await bcrypt.compare(input.linkedPassword, operator.password) : await bcrypt.compare(input.linkedPassword, teacher.password)
+        if (!linkedValid) return { success: false, requiresLink: true, error: '关联密码错误，请重试或联系管理员核验' }
+      }
+      if ((!teacher || teacher.permanentlyRejectedAt) && (!operator || !operator.isEnabled)) return { success: false, error: '账号暂无可用工作台，请联系管理员' }
+      const passwordHash = await bcrypt.hash(input.password, 12)
+      const roles: Role[] = [...(teacher ? ['TEACHER' as const] : []), ...(operator ? [operator.role] : [])]
+      const defaultRole: Role = operator?.isEnabled ? operator.role : 'TEACHER'
+      account = await prisma.$transaction(async tx => {
+        const created = await tx.account.create({ data: { login: identifier, name: teacher?.name ?? operator!.name, passwordHash, defaultRole, roles: { create: roles.map(role => ({ role })) } } })
+        if (teacher) {
+          const changed = await tx.teacher.updateMany({ where: { id: teacher.id, accountId: null, password: teacher.password }, data: { accountId: created.id, password: passwordHash } })
+          if (changed.count !== 1) throw new Error('账号迁移状态已变更')
+        }
+        if (operator) {
+          const changed = await tx.operator.updateMany({ where: { id: operator.id, accountId: null, password: operator.password }, data: { accountId: created.id, password: passwordHash } })
+          if (changed.count !== 1) throw new Error('账号迁移状态已变更')
+        }
+        return tx.account.findUniqueOrThrow({ where: { id: created.id }, include: accountInclude })
       })
-
-      return {
-        success: true,
-        teacherId: teacher.id,
-        message: '注册成功'
-      }
+    } else {
+      // 独立配置仅供首次迁移；迁移后不能绕过统一密码或禁用状态。
+      if (!(await verifyAdminCredentials(identifier, input.password))) return { success: false, error: INVALID_LOGIN }
+      account = await prisma.account.create({ data: { login: identifier, name: '管理员', passwordHash: await bcrypt.hash(input.password, 12), defaultRole: 'SUPER_ADMIN', roles: { create: { role: 'SUPER_ADMIN' } } }, include: accountInclude })
     }
-
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    // 创建新的老师记录
-    const teacher = await prisma.teacher.create({
-      data: {
-        name,
-        phone,
-        password: hashedPassword,
-        status: 'NOT_STARTED',
-        invitedById,
-        subjects: subjects ?? [],
-        primarySubject: primarySubject ?? null
-      }
-    })
-
-    // 生成邀请码
-    await ensureInviteCodes(teacher.id)
-
-    // 如果有邀请人，创建邀请记录
-    if (invitedById) {
-      await createReferralRecord(invitedById, teacher.id)
-    }
-
-    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
-    await syncFollowUpWithInviter(teacher.id, inviterPhone)
-
-    // 设置认证 cookie（统一使用 teacherId）
-    const cookieStore = await cookies()
-    cookieStore.set('teacherId', teacher.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
-    })
-
-    return {
-      success: true,
-      teacherId: teacher.id,
-      message: '注册成功'
-    }
+    const workspace = chooseWorkspace(availableRoles(account), account.lastRole, account.defaultRole, input.redirect)
+    if (!workspace) return { success: false, error: '账号暂无可用工作台，请联系管理员' }
+    if (account.teacher && !account.teacher.inviteCode) await ensureInviteCodes(account.teacher.id)
+    await startSession(account.id, workspace.role, account.passwordHash)
+    await recordAudit({ actorType: 'SYSTEM', actorId: account.id, actorName: account.name, action: input.linkedPassword ? 'LINK_AND_LOGIN_ACCOUNT' : 'LOGIN_ACCOUNT', targetType: 'ACCOUNT', targetId: account.id, detail: { role: workspace.role } })
+    revalidatePath('/', 'layout')
+    return { success: true, redirectTo: workspace.destination, teacherId: workspace.role === 'TEACHER' ? account.teacher?.id : undefined, name: account.name }
   } catch (error) {
-    console.error('注册失败:', error)
-    return { success: false, error: '注册失败，请重试' }
+    console.error('统一登录失败:', error instanceof Error ? error.name : 'unknown')
+    return { success: false, error: '登录失败，请重试；如持续失败请联系管理员' }
   }
 }
 
-// 邀请人登录
-export async function loginReferrer(formData: {
-  phone: string
-  password: string
-}) {
-  try {
-    const phone = sanitizeInput(formData.phone)
-    const { password } = formData
-
-    // 验证必填字段
-    if (!phone) {
-      return { success: false, error: '请输入手机号' }
-    }
-    if (!password) {
-      return { success: false, error: '请输入密码' }
-    }
-
-    // 登录限流（防爆破）
-    const rateLimitError = await assertLoginRateLimit('referrer', phone)
-    if (rateLimitError) {
-      return { success: false, error: rateLimitError }
-    }
-
-    // 验证手机号格式
-    if (!isValidPhone(phone)) {
-      return { success: false, error: '手机号格式不正确' }
-    }
-
-    // 查找用户
-    const teacher = await prisma.teacher.findUnique({
-      where: { phone },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        password: true,
-        inviteCode: true,
-        permanentlyRejectedAt: true
-      }
-    })
-
-    if (!teacher) {
-      return { success: false, error: '手机号或密码错误' }
-    }
-
-    // 检查是否设置了密码（老用户可能没有密码）
-    if (!teacher.password) {
-      return { success: false, error: '该账号未设置密码，请联系管理员' }
-    }
-
-    // 验证密码
-    const isPasswordValid = await bcrypt.compare(password, teacher.password)
-    if (!isPasswordValid) {
-      return { success: false, error: '手机号或密码错误' }
-    }
-
-    // 永久拒绝入驻的账号禁止登录
-    if (teacher.permanentlyRejectedAt) {
-      return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
-    }
-
-    // 确保有邀请码
-    if (!teacher.inviteCode) {
-      await ensureInviteCodes(teacher.id)
-    }
-
-    // 设置认证 cookie（统一使用 teacherId）
-    const cookieStore = await cookies()
-    cookieStore.set('teacherId', teacher.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
-    })
-
-    return {
-      success: true,
-      teacherId: teacher.id,
-      name: teacher.name,
-      message: '登录成功'
-    }
-  } catch (error) {
-    console.error('登录失败:', error)
-    return { success: false, error: '登录失败，请重试' }
-  }
-}
-
-// 邀请人登出（统一使用 teacherId）
-export async function logoutReferrer() {
-  try {
-    const cookieStore = await cookies()
-    cookieStore.delete('teacherId')
-
-    return { success: true, message: '已退出登录' }
-  } catch (error) {
-    console.error('登出失败:', error)
-    return { success: false, error: '登出失败，请重试' }
-  }
-}
-
-// 获取当前登录的邀请人信息（统一使用 teacherId）
+export async function loginReferrer(input: { phone: string; password: string }) { return login(input) }
+export async function loginTeacher(phone: string, password: string) { return login({ phone, password }) }
+export async function logoutReferrer() { await endSession(); revalidatePath('/', 'layout'); return { success: true, message: '已退出登录' } }
+export async function logoutTeacher() { return logoutReferrer() }
 export async function getCurrentReferrer() {
-  try {
-    const cookieStore = await cookies()
-    const teacherId = cookieStore.get('teacherId')?.value
-
-    if (!teacherId) {
-      return { success: false, error: '未登录' }
-    }
-
-    const teacher = await prisma.teacher.findUnique({
-      where: { id: teacherId },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        inviteCode: true,
-        permanentlyRejectedAt: true
-      }
-    })
-
-    if (!teacher) {
-      return { success: false, error: '会话已过期' }
-    }
-
-    return { success: true, teacher }
-  } catch (error) {
-    console.error('获取当前用户失败:', error)
-    return { success: false, error: '获取用户信息失败' }
-  }
+  const session = await getCurrentSession()
+  if (!session || session.activeRole !== 'TEACHER' || !session.teacherId) return { success: false, error: '未登录' }
+  const teacher = await prisma.teacher.findUnique({ where: { id: session.teacherId }, select: { id: true, name: true, phone: true, inviteCode: true, permanentlyRejectedAt: true } })
+  return teacher ? { success: true, teacher } : { success: false, error: '会话已过期' }
+}
+export async function switchWorkspace(role: string) {
+  const session = await getCurrentSession()
+  if (!session || !isRole(role) || !session.roles.includes(role)) return { success: false, error: '该工作台不可用，请重新登录' }
+  await startSession(session.accountId, role)
+  revalidatePath('/', 'layout')
+  return { success: true, redirectTo: ROLE_HOME[role] }
+}
+export async function setDefaultWorkspace(role: string) {
+  const session = await getCurrentSession()
+  if (!session || !isRole(role) || !session.roles.includes(role)) return { success: false, error: '无权设置该工作台' }
+  await prisma.account.update({ where: { id: session.accountId }, data: { defaultRole: role } })
+  revalidatePath('/account')
+  return { success: true }
+}
+export async function updateOwnPassword(oldPassword: string, newPassword: string) {
+  const session = await getCurrentSession()
+  if (!session) return { success: false, error: '请重新登录' }
+  if (typeof newPassword !== 'string' || newPassword.length < 6 || newPassword.length > 72) return { success: false, error: '密码需为 6–72 位' }
+  const ip = getClientIpFromForwarded((await headers()).get('x-forwarded-for'))
+  if (!(await checkAuthRateLimit(`password:${ip}:${session.accountId}`, 5, 15 * 60 * 1000)).allowed) return { success: false, error: '尝试次数过多，请稍后再试' }
+  const account = await prisma.account.findUniqueOrThrow({ where: { id: session.accountId } })
+  if (typeof oldPassword !== 'string' || !(await bcrypt.compare(oldPassword, account.passwordHash))) return { success: false, error: '原密码错误' }
+  await changeAccountPassword(session.accountId, newPassword)
+  await endSession()
+  revalidatePath('/', 'layout')
+  return { success: true }
 }
 
-// 老师注册（用于新用户注册）
-export async function registerTeacher(formData: {
-  name: string
-  phone: string
-  password: string
-  confirmPassword: string
-  referralCode?: string
-}) {
+type RegisterInput = { name: string; phone: string; password: string; confirmPassword: string; referralCode?: string; subjects?: string[]; primarySubject?: string }
+export async function registerTeacher(input: RegisterInput) {
   try {
-    const { password, confirmPassword } = formData
-    const name = sanitizeInput(formData.name)
-    const phone = sanitizeInput(formData.phone)
-    const referralCode = formData.referralCode ? sanitizeInput(formData.referralCode) : undefined
-
-    // 验证必填字段
-    if (!name) {
-      return { success: false, error: '请输入姓名' }
+    const name = sanitizeInput(input.name), phone = sanitizeInput(input.phone)
+    const { password, confirmPassword } = input
+    if (!name || !/^1[3-9]\d{9}$/.test(phone)) return { success: false, error: '请填写姓名和有效手机号' }
+    if (typeof password !== 'string' || password.length < 6 || password.length > 72) return { success: false, error: '密码需为 6–72 位' }
+    if (password !== confirmPassword) return { success: false, error: '两次密码输入不一致' }
+    const ip = getClientIpFromForwarded((await headers()).get('x-forwarded-for'))
+    if (!(await checkAuthRateLimit(`register:${ip}`, 10, 15 * 60 * 1000)).allowed) return { success: false, error: '操作频繁，请稍后再试' }
+    const [existingTeacher, account, operator, session] = await Promise.all([
+      prisma.teacher.findUnique({ where: { phone } }), prisma.account.findUnique({ where: { login: phone } }),
+      prisma.operator.findUnique({ where: { phone } }), getCurrentSession(),
+    ])
+    if (existingTeacher) return { success: false, error: '该手机号已注册，请登录；无法登录请联系管理员' }
+    if ((account && account.id !== session?.accountId) || (operator && (!account || operator.accountId !== session?.accountId))) {
+      return { success: false, error: '该手机号已有账号，请先登录，再申请教练工作台' }
     }
-    if (!phone) {
-      return { success: false, error: '请输入手机号' }
-    }
-    if (!password) {
-      return { success: false, error: '请输入密码' }
-    }
-    if (!confirmPassword) {
-      return { success: false, error: '请确认密码' }
-    }
-
-    // 验证手机号格式
-    if (!isValidPhone(phone)) {
-      return { success: false, error: '手机号格式不正确' }
-    }
-
-    // 验证密码长度
-    if (password.length < 6) {
-      return { success: false, error: '密码至少需要6位' }
-    }
-
-    // 验证密码确认
-    if (password !== confirmPassword) {
-      return { success: false, error: '两次密码输入不一致' }
-    }
-
-    // 查找邀请人（如果提供了邀请码）
-    let invitedById: string | null = null
-    let inviterPhone: string | null = null
-    if (referralCode) {
-      const referrer = await prisma.teacher.findUnique({
-        where: { inviteCode: referralCode.toUpperCase() },
-        select: { id: true, phone: true }
-      })
-      
-      if (!referrer) {
-        return { success: false, error: '邀请码无效' }
-      }
-      
-      invitedById = referrer.id
-      inviterPhone = referrer.phone
-    }
-
-    // 检查手机号是否已注册
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { phone }
+    if (account && !(await bcrypt.compare(password, account.passwordHash))) return { success: false, error: '请输入当前账号的登录密码' }
+    if (account && !account.isEnabled) return { success: false, error: '账号已停用，请联系管理员' }
+    const referralCode = input.referralCode ? sanitizeInput(input.referralCode).toUpperCase() : null
+    const inviter = referralCode ? await prisma.teacher.findUnique({ where: { inviteCode: referralCode }, select: { id: true, phone: true } }) : null
+    if (referralCode && !inviter) return { success: false, error: '邀请码无效' }
+    const hash = account?.passwordHash ?? await bcrypt.hash(password, 12)
+    const teacher = await prisma.$transaction(async tx => {
+      const owner = account ?? await tx.account.create({ data: { login: phone, name, passwordHash: hash, defaultRole: 'TEACHER' } })
+      await tx.accountRole.create({ data: { accountId: owner.id, role: 'TEACHER' } })
+      return tx.teacher.create({ data: { name, phone, password: hash, accountId: owner.id, invitedById: inviter?.id, subjects: input.subjects ?? [], primarySubject: input.primarySubject ?? null } })
     })
-
-    if (existingTeacher) {
-      // 永久拒绝入驻的手机号禁止重新注册
-      if (existingTeacher.permanentlyRejectedAt) {
-        return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
-      }
-
-      // 如果已经设置了密码，说明已经注册过
-      if (existingTeacher.password) {
-        return { success: false, error: '该手机号已注册，请直接登录' }
-      }
-
-      // 如果没有密码，说明是通过引导系统创建的老用户，升级账号
-      const hashedPassword = await bcrypt.hash(password, 10)
-
-      const teacher = await prisma.teacher.update({
-        where: { id: existingTeacher.id },
-        data: {
-          name,
-          password: hashedPassword,
-          // 如果提供了新的邀请码且当前没有邀请人，更新邀请关系
-          ...(invitedById && !existingTeacher.invitedById ? { invitedById } : {})
-        }
-      })
-      
-      // 生成邀请码
-      await ensureInviteCodes(teacher.id)
-      
-      // 如果建立了新的邀请关系，创建邀请记录
-      if (invitedById && !existingTeacher.invitedById) {
-        await createReferralRecord(invitedById, teacher.id)
-      }
-
-      // 注册/升级完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）。
-      // 以最终生效的邀请关系为准（此前经邀请链接绑定的优先，本次邀请码不改变已有关系）。
-      const effectiveInviterId = existingTeacher.invitedById ?? invitedById
-      let effectiveInviterPhone: string | null = null
-      if (effectiveInviterId) {
-        const boundInviter = await prisma.teacher.findUnique({
-          where: { id: effectiveInviterId },
-          select: { phone: true },
-        })
-        effectiveInviterPhone = boundInviter?.phone ?? null
-      }
-      await syncFollowUpWithInviter(teacher.id, effectiveInviterPhone)
-
-      // 设置认证 cookie
-      const cookieStore = await cookies()
-      cookieStore.set('teacherId', teacher.id, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
-        sameSite: 'lax',
-        maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
-      })
-
-      return {
-        success: true,
-        teacherId: teacher.id,
-        message: '注册成功'
-      }
-    }
-
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(password, 10)
-
-    // 创建新的老师记录
-    const teacher = await prisma.teacher.create({
-      data: {
-        name,
-        phone,
-        password: hashedPassword,
-        status: 'NOT_STARTED',
-        invitedById
-      }
-    })
-
-    // 生成邀请码
     await ensureInviteCodes(teacher.id)
-
-    // 如果有邀请人，创建邀请记录
-    if (invitedById) {
-      await createReferralRecord(invitedById, teacher.id)
-    }
-
-    // 注册完成即按统一分配模型归属跟进人（无邀请人也走随机兜底分配）
-    await syncFollowUpWithInviter(teacher.id, inviterPhone)
-
-    // 设置认证 cookie
-    const cookieStore = await cookies()
-    cookieStore.set('teacherId', teacher.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
-    })
-
-    return {
-      success: true,
-      teacherId: teacher.id,
-      message: '注册成功'
-    }
+    if (inviter) await createReferralRecord(inviter.id, teacher.id)
+    await syncFollowUpWithInviter(teacher.id, inviter?.phone ?? null)
+    await startSession(teacher.accountId!, 'TEACHER', hash)
+    revalidatePath('/', 'layout')
+    return { success: true, teacherId: teacher.id, message: '注册成功' }
   } catch (error) {
-    console.error('注册失败:', error)
-    return { success: false, error: '注册失败，请重试' }
+    console.error('注册失败:', error instanceof Error ? error.name : 'unknown')
+    return { success: false, error: '注册失败，请重试；已有账号请直接登录' }
   }
 }
-
-// 老师登录（用于引导流程）
-export async function loginTeacher(phone: string, password: string) {
-  try {
-    const trimmedPhone = sanitizeInput(phone)
-
-    // 验证必填字段
-    if (!trimmedPhone) {
-      return { success: false, error: '请输入手机号' }
-    }
-    if (!password) {
-      return { success: false, error: '请输入密码' }
-    }
-
-    // 登录限流（防爆破）
-    const rateLimitError = await assertLoginRateLimit('teacher', trimmedPhone)
-    if (rateLimitError) {
-      return { success: false, error: rateLimitError }
-    }
-
-    // 验证手机号格式
-    if (!isValidPhone(trimmedPhone)) {
-      return { success: false, error: '手机号格式不正确' }
-    }
-
-    // 查找用户
-    const teacher = await prisma.teacher.findUnique({
-      where: { phone: trimmedPhone },
-      select: {
-        id: true,
-        name: true,
-        phone: true,
-        password: true,
-        inviteCode: true,
-        permanentlyRejectedAt: true
-      }
-    })
-
-    if (!teacher) {
-      return { success: false, error: '手机号或密码错误' }
-    }
-
-    // 检查是否设置了密码
-    if (!teacher.password) {
-      return { success: false, error: '该账号未设置密码，请联系管理员' }
-    }
-
-    // 验证密码
-    const isPasswordValid = await bcrypt.compare(password, teacher.password)
-    if (!isPasswordValid) {
-      return { success: false, error: '手机号或密码错误' }
-    }
-
-    // 永久拒绝入驻的账号禁止登录
-    if (teacher.permanentlyRejectedAt) {
-      return { success: false, error: PERMANENTLY_REJECTED_MESSAGE }
-    }
-
-    // 确保有邀请码
-    if (!teacher.inviteCode) {
-      const { ensureInviteCodes } = await import('./teacher')
-      await ensureInviteCodes(teacher.id)
-    }
-
-    // 设置认证 cookie
-    const cookieStore = await cookies()
-    cookieStore.set('teacherId', teacher.id, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 30, // 30 天（P1-6 会话期缩短）
-    })
-
-    return {
-      success: true,
-      teacherId: teacher.id,
-      name: teacher.name,
-      message: '登录成功'
-    }
-  } catch (error) {
-    console.error('登录失败:', error)
-    return { success: false, error: '登录失败，请重试' }
-  }
-}
-
-// 老师登出
-export async function logoutTeacher() {
-  try {
-    const cookieStore = await cookies()
-    cookieStore.delete('teacherId')
-
-    return { success: true, message: '已退出登录' }
-  } catch (error) {
-    console.error('登出失败:', error)
-    return { success: false, error: '登出失败，请重试' }
-  }
-}
+export async function registerReferrer(input: RegisterInput) { return registerTeacher(input) }

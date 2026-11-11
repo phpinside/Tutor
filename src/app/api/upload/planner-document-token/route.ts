@@ -1,3 +1,4 @@
+import { cookies } from '@/lib/auth/compat'
 import { NextRequest, NextResponse } from 'next/server'
 import { generateLearningPlannerPdfKey, generateUploadToken } from '@/lib/qiniu'
 import { QINIU_CONFIG } from '@/lib/config'
@@ -6,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const { teacherId, fileName } = body
-    const sessionTeacherId = request.cookies.get('teacherId')?.value
+    const sessionTeacherId = (await cookies()).get('teacherId')?.value
 
     if (!teacherId || !fileName) {
       return NextResponse.json({ error: '缺少必要参数' }, { status: 400 })

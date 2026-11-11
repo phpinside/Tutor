@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { uploadToQiniu, generatePrivateUrl } from '@/lib/qiniu'
 import { QINIU_CONFIG } from '@/lib/config'
 

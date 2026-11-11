@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { generateCaseImageKey, uploadToQiniu } from '@/lib/qiniu'
 import { serializeCaseImageRecord } from '@/lib/case-image-records'

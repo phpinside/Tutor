@@ -9,7 +9,7 @@ import type { Prisma } from '@prisma/client'
  *  A. 已归属（跟进）该学管：TeacherTeam.operatorId = X（即「团队人员管理」名单）
  *  B. 分配给该学管初审且职责期内：CoachReview.firstReviewOperatorId = X
  *     且 stage ∈ {FIRST_REVIEW, REJECTED}
- *  C. 该学管自己邀请的人员：按 Operator.phone 匹配老师身份后 invitedById = 该老师ID
+ *  C. 该学管自己邀请的人员：按已验证的 accountId 关联老师身份后 invitedById = 该老师ID
  *
  * 灰度开关：SystemConfig key = 'LEARNER_MANAGER_SCOPE'，值为 JSON 字符串：
  *  - '[]' 或缺省：关闭，所有学管保持改造前行为（返回 null，调用方走现状逻辑）
@@ -56,17 +56,17 @@ export const getScopedTeacherFilter = cache(
   async (operatorId: string): Promise<Prisma.TeacherWhereInput | null> => {
     if (!(await isScopingEnabledFor(operatorId))) return null
 
-    // 条件 C：按手机号匹配学管对应的老师身份（与外部接口解析口径一致）
+    // 条件 C：按已验证统一账号关联学管本人档案
     // 注意：匹配不到时必须整体省略条件 C——绝不能写 invitedById: null，
     // 否则会误匹配所有无邀请人的老师（越权漏洞）。
     const operator = await prisma.operator.findUnique({
       where: { id: operatorId },
-      select: { phone: true },
+      select: { accountId: true },
     })
     let selfTeacherId: string | null = null
-    if (operator?.phone) {
+    if (operator?.accountId) {
       const selfTeacher = await prisma.teacher.findUnique({
-        where: { phone: operator.phone },
+        where: { accountId: operator.accountId },
         select: { id: true },
       })
       selfTeacherId = selfTeacher?.id ?? null
@@ -119,11 +119,11 @@ export async function getSelfTeacherIdOfOperator(
 ): Promise<string | null> {
   const operator = await prisma.operator.findUnique({
     where: { id: operatorId },
-    select: { phone: true },
+    select: { accountId: true },
   })
-  if (!operator?.phone) return null
+  if (!operator?.accountId) return null
   const selfTeacher = await prisma.teacher.findUnique({
-    where: { phone: operator.phone },
+    where: { accountId: operator.accountId },
     select: { id: true },
   })
   return selfTeacher?.id ?? null

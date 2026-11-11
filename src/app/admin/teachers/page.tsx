@@ -1,6 +1,6 @@
 import { prisma } from '@/lib/prisma'
 import { CoachReviewStage, ReferralStatus, ReferralType, TeacherStatus } from '@prisma/client'
-import { cookies } from 'next/headers'
+import { cookies } from '@/lib/auth/compat'
 import TeachersManagementClient from './TeachersManagementClient'
 import { getCoachReviewsForTeachers } from '@/app/actions/coachReview'
 import { getScopedTeacherFilter } from '@/lib/learnerManagerScope'

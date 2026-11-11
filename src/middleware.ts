@@ -1,143 +1,23 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
+import { SESSION_COOKIE } from '@/lib/auth/policy'
 
-// 路由权限映射：定义每个路径需要的角色
-const ROUTE_PERMISSIONS: Record<string, string[]> = {
-  '/admin/teachers': ['super_admin'],
-  '/admin/referrals': ['super_admin'],
-  '/admin/withdrawals': ['super_admin'],
-  '/admin/certificates': ['super_admin'],
-  '/admin/case-image-records': ['super_admin'],
-  '/admin/student-certificate-records': ['super_admin'],
-  '/admin/tencent-meetings': ['super_admin'],
-  '/admin/config': ['super_admin'],
-  '/admin/audit': ['super_admin'],
-  '/admin/operators': ['super_admin'],
+export function middleware(request: NextRequest) {
+  const path = request.nextUrl.pathname
+  if (path === '/admin/login' || path === '/operator/login') {
+    const url = new URL('/auth/login', request.url)
+    url.search = request.nextUrl.search
+    return NextResponse.redirect(url)
+  }
+  // Edge 只做登录态粗筛；页面、API、Server Actions 通过数据库会话做最终鉴权。
+  if (!request.cookies.get(SESSION_COOKIE)) {
+    const url = new URL('/auth/login', request.url)
+    url.searchParams.set('redirect', path + request.nextUrl.search)
+    return NextResponse.redirect(url)
+  }
+  const forwarded = new Headers(request.headers)
+  forwarded.set('x-tutor-destination', path + request.nextUrl.search)
+  return NextResponse.next({ request: { headers: forwarded } })
 }
-
-// 检查路径是否需要权限验证
-function getRequiredRoles(pathname: string): string[] | null {
-  for (const [route, roles] of Object.entries(ROUTE_PERMISSIONS)) {
-    if (pathname.startsWith(route)) {
-      return roles
-    }
-  }
-  return null
-}
-
-export async function middleware(request: NextRequest) {
-  const pathname = request.nextUrl.pathname
-
-  // 学管 / 运营可访问老师管理与腾讯会议路径
-  // cookie 中的 role 仅为登录快照：旧会话无 role 字段则放行（兼容期），
-  // 服务端会以 DB 中的角色与白名单 scoping 做真正的鉴权。
-  const operatorSession = request.cookies.get('operator_session')
-  let operatorId: string | null = null
-  if (operatorSession) {
-    try {
-      const data = JSON.parse(operatorSession.value)
-      if (data.operatorId && (!data.role || data.role === 'LEARNER_MANAGER' || data.role === 'OPERATOR')) {
-        operatorId = data.operatorId as string
-        if (
-          pathname.startsWith('/admin/teachers') ||
-          pathname.startsWith('/admin/tencent-meetings')
-        ) {
-          return NextResponse.next()
-        }
-      }
-    } catch {}
-  }
-
-  // 已登录的学管/运营访问超管专属页面时，重定向回自己的工作台（比跳登录页更友好）
-  if (operatorId && pathname.startsWith('/admin')) {
-    return NextResponse.redirect(new URL('/operator/team', request.url))
-  }
-
-  // 检查管理后台路径
-  if (
-    pathname.startsWith('/admin') &&
-    !pathname.startsWith('/admin/login') &&
-    !pathname.startsWith('/api/admin/login')
-  ) {
-    // 检查是否有管理员登录 cookie
-    const session = request.cookies.get('admin_session')
-    
-    if (!session) {
-      // 未登录，重定向到登录页
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-
-    // 解析 session 数据，获取角色
-    try {
-      const sessionData = JSON.parse(session.value)
-      const userRole = sessionData.role
-
-      // 检查当前路径需要的权限
-      const requiredRoles = getRequiredRoles(pathname)
-      
-      if (requiredRoles && !requiredRoles.includes(userRole)) {
-        // 没有权限，重定向到老师管理页面
-        return NextResponse.redirect(new URL('/admin/teachers', request.url))
-      }
-    } catch (error) {
-      // session 数据解析失败，重定向到登录页
-      return NextResponse.redirect(new URL('/admin/login', request.url))
-    }
-  }
-
-  // 检查运营人员后台路径
-  if (
-    pathname.startsWith('/operator') &&
-    !pathname.startsWith('/operator/login') &&
-    !pathname.startsWith('/api/operator/login')
-  ) {
-    const session = request.cookies.get('operator_session')
-    
-    if (!session) {
-      return NextResponse.redirect(new URL('/operator/login', request.url))
-    }
-
-    try {
-      const sessionData = JSON.parse(session.value)
-      if (!sessionData.operatorId) {
-        return NextResponse.redirect(new URL('/operator/login', request.url))
-      }
-    } catch {
-      return NextResponse.redirect(new URL('/operator/login', request.url))
-    }
-  }
-
-  // 检查邀请看板路径（使用统一的 teacherId）
-  if (pathname.startsWith('/referral/dashboard') || pathname.startsWith('/referral/withdraw')) {
-    // 检查是否有 teacherId cookie
-    const teacherId = request.cookies.get('teacherId')
-    
-    if (!teacherId) {
-      // 未登录，重定向到统一登录页
-      const loginUrl = new URL('/auth/login', request.url)
-      loginUrl.searchParams.set('redirect', pathname + request.nextUrl.search)
-      return NextResponse.redirect(loginUrl)
-    }
-  }
-
-  // 检查新手引导路径（需要老师登录）
-  // 注意：由于 middleware 运行在 Edge Runtime，不能使用 Prisma
-  // 手机号和密码的检查移到首页逻辑中处理
-  if (pathname.startsWith('/onboarding')) {
-    // 检查是否有老师登录 cookie
-    const teacherId = request.cookies.get('teacherId')
-    
-    if (!teacherId) {
-      // 未登录，重定向到登录页
-      return NextResponse.redirect(new URL('/auth/login', request.url))
-    }
-    
-    // 已登录的检查（phone/password）由首页处理
-  }
-
-  return NextResponse.next()
-}
-
 export const config = {
-  matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*', '/onboarding/:path*'],
+  matcher: ['/admin/:path*', '/operator/:path*', '/referral/dashboard/:path*', '/referral/withdraw/:path*', '/onboarding/:path*', '/account/:path*'],
 }
