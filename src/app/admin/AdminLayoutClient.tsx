@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import LogoutButton from './LogoutButton'
+import DashboardHeader from '@/components/admin/DashboardHeader'
 
 interface MenuItem {
   path: string
@@ -35,55 +36,21 @@ export default function AdminLayoutClient({
 }) {
   const pathname = usePathname()
   
-  const isActive = (path: string) => {
-    return pathname.startsWith(path)
-  }
-  
-  const navLinkClass = (path: string) => {
-    return `text-sm font-medium transition-colors pb-1 ${
-      isActive(path)
-        ? 'text-blue-600 border-b-2 border-blue-600'
-        : 'text-gray-600 hover:text-gray-900'
-    }`
-  }
-  
   // 根据角色过滤菜单项
   const visibleMenuItems = MENU_ITEMS.filter(item => item.roles.includes(role))
+  const activeItem = visibleMenuItems
+    .filter(item => pathname === item.path || pathname.startsWith(`${item.path}/`))
+    .sort((a, b) => b.path.length - a.path.length)[0]
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* 顶部导航栏 */}
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex items-center justify-between h-16">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎓</span>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">
-                  伴学管理后台
-                </h1>
-                <p className="text-xs text-gray-500">
-                  Teacher Onboarding System
-                </p>
-              </div>
-            </div>
-            
-            <nav className="ml-5 flex min-w-0 items-center gap-4 overflow-x-auto whitespace-nowrap">
-              {visibleMenuItems.map(item => (
-                <a
-                  key={item.path}
-                  href={item.path}
-                  className={`${navLinkClass(item.path)} inline-flex items-center gap-1 whitespace-nowrap`}
-                >
-                  <span aria-hidden>{item.icon}</span>
-                  {item.label}
-                </a>
-              ))}
-              {accountMenu || <span className="shrink-0"><LogoutButton /></span>}
-            </nav>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        home="/admin/teachers"
+        subtitle="管理工作台"
+        navigationLabel="管理后台导航"
+        items={visibleMenuItems.map(item => ({ ...item, active: item.path === activeItem?.path }))}
+        accountMenu={accountMenu || <LogoutButton />}
+      />
       
       <main className="container mx-auto px-4 py-8">
         {children}

@@ -1,6 +1,7 @@
 'use client'
 
 import { usePathname, useSearchParams } from 'next/navigation'
+import DashboardHeader from '@/components/admin/DashboardHeader'
 
 interface MenuItem {
   path: string
@@ -26,8 +27,8 @@ export default function OperatorLayoutClient({
 }: {
   children: React.ReactNode
   operatorName: string
-  /** 「运营复审权限」开关开启时为 true；此时展示「微信群二维码」配置入口 */
   accountMenu?: React.ReactNode
+  /** 「运营复审权限」开关开启时为 true；此时展示「微信群二维码」配置入口 */
   canManageGroupQr?: boolean
 }) {
   const pathname = usePathname()
@@ -42,30 +43,21 @@ export default function OperatorLayoutClient({
       ]
     : MENU_ITEMS
 
-  const isActive = (path: string) => {
+  const matchesCurrentPage = (path: string) => {
     const [itemPath, itemQuery] = path.split('?')
-    if (itemPath === '/admin/teachers') {
-      if (pathname !== '/admin/teachers' && !pathname.startsWith('/admin/teachers/')) {
-        return false
+    if (pathname !== itemPath && !pathname.startsWith(`${itemPath}/`)) return false
+    if (itemQuery) {
+      for (const [key, value] of new URLSearchParams(itemQuery)) {
+        if (searchParams.get(key) !== value) return false
       }
-      if (itemQuery) {
-        const params = new URLSearchParams(itemQuery)
-        for (const [key, value] of params) {
-          if (searchParams.get(key) !== value) return false
-        }
-        return true
-      }
-      return !searchParams.get('inviteAudit')
     }
-    return pathname.startsWith(itemPath)
+    return true
   }
-
-  const navLinkClass = (path: string) =>
-    `text-sm font-medium transition-colors pb-1 ${
-      isActive(path)
-        ? 'text-blue-600 border-b-2 border-blue-600'
-        : 'text-gray-600 hover:text-gray-900'
-    }`
+  // 优先匹配具体子页面，同一路径再优先匹配筛选入口，始终只高亮一项。
+  const activeItem = menuItems.filter(item => matchesCurrentPage(item.path)).sort((a, b) => {
+    const pathLength = b.path.split('?')[0].length - a.path.split('?')[0].length
+    return pathLength || Number(b.path.includes('?')) - Number(a.path.includes('?'))
+  })[0]
 
   async function handleLogout() {
     await fetch('/api/operator/logout', { method: 'POST' })
@@ -74,33 +66,13 @@ export default function OperatorLayoutClient({
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col items-start justify-between gap-3 py-3 xl:flex-row xl:items-center">
-            <div className="flex items-center gap-3">
-              <span className="text-2xl">🎓</span>
-              <div>
-                <h1 className="text-lg font-bold text-gray-900">伴学管理后台</h1>
-                <p className="text-xs text-gray-500">学管：{operatorName}</p>
-              </div>
-            </div>
-
-            <nav className="flex w-full max-w-full items-center gap-5 overflow-x-auto whitespace-nowrap pb-1 xl:w-auto" aria-label="运营后台导航">
-              {menuItems.map((item) => (
-                <a key={item.path} href={item.path} className={navLinkClass(item.path)}>
-                  {item.label}
-                </a>
-              ))}
-              {accountMenu || <button
-                onClick={handleLogout}
-                className="text-sm text-gray-500 hover:text-gray-700 transition-colors"
-              >
-                退出
-              </button>}
-            </nav>
-          </div>
-        </div>
-      </header>
+      <DashboardHeader
+        home="/operator/team"
+        subtitle={operatorName}
+        navigationLabel="运营后台导航"
+        items={menuItems.map(item => ({ ...item, active: item.path === activeItem?.path }))}
+        accountMenu={accountMenu || <button onClick={handleLogout} className="text-sm text-gray-500 hover:text-gray-700">退出</button>}
+      />
 
       <main className="container mx-auto px-4 py-8">{children}</main>
     </div>
