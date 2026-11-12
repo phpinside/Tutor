@@ -20,13 +20,13 @@ test('unified authentication against an isolated PostgreSQL and Next.js server',
   const manager = await db.operator.create({ data: { name: prefix, phone: '13900009002', password: hash, role: 'LEARNER_MANAGER' } })
   const operator = await db.operator.create({ data: { name: prefix, phone: '13900009003', password: hash, role: 'OPERATOR' } })
   const dualTeacher = await db.teacher.create({ data: { name: prefix, phone: '13900009004', password: hash, subjects: [] } })
-  const dualOperator = await db.operator.create({ data: { name: prefix, phone: '13900009004', password: secondHash, role: 'LEARNER_MANAGER' } })
+  const dualOperator = await db.operator.create({ data: { name: prefix, phone: '13900009004', password: secondHash, role: 'OPERATOR' } })
   const disabled = await db.operator.create({ data: { name: prefix, phone: '13900009005', password: hash, isEnabled: false } })
   const accounts: string[] = []
   const registeredTeachers: string[] = [], extraOperators: string[] = []
   const task = await db.taskConfig.create({ data: { index: 0, title: '认证测试表单', phase: 1, emoji: '📝', type: 'FORM', description: '测试', estimatedMinutes: 1, requirements: [] } })
-  async function post(path: string, body: unknown, cookie = '') {
-    const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookie }, body: JSON.stringify(body), redirect: 'manual' })
+  async function post(path: string, body: unknown, cookie = '', headers: Record<string, string> = {}) {
+    const response = await fetch(`${base}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: new URL(base!).origin, 'Sec-Fetch-Site': 'same-origin', Cookie: cookie, ...headers }, body: JSON.stringify(body), redirect: 'manual' })
     const payload = await response.json()
     const token = response.headers.getSetCookie().find(value => value.startsWith('tutor_session='))?.split(';')[0] ?? ''
     if (path.endsWith('/login') && payload.success) {
@@ -104,12 +104,41 @@ test('unified authentication against an isolated PostgreSQL and Next.js server',
       assert.equal(account.roles.length, 2)
       assert.equal((await post('/api/auth/login', { identifier: dualTeacher.phone, password: secondPassword })).payload.success, false)
     })
-    await t.test('workspace switching rotates tokens, remembers context and preserves authorized deep links', async () => {
+    await t.test('cross-origin workspace requests preserve the existing session', async () => {
+      const variants: Record<string, string>[] = [
+        { Origin: 'https://evil.test', 'Sec-Fetch-Site': 'cross-site' },
+        { Origin: 'https://other.bytemath.cn', 'Sec-Fetch-Site': 'same-site', 'X-Forwarded-Host': 'tutor.bytemath.cn', 'X-Forwarded-Proto': 'https' },
+      ]
+      for (const headers of variants) {
+        const denied = await post('/api/auth/workspace', { role: 'TEACHER' }, dualCookie, headers)
+        assert.equal(denied.response.status, 403)
+        assert.match(denied.payload.error, /请求来源无效/)
+        assert.equal(denied.cookie, '')
+      }
+      assert.equal((await get('/account', dualCookie)).status, 200)
+    })
+    await t.test('proxied coach and operator switches rotate tokens, remember context and preserve authorized deep links', async () => {
+      const proxyHeaders = { Origin: 'https://tutor.bytemath.cn', 'X-Forwarded-Host': 'tutor.bytemath.cn', 'X-Forwarded-Proto': 'https' }
       const previous = dualCookie
-      const switched = await post('/api/auth/workspace', { role: 'TEACHER' }, dualCookie)
+      const switched = await post('/api/auth/workspace', { role: 'TEACHER' }, dualCookie, proxyHeaders)
+      assert.equal(switched.response.status, 200)
       assert.equal(switched.payload.redirectTo, '/onboarding'); dualCookie = switched.cookie
+      assert.ok(dualCookie)
       assert.notEqual(dualCookie, previous)
       assert.match((await get('/account', previous)).headers.get('location')!, /\/auth\/login/)
+      assert.equal((await get('/onboarding', dualCookie)).status, 200)
+      const coachCookie = dualCookie
+      const operatorSwitch = await post('/api/auth/workspace', { role: 'OPERATOR' }, dualCookie, proxyHeaders)
+      assert.equal(operatorSwitch.response.status, 200)
+      assert.equal(operatorSwitch.payload.redirectTo, '/operator/team'); dualCookie = operatorSwitch.cookie
+      assert.ok(dualCookie)
+      assert.notEqual(dualCookie, coachCookie)
+      assert.match((await get('/account', coachCookie)).headers.get('location')!, /\/auth\/login/)
+      assert.equal((await get('/operator/team', dualCookie)).status, 200)
+      const remembered = await post('/api/auth/login', { identifier: dualTeacher.phone, password })
+      assert.equal(remembered.payload.redirectTo, '/operator/team')
+      const backToCoach = await post('/api/auth/workspace', { role: 'TEACHER' }, dualCookie, proxyHeaders)
+      assert.equal(backToCoach.response.status, 200); dualCookie = backToCoach.cookie
       const repeat = await post('/api/auth/login', { identifier: dualTeacher.phone, password })
       assert.equal(repeat.payload.redirectTo, '/onboarding')
       const deep = await post('/api/auth/login', { identifier: dualTeacher.phone, password, redirect: '/operator/settings?from=link' })
