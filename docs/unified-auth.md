@@ -16,7 +16,7 @@
 
 `src/lib/auth/session.ts` 提供统一会话；`src/lib/auth/compat.ts` 为存量业务提供服务端派生身份，只兼容读取，不接受旧身份 Cookie。新增代码直接使用统一会话及权限方法。Prisma 业务查询默认省略教练和学管密码字段，认证代码显式请求哈希。
 
-认证 API 的同源校验使用 `X-Forwarded-Host`（缺省时使用 `Host`）和 `X-Forwarded-Proto` 还原公网来源，避免 HTTPS 反向代理后的内部监听地址导致登录、退出、改密或切换工作台误报 403。Caddy/Nginx 等入口代理必须覆盖客户端传入的这两个转发头；来源仍需精确匹配协议、域名和端口，并拒绝跨站请求。
+认证 API 的同源校验、Middleware 和 Route Handler 的绝对跳转、邀请链接统一通过 `src/lib/request-url.ts`，使用 `X-Forwarded-Host`（缺省时使用 `Host`）和 `X-Forwarded-Proto` 还原当前请求的公网来源。无需配置 `NEXT_PUBLIC_APP_URL`，旧配置不再影响这些地址；快捷登录助手的脚本地址也使用浏览器当前来源。这样避免 HTTPS 反向代理后的内部监听地址导致误报 403 或跳转至 `localhost`。Caddy/Nginx 等入口代理必须覆盖客户端传入的这两个转发头；来源仍需精确匹配协议、域名和端口，并拒绝跨站请求。
 
 ## 上线顺序
 

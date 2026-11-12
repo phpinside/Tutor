@@ -1,9 +1,11 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { cookies } from '@/lib/auth/compat'
 import { getCurrentReferrer } from '@/app/actions/auth'
 import { getReferralDataByTeacherId } from '@/app/actions/teacher'
 import ReferralDashboard from '@/components/referral/ReferralDashboard'
 import { isNewTeachingRuleEffective, shouldShowRuleUpdateNotice } from '@/lib/referralRewards'
+import { getRequestOrigin } from '@/lib/request-url'
 
 export default async function ReferralDashboardPage({
   searchParams
@@ -68,13 +70,13 @@ export default async function ReferralDashboardPage({
   const { data } = result
 
   // 构建邀请链接
-  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const inviteUrl = `${baseUrl}?ref=${data.inviteCode}`
+  const inviteUrl = new URL('/', getRequestOrigin(await headers()))
+  if (data.inviteCode) inviteUrl.searchParams.set('ref', data.inviteCode)
 
   return (
     <ReferralDashboard
       data={data}
-      inviteUrl={inviteUrl}
+      inviteUrl={inviteUrl.href}
       pagination={data.pagination}
       filters={params}
       showRuleUpdateNotice={shouldShowRuleUpdateNotice()}

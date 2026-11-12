@@ -8,8 +8,7 @@ const { bookmarkName, targetWebsite } = BOOKMARK_HELPER_CONFIG
 // 生成 Bookmarklet:只负责动态加载 A 网站的 /b-init.js,不含任何业务逻辑。
 // 要求:单行、以 javascript: 开头、带时间戳防缓存、加载成功后移除 script 标签。
 function buildBookmarklet(): string {
-  const { aDomain } = BOOKMARK_HELPER_CONFIG
-  const scriptUrl = `${aDomain}/b-init.js`
+  const scriptUrl = new URL('/b-init.js', window.location.origin).href
   const errorTip = `${bookmarkName}加载失败，请检查网络或联系管理员`
   return (
     "javascript:(()=>{const s=document.createElement('script');" +
@@ -19,8 +18,6 @@ function buildBookmarklet(): string {
     '(document.head||document.documentElement).appendChild(s)})()'
   )
 }
-
-const BOOKMARKLET = buildBookmarklet()
 
 // 复制文本到剪贴板,优先使用 Clipboard API,失败时降级到 execCommand
 async function copyText(text: string): Promise<boolean> {
@@ -67,7 +64,7 @@ export default function QuickLoginHelperClient() {
     // React 出于安全考虑会拦截 JSX 中的 javascript: href,
     // 因此挂载后通过 DOM 属性直接设置真实的 Bookmarklet 地址。
     if (bookmarkLinkRef.current) {
-      bookmarkLinkRef.current.href = BOOKMARKLET
+      bookmarkLinkRef.current.href = buildBookmarklet()
     }
     return () => {
       if (toastTimer.current) {
@@ -85,7 +82,7 @@ export default function QuickLoginHelperClient() {
   }
 
   async function handleCopy() {
-    const ok = await copyText(BOOKMARKLET)
+    const ok = await copyText(buildBookmarklet())
     if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)

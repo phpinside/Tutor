@@ -4,6 +4,7 @@ import { cookies } from '@/lib/auth/compat'
 import { prisma } from '@/lib/prisma'
 import { createReferralRecord } from '@/app/actions/teacher'
 import { syncFollowUpWithInviter } from '@/lib/externalTutor'
+import { getRequestUrl } from '@/lib/request-url'
 
 /**
  * 初始化路由 - 处理邀请关系绑定
@@ -14,9 +15,6 @@ export async function GET(request: NextRequest) {
     // 获取邀请码参数
     const searchParams = request.nextUrl.searchParams
     const refCode = searchParams.get('ref')
-    
-    // 获取基础URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     
     // 检查是否已登录
     const cookieStore = await cookies()
@@ -56,25 +54,26 @@ export async function GET(request: NextRequest) {
         }
         
         // 重定向回 onboarding
-        return NextResponse.redirect(new URL('/onboarding', baseUrl))
+        return NextResponse.redirect(getRequestUrl(request, '/onboarding'))
       } catch (error) {
         console.error('绑定邀请关系失败:', error)
         // 即使失败也重定向到 onboarding，不影响用户使用
-        return NextResponse.redirect(new URL('/onboarding', baseUrl))
+        return NextResponse.redirect(getRequestUrl(request, '/onboarding'))
       }
     }
     
     // 未登录，重定向到注册页（携带邀请码）
-    const redirectUrl = refCode ? `/auth/register?ref=${refCode}` : '/auth/register'
-    return NextResponse.redirect(new URL(redirectUrl, baseUrl))
+    const redirectUrl = getRequestUrl(request, '/auth/register')
+    if (refCode) redirectUrl.searchParams.set('ref', refCode)
+    return NextResponse.redirect(redirectUrl)
   } catch (error) {
     console.error('初始化路由错误:', error)
     // 发生错误时，根据是否有邀请码决定重定向位置
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const searchParams = request.nextUrl.searchParams
     const refCode = searchParams.get('ref')
-    const redirectUrl = refCode ? `/auth/register?ref=${refCode}` : '/auth/login'
-    return NextResponse.redirect(new URL(redirectUrl, baseUrl))
+    const redirectUrl = getRequestUrl(request, refCode ? '/auth/register' : '/auth/login')
+    if (refCode) redirectUrl.searchParams.set('ref', refCode)
+    return NextResponse.redirect(redirectUrl)
   }
 }
 

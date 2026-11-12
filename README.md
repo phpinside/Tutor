@@ -46,7 +46,6 @@ cp .env.example .env
 
 ```env
 DATABASE_URL="postgresql://user:password@localhost:5432/tutor_onboarding?schema=public"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
 PORT=3000
 TENCENT_MEETING_TOKEN="从腾讯会议 AI Skill 专区获取的共享服务账号 Token"
 ```
@@ -73,6 +72,8 @@ npm run dev
 ```
 
 访问 [http://localhost:3000](http://localhost:3000) 查看项目。
+
+部署到服务器后，站内跳转和邀请链接会根据当前请求动态获取域名、协议及端口，无需配置 `NEXT_PUBLIC_APP_URL`。反向代理应覆盖并转发 `X-Forwarded-Host` 与 `X-Forwarded-Proto`，传递浏览器实际访问的地址。
 
 ## 📁 项目结构
 

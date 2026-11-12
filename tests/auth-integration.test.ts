@@ -35,7 +35,7 @@ test('unified authentication against an isolated PostgreSQL and Next.js server',
     }
     return { response, payload, cookie: token }
   }
-  async function get(path: string, cookie = '') { return fetch(`${base}${path}`, { headers: { Cookie: cookie }, redirect: 'manual' }) }
+  async function get(path: string, cookie = '', headers: Record<string, string> = {}) { return fetch(`${base}${path}`, { headers: { Cookie: cookie, ...headers }, redirect: 'manual' }) }
   try {
     await db.authRateLimit.deleteMany()
     let teacherCookie = '', managerCookie = '', dualCookie = ''
@@ -47,6 +47,24 @@ test('unified authentication against an isolated PostgreSQL and Next.js server',
       assert.match(old.headers.get('location')!, /\/auth\/login\?redirect=/)
       const target = await get('/admin/teachers?search=test')
       assert.match(target.headers.get('location')!, /redirect=%2Fadmin%2Fteachers%3Fsearch%3Dtest/)
+    })
+    await t.test('anonymous redirects follow the public request origin rather than the internal host or app URL configuration', async () => {
+      for (const origin of ['https://tutor.example.com', 'https://preview.example.net:8443']) {
+        const url = new URL(origin)
+        const headers = { 'X-Forwarded-Host': url.host, 'X-Forwarded-Proto': 'https' }
+        const cases = [
+          ['/operator/team?from=link', '/auth/login?redirect=%2Foperator%2Fteam%3Ffrom%3Dlink'],
+          ['/admin/login?redirect=%2Fadmin%2Fteachers', '/auth/login?redirect=%2Fadmin%2Fteachers'],
+          ['/auth/continue?redirect=%2Foperator%2Fteam', '/auth/login?redirect=%2Foperator%2Fteam'],
+          ['/api/auth/force-logout', '/auth/login'],
+          ['/api/init?ref=HOST%26CHECK', '/auth/register?ref=HOST%26CHECK'],
+        ]
+        for (const [path, destination] of cases) {
+          const response = await get(path, '', headers)
+          assert.equal(response.status, 307, path)
+          assert.equal(response.headers.get('location'), `${origin}${destination}`, path)
+        }
+      }
     })
     await t.test('all ordinary roles migrate and enter their workspaces automatically', async () => {
       const result = await post('/api/auth/login', { identifier: teacher.phone, password })
@@ -103,6 +121,27 @@ test('unified authentication against an isolated PostgreSQL and Next.js server',
       assert.equal(account.teacher?.accountId, account.operator?.accountId)
       assert.equal(account.roles.length, 2)
       assert.equal((await post('/api/auth/login', { identifier: dualTeacher.phone, password: secondPassword })).payload.success, false)
+    })
+    await t.test('authenticated continuation, force-logout return links and referral sharing use the current public origin', async () => {
+      const headers = { 'X-Forwarded-Host': 'preview.example.net:8443', 'X-Forwarded-Proto': 'https' }
+      for (const destination of ['/onboarding', '/operator/settings']) {
+        const continueResponse = await get(`/auth/continue?redirect=${encodeURIComponent(destination)}`, dualCookie, headers)
+        assert.equal(continueResponse.headers.get('location'), `https://preview.example.net:8443${destination}`)
+        const rotatedCookie = continueResponse.headers.getSetCookie().find(value => value.startsWith('tutor_session='))?.split(';')[0]
+        assert.ok(rotatedCookie)
+        assert.notEqual(rotatedCookie, dualCookie)
+        dualCookie = rotatedCookie
+        assert.equal((await get(destination, dualCookie)).status, 200)
+      }
+      const returned = await get('/api/auth/force-logout?next=%2Freferral%2Fdashboard', teacherCookie, headers)
+      assert.equal(returned.headers.get('location'), 'https://preview.example.net:8443/referral/dashboard')
+      const unsafe = await get('/api/auth/force-logout?next=%2F%5Cevil.test', teacherCookie, headers)
+      assert.equal(unsafe.headers.get('location'), 'https://preview.example.net:8443/onboarding')
+      const init = await get('/api/init', teacherCookie, headers)
+      assert.equal(init.headers.get('location'), 'https://preview.example.net:8443/auth/register')
+      const dashboard = await get('/referral/dashboard', teacherCookie, headers)
+      assert.equal(dashboard.status, 200)
+      assert.ok((await dashboard.text()).includes('https://preview.example.net:8443/?ref=AUTHTESTREF'))
     })
     await t.test('cross-origin workspace requests preserve the existing session', async () => {
       const variants: Record<string, string>[] = [
